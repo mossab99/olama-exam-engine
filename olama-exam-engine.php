@@ -4,7 +4,7 @@
  * Plugin URI: https://olama.online/exam-engine
  * Description: Secure online exam module for the Olama School System. Supports MCQ, True/False, Short Answer, Matching, Ordering, Fill-in-the-Blank, and Essay questions with GIFT/CSV import.
  * Version: 1.0.0
- * Author: Dr. Mossab Al Hunaity
+ * Author: Dr. Mossab Al Hunaity !!
  * Text Domain: olama-exam
  * Domain Path: /languages
  * Requires PHP: 7.4
