@@ -1,0 +1,1018 @@
+/**
+ * Olama Exam Engine — Student Exam UI
+ * Premium, calming design for exam-taking experience
+ * Uses `oe-` prefix for all student-facing classes
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --oe-bg: #f0f4f8;
+    --oe-card: #ffffff;
+    --oe-primary: #2563eb;
+    --oe-primary-hover: #1d4ed8;
+    --oe-success: #059669;
+    --oe-warning: #d97706;
+    --oe-danger: #dc2626;
+    --oe-text: #1e293b;
+    --oe-text-light: #64748b;
+    --oe-border: #e2e8f0;
+    --oe-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --oe-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+    --oe-radius: 12px;
+    --oe-radius-sm: 8px;
+}
+
+/* ── Container ───────────────────────────────────────────── */
+.oe-container {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    color: var(--oe-text);
+}
+
+.oe-container[dir="rtl"],
+.oe-container:lang(ar) {
+    font-family: 'Noto Kufi Arabic', 'Segoe UI', sans-serif;
+    direction: rtl;
+}
+
+.oe-container * {
+    box-sizing: border-box;
+}
+
+/* ── Common Buttons ──────────────────────────────────────── */
+.oe-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--oe-radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-family: inherit;
+}
+
+.oe-btn-primary {
+    background: var(--oe-primary);
+    color: #fff;
+}
+
+.oe-btn-primary:hover {
+    background: var(--oe-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.oe-btn-outline {
+    background: transparent;
+    border: 2px solid var(--oe-border);
+    color: var(--oe-text);
+}
+
+.oe-btn-outline:hover {
+    background: #f1f5f9;
+}
+
+.oe-btn-lg {
+    padding: 16px 40px;
+    font-size: 17px;
+    font-weight: 700;
+    border-radius: var(--oe-radius);
+}
+
+.oe-btn-lg:hover {
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+    transform: translateY(-2px);
+}
+
+.oe-btn-sm {
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+/* ── Dashboard ───────────────────────────────────────────── */
+.oe-dashboard {
+    padding: 10px 0;
+}
+
+.oe-title {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0 0 24px 0;
+    color: #0f172a;
+}
+
+.oe-section {
+    margin-bottom: 20px;
+}
+
+.oe-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--oe-text);
+    margin: 0 0 16px 0;
+}
+
+.oe-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--oe-text-light);
+    font-size: 16px;
+}
+
+/* ── Exam Cards (Dashboard) ──────────────────────────────── */
+.oe-exam-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.oe-exam-card {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    box-shadow: var(--oe-shadow);
+    padding: 20px;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.oe-exam-card:hover {
+    box-shadow: var(--oe-shadow-lg);
+    transform: translateY(-2px);
+}
+
+.oe-exam-card.oe-disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.oe-exam-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.oe-subject-badge {
+    background: #eff6ff;
+    color: var(--oe-primary);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.oe-duration {
+    font-size: 13px;
+    color: var(--oe-text-light);
+    font-weight: 500;
+}
+
+.oe-exam-card-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    color: #0f172a;
+}
+
+.oe-exam-card-info {
+    font-size: 13px;
+    color: var(--oe-text-light);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-grow: 1;
+}
+
+.oe-exam-card-status {
+    font-size: 13px;
+    color: var(--oe-text-light);
+    padding: 10px;
+    background: #f1f5f9;
+    border-radius: var(--oe-radius-sm);
+    text-align: center;
+}
+
+/* ── Completed Exam Results (Dashboard) ──────────────────── */
+.oe-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.oe-result-row {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    box-shadow: var(--oe-shadow);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.oe-result-info {
+    flex: 1;
+}
+
+.oe-result-info strong {
+    font-size: 15px;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.oe-result-date {
+    font-size: 12px;
+    color: var(--oe-text-light);
+}
+
+.oe-score-badge {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.oe-score-pass {
+    background: #d1fae5;
+    color: var(--oe-success);
+}
+
+.oe-score-fail {
+    background: #fee2e2;
+    color: var(--oe-danger);
+}
+
+.oe-score-pending {
+    background: #fef3c7;
+    color: var(--oe-warning);
+}
+
+/* ── Exam Header (Sticky) ───────────────────────────────── */
+.oe-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    box-shadow: var(--oe-shadow-lg);
+    padding: 16px 24px;
+    margin-bottom: 24px;
+}
+
+.oe-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.oe-header-info h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+/* ── Timer ────────────────────────────────────────────────── */
+.oe-timer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--oe-primary);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+}
+
+.oe-timer.oe-warning {
+    color: var(--oe-warning);
+    animation: oePulse 2s ease-in-out infinite;
+}
+
+.oe-timer.oe-critical {
+    color: var(--oe-danger);
+    font-size: 26px;
+    animation: oePulse 0.8s ease-in-out infinite;
+}
+
+@keyframes oePulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+/* ── Progress Bar ────────────────────────────────────────── */
+.oe-progress {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.oe-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--oe-primary), #60a5fa);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+.oe-progress-text {
+    font-size: 12px;
+    color: var(--oe-text-light);
+    margin-top: 4px;
+    text-align: end;
+}
+
+/* ── Question Card ───────────────────────────────────────── */
+.oe-question-card {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    box-shadow: var(--oe-shadow);
+    padding: 24px;
+    margin-bottom: 16px;
+    border-inline-start: 4px solid transparent;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.oe-question-card.oe-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.oe-question-card.oe-answered {
+    border-inline-start-color: var(--oe-success);
+}
+
+.oe-question-card:hover {
+    box-shadow: var(--oe-shadow-lg);
+}
+
+.oe-q-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.oe-q-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: var(--oe-primary);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.oe-q-status {
+    font-size: 20px;
+}
+
+.oe-q-text {
+    font-size: 17px;
+    line-height: 1.8;
+    color: var(--oe-text);
+    margin-bottom: 20px;
+}
+
+[dir="rtl"] .oe-q-text {
+    font-size: 19px;
+}
+
+.oe-q-image {
+    max-width: 100%;
+    border-radius: var(--oe-radius-sm);
+    margin-bottom: 16px;
+    box-shadow: var(--oe-shadow);
+}
+
+/* ── MCQ Choices ─────────────────────────────────────────── */
+.oe-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.oe-choice {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border: 2px solid var(--oe-border);
+    border-radius: var(--oe-radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 15px;
+}
+
+.oe-choice:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.oe-choice.oe-selected {
+    border-color: var(--oe-primary);
+    background: #eff6ff;
+}
+
+.oe-choice-radio {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.oe-choice.oe-selected .oe-choice-radio {
+    border-color: var(--oe-primary);
+    background: var(--oe-primary);
+}
+
+.oe-choice.oe-selected .oe-choice-radio::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+}
+
+/* ── True/False ──────────────────────────────────────────── */
+.oe-tf-container {
+    display: flex;
+    gap: 16px;
+}
+
+.oe-tf-btn {
+    flex: 1;
+    padding: 16px;
+    border: 2px solid var(--oe-border);
+    border-radius: var(--oe-radius-sm);
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    font-family: inherit;
+}
+
+.oe-tf-btn:hover {
+    border-color: #93c5fd;
+}
+
+.oe-tf-btn.oe-selected-true {
+    border-color: var(--oe-success);
+    background: #d1fae5;
+    color: var(--oe-success);
+}
+
+.oe-tf-btn.oe-selected-false {
+    border-color: var(--oe-danger);
+    background: #fee2e2;
+    color: var(--oe-danger);
+}
+
+/* ── Short Answer ────────────────────────────────────────── */
+.oe-short-input {
+    width: 100%;
+    padding: 14px 18px;
+    border: none;
+    border-bottom: 2px solid var(--oe-border);
+    font-size: 16px;
+    font-family: inherit;
+    background: transparent;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.oe-short-input:focus {
+    border-bottom-color: var(--oe-primary);
+}
+
+.oe-short-input::placeholder {
+    color: #94a3b8;
+}
+
+/* ── Matching ────────────────────────────────────────────── */
+.oe-matching-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.oe-matching-left,
+.oe-matching-right {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.oe-matching-item {
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 2px solid var(--oe-border);
+    border-radius: var(--oe-radius-sm);
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.oe-matching-item .oe-match-label {
+    flex: 1;
+}
+
+.oe-matching-item select {
+    padding: 6px 10px;
+    border: 1px solid var(--oe-border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    min-width: 120px;
+}
+
+.oe-matching-dropzone {
+    padding: 12px 16px;
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--oe-radius-sm);
+    min-height: 46px;
+    transition: all 0.2s;
+    text-align: center;
+    color: var(--oe-text-light);
+    font-size: 14px;
+}
+
+.oe-matching-dropzone.oe-drag-over {
+    border-color: var(--oe-primary);
+    background: #eff6ff;
+}
+
+.oe-matching-dropzone.oe-matched {
+    border-style: solid;
+    border-color: var(--oe-success);
+    background: #f0fdf4;
+    color: var(--oe-text);
+}
+
+/* ── Ordering ────────────────────────────────────────────── */
+.oe-ordering-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.oe-ordering-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: #f8fafc;
+    border: 2px solid var(--oe-border);
+    border-radius: var(--oe-radius-sm);
+    cursor: grab;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.oe-ordering-item:active {
+    cursor: grabbing;
+}
+
+.oe-ordering-item.oe-dragging {
+    opacity: 0.5;
+    border-color: var(--oe-primary);
+}
+
+.oe-ordering-grip {
+    color: #94a3b8;
+    font-size: 18px;
+    cursor: grab;
+}
+
+.oe-ordering-num {
+    width: 28px;
+    height: 28px;
+    background: var(--oe-primary);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.oe-ordering-arrows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-inline-start: auto;
+}
+
+.oe-ordering-arrows button {
+    background: none;
+    border: 1px solid var(--oe-border);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 2px 8px;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+
+.oe-ordering-arrows button:hover {
+    background: #e2e8f0;
+}
+
+/* ── Fill in the Blank ───────────────────────────────────── */
+.oe-fill-text {
+    font-size: 17px;
+    line-height: 2.4;
+}
+
+.oe-fill-input {
+    display: inline-block;
+    width: 140px;
+    padding: 4px 8px;
+    border: none;
+    border-bottom: 2px solid var(--oe-primary);
+    font-size: 16px;
+    font-family: inherit;
+    background: #eff6ff;
+    text-align: center;
+    outline: none;
+    margin: 0 4px;
+    transition: border-color 0.2s;
+}
+
+.oe-fill-input:focus {
+    border-bottom-color: #1d4ed8;
+    background: #dbeafe;
+}
+
+/* ── Essay ────────────────────────────────────────────────── */
+.oe-essay-textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 16px 18px;
+    border: 2px solid var(--oe-border);
+    border-radius: var(--oe-radius-sm);
+    font-size: 15px;
+    font-family: inherit;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.oe-essay-textarea:focus {
+    border-color: var(--oe-primary);
+}
+
+.oe-word-count {
+    text-align: end;
+    font-size: 13px;
+    color: var(--oe-text-light);
+    margin-top: 6px;
+}
+
+/* ── Footer (Submit) ─────────────────────────────────────── */
+.oe-footer {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    box-shadow: var(--oe-shadow);
+    padding: 20px 24px;
+    margin-top: 24px;
+    text-align: center;
+}
+
+.oe-autosave-status {
+    font-size: 13px;
+    color: var(--oe-text-light);
+    margin-bottom: 14px;
+    min-height: 18px;
+    transition: all 0.3s;
+}
+
+.oe-autosave-status.oe-saving {
+    color: var(--oe-warning);
+}
+
+.oe-autosave-status.oe-saved {
+    color: var(--oe-success);
+}
+
+.oe-autosave-status.oe-failed {
+    color: var(--oe-danger);
+}
+
+/* ── Loading ─────────────────────────────────────────────── */
+.oe-loading {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--oe-text-light);
+}
+
+.oe-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e2e8f0;
+    border-top-color: var(--oe-primary);
+    border-radius: 50%;
+    animation: oeSpin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes oeSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Modal ────────────────────────────────────────────────── */
+.oe-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.oe-modal {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    padding: 32px;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    animation: oeModalIn 0.3s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes oeModalIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.oe-modal h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+}
+
+.oe-modal p {
+    font-size: 15px;
+    color: var(--oe-text-light);
+    margin: 0 0 24px 0;
+}
+
+.oe-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+/* ── Results Page ────────────────────────────────────────── */
+.oe-results-page {
+    padding: 10px 0;
+}
+
+.oe-back-link {
+    display: inline-block;
+    color: var(--oe-primary);
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 16px;
+    font-weight: 500;
+}
+
+.oe-back-link:hover {
+    text-decoration: underline;
+}
+
+.oe-score-summary {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius);
+    box-shadow: var(--oe-shadow-lg);
+    padding: 40px;
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.oe-score-summary h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 24px 0;
+}
+
+.oe-score-circle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+}
+
+.oe-score-circle.oe-score-pass {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+}
+
+.oe-score-circle.oe-score-fail {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+}
+
+.oe-score-circle.oe-score-pending {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+}
+
+.oe-score-number {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--oe-text);
+}
+
+.oe-score-text {
+    font-size: 14px;
+    color: var(--oe-text-light);
+}
+
+.oe-result-label {
+    font-size: 20px;
+    font-weight: 700;
+    margin-top: 8px;
+}
+
+.oe-result-pass {
+    color: var(--oe-success);
+}
+
+.oe-result-fail {
+    color: var(--oe-danger);
+}
+
+.oe-result-pending {
+    color: var(--oe-warning);
+}
+
+/* ── Answer Review Cards ─────────────────────────────────── */
+.oe-answer-review {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.oe-review-card {
+    background: var(--oe-card);
+    border-radius: var(--oe-radius-sm);
+    padding: 16px 20px;
+    border-inline-start: 4px solid transparent;
+    box-shadow: var(--oe-shadow);
+}
+
+.oe-review-card.oe-correct {
+    border-inline-start-color: var(--oe-success);
+}
+
+.oe-review-card.oe-incorrect {
+    border-inline-start-color: var(--oe-danger);
+}
+
+.oe-review-card.oe-pending {
+    border-inline-start-color: var(--oe-warning);
+}
+
+.oe-review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.oe-review-num {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--oe-primary);
+}
+
+.oe-review-status {
+    font-size: 18px;
+}
+
+.oe-review-question {
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+.oe-review-answer {
+    font-size: 14px;
+    color: var(--oe-text-light);
+    margin-bottom: 6px;
+}
+
+.oe-review-explanation {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #eff6ff;
+    border-radius: var(--oe-radius-sm);
+    font-size: 14px;
+    color: var(--oe-text-light);
+}
+
+/* ── Inline Results (after submit) ───────────────────────── */
+.oe-results .oe-score-summary {
+    margin-top: 0;
+}
+
+/* ── Error/Message ───────────────────────────────────────── */
+.oe-error,
+.oe-message {
+    text-align: center;
+    padding: 40px;
+    color: var(--oe-text-light);
+    font-size: 16px;
+}
+
+.olama-exam-login-required {
+    text-align: center;
+    padding: 40px;
+    color: var(--oe-text-light);
+    font-size: 16px;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .oe-header-top {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .oe-exam-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .oe-matching-wrap {
+        grid-template-columns: 1fr;
+    }
+
+    .oe-tf-container {
+        flex-direction: column;
+    }
+
+    .oe-score-circle {
+        width: 120px;
+        height: 120px;
+    }
+
+    .oe-score-number {
+        font-size: 28px;
+    }
+
+    .oe-question-card {
+        padding: 16px;
+    }
+}

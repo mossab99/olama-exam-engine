@@ -1,0 +1,521 @@
+/**
+ * Olama Exam Engine — Admin Styles
+ */
+
+/* ── Base Reset ──────────────────────────────────────────── */
+.olama-exam-wrap {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+    max-width: 1200px;
+    margin: 20px auto;
+}
+
+.olama-exam-wrap * {
+    box-sizing: border-box;
+}
+
+/* ── Page Header ─────────────────────────────────────────── */
+.olama-exam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding: 20px 24px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.olama-exam-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    color: #0f172a;
+}
+
+.olama-exam-header .actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.olama-exam-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.olama-exam-btn-primary {
+    background: #2563eb;
+    color: #fff;
+}
+
+.olama-exam-btn-primary:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.olama-exam-btn-success {
+    background: #059669;
+    color: #fff;
+}
+
+.olama-exam-btn-success:hover {
+    background: #047857;
+}
+
+.olama-exam-btn-danger {
+    background: #dc2626;
+    color: #fff;
+}
+
+.olama-exam-btn-danger:hover {
+    background: #b91c1c;
+}
+
+.olama-exam-btn-outline {
+    background: transparent;
+    color: #2563eb;
+    border: 2px solid #2563eb;
+}
+
+.olama-exam-btn-outline:hover {
+    background: #2563eb;
+    color: #fff;
+}
+
+.olama-exam-btn-sm {
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.olama-exam-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.olama-exam-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.olama-exam-card-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+/* ── Filter Bar ──────────────────────────────────────────── */
+.olama-exam-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.olama-exam-filters select,
+.olama-exam-filters input[type="text"],
+.olama-exam-filters input[type="search"] {
+    padding: 8px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    min-width: 160px;
+    transition: border-color 0.2s;
+}
+
+.olama-exam-filters select:focus,
+.olama-exam-filters input:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.olama-exam-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.olama-exam-table thead th {
+    background: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.olama-exam-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.olama-exam-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* ── Badges ──────────────────────────────────────────────── */
+.olama-exam-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.olama-exam-badge-mcq {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.olama-exam-badge-tf {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.olama-exam-badge-short {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.olama-exam-badge-matching {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.olama-exam-badge-ordering {
+    background: #fce7f3;
+    color: #be185d;
+}
+
+.olama-exam-badge-fill_blank {
+    background: #ccfbf1;
+    color: #0d9488;
+}
+
+.olama-exam-badge-essay {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.olama-exam-badge-easy {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.olama-exam-badge-medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.olama-exam-badge-hard {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.olama-exam-badge-draft {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.olama-exam-badge-published {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.olama-exam-badge-active {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.olama-exam-badge-closed {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* ── Modal ────────────────────────────────────────────────── */
+.olama-exam-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+}
+
+.olama-exam-modal-overlay.active {
+    display: flex;
+}
+
+.olama-exam-modal {
+    background: #fff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.olama-exam-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.olama-exam-modal-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.olama-exam-modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: #f1f5f9;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    transition: all 0.2s;
+}
+
+.olama-exam-modal-close:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.olama-exam-modal-body {
+    padding: 24px;
+}
+
+.olama-exam-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #f1f5f9;
+}
+
+/* ── Form Groups ─────────────────────────────────────────── */
+.olama-exam-form-group {
+    margin-bottom: 16px;
+}
+
+.olama-exam-form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+}
+
+.olama-exam-form-group input,
+.olama-exam-form-group select,
+.olama-exam-form-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.olama-exam-form-group input:focus,
+.olama-exam-form-group select:focus,
+.olama-exam-form-group textarea:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.olama-exam-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* ── Toast Notifications ─────────────────────────────────── */
+.olama-exam-toast {
+    position: fixed;
+    top: 40px;
+    right: 20px;
+    padding: 14px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    z-index: 100000;
+    animation: toastSlide 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.olama-exam-toast-success {
+    background: #059669;
+}
+
+.olama-exam-toast-error {
+    background: #dc2626;
+}
+
+.olama-exam-toast-info {
+    background: #2563eb;
+}
+
+@keyframes toastSlide {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ── RTL Support ─────────────────────────────────────────── */
+[dir="rtl"] .olama-exam-header,
+[dir="rtl"] .olama-exam-filters,
+[dir="rtl"] .olama-exam-card-header,
+[dir="rtl"] .olama-exam-modal-header,
+[dir="rtl"] .olama-exam-modal-footer {
+    direction: rtl;
+}
+
+[dir="rtl"] .olama-exam-table thead th {
+    text-align: right;
+}
+
+[dir="rtl"] .olama-exam-toast {
+    right: auto;
+    left: 20px;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .olama-exam-filters {
+        flex-direction: column;
+    }
+
+    .olama-exam-form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .olama-exam-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+}
+
+/* ── Exam Preview Header ─────────────────────────────────── */
+.olama-exam-preview-header {
+    position: fixed;
+    top: 32px; /* WP admin bar height */
+    left: 160px; /* WP sidebar width */
+    right: 0;
+    height: 70px;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+}
+
+@media screen and (max-width: 960px) {
+    .olama-exam-preview-header { left: 36px; }
+}
+
+@media screen and (max-width: 782px) {
+    .olama-exam-preview-header { top: 46px; left: 0; }
+}
+
+.preview-container {
+    max-width: 940px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.preview-info h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #1e293b;
+}
+
+.preview-badge {
+    display: inline-block;
+    background: #fef3c7;
+    color: #d97706;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.preview-correct {
+    border-color: #16a34a !important;
+    background: #f0fdf4 !important;
+}
