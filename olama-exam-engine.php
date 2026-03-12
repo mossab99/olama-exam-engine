@@ -4,7 +4,7 @@
  * Plugin URI: https://olama.online/exam-engine
  * Description: Secure online exam module for the Olama School System. Supports MCQ, True/False, Short Answer, Matching, Ordering, Fill-in-the-Blank, and Essay questions with GIFT/CSV import.
  * Version: 1.0.0
- * Author: Olama Team
+ * Author: Dr. Mossab Al Hunaity
  * Text Domain: olama-exam
  * Domain Path: /languages
  * Requires PHP: 7.4
@@ -79,7 +79,7 @@ register_activation_hook(__FILE__, 'olama_exam_activate');
 // ── Plugin Deactivation ────────────────────────────────────────
 function olama_exam_deactivate()
 {
-    // Clean up scheduled events if any
+// Clean up scheduled events if any
 }
 register_deactivation_hook(__FILE__, 'olama_exam_deactivate');
 
@@ -153,7 +153,7 @@ function olama_exam_migrate_preview_support()
 
     global $wpdb;
     $table = "{$wpdb->prefix}olama_exam_attempts";
-    
+
     // Check if column exists
     $col = $wpdb->get_results("SHOW COLUMNS FROM $table LIKE 'is_preview'");
     if (empty($col)) {
