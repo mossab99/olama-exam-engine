@@ -218,14 +218,17 @@ class Olama_Exam_Ajax
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
         $subject_id = intval($_POST['subject_id'] ?? 0);
+        $semester_id = intval($_POST['semester_id'] ?? 0);
 
         if ($grade_id <= 0 || $subject_id <= 0) {
             wp_send_json_success(array());
         }
 
-        // Get the active semester
-        $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
-        $semester_id = $active_semester ? $active_semester->id : 0;
+        // If semester_id not provided, get the active semester
+        if ($semester_id <= 0) {
+            $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
+            $semester_id = $active_semester ? $active_semester->id : 0;
+        }
 
         $units = $wpdb->get_results($wpdb->prepare(
             "SELECT cu.id, cu.unit_number, cu.unit_name,
@@ -730,7 +733,9 @@ class Olama_Exam_Ajax
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
         $answers_json = wp_unslash($_POST['answers_json'] ?? '{}');
 
-        if (empty($student_uid)) {
+        $is_preview = !empty($_POST['is_preview']) && current_user_can('manage_options');
+
+        if (empty($student_uid) && !$is_preview) {
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
@@ -768,7 +773,9 @@ class Olama_Exam_Ajax
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
 
-        if (empty($student_uid)) {
+        $is_preview = !empty($_POST['is_preview']) && current_user_can('manage_options');
+
+        if (empty($student_uid) && !$is_preview) {
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 

@@ -58,10 +58,18 @@
     color: #fff;
 }
 
-.olama-exam-btn-primary:hover {
+.olama-exam-btn-primary:hover:not(:disabled) {
     background: #1d4ed8;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.olama-exam-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #94a3b8;
+    border-color: #94a3b8;
+    color: #ffffff;
 }
 
 .olama-exam-btn-success {

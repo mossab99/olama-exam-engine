@@ -22,14 +22,20 @@ class Olama_Exam_Gift_Parser
         $questions = array();
         $errors = array();
 
+        // 1. Preprocessing: Strip markdown code blocks if they wrap the content
+        if (preg_match('/```(?:gift)?\s*(.*?)\s*```/s', $content, $matches)) {
+            $content = $matches[1];
+        }
+
         // Normalize line endings
         $content = str_replace(array("\r\n", "\r"), "\n", $content);
 
         // Remove comments (lines starting with //)
         $content = preg_replace('/^\/\/.*$/m', '', $content);
 
-        // Split into blocks by blank lines
-        $blocks = preg_split('/\n\s*\n/', $content, -1, PREG_SPLIT_NO_EMPTY);
+        // 2. Split into blocks by blank lines
+        // Use a more robust split that handles spaces on blank lines
+        $blocks = preg_split('/\n[ \t]*\n/', $content, -1, PREG_SPLIT_NO_EMPTY);
 
         foreach ($blocks as $index => $block) {
             $block = trim($block);
@@ -44,7 +50,12 @@ class Olama_Exam_Gift_Parser
                     'message' => $parsed->get_error_message(),
                 );
             } elseif ($parsed) {
-                $questions[] = $parsed;
+                if (is_array($parsed) && isset($parsed[0])) {
+                    // Handle multiple questions derived from one block (though rare in GIFT)
+                    $questions = array_merge($questions, $parsed);
+                } else {
+                    $questions[] = $parsed;
+                }
             }
         }
 
@@ -53,44 +64,80 @@ class Olama_Exam_Gift_Parser
 
     /**
      * Parse a single GIFT block
-     *
-     * @param string $block
-     * @param int $block_num
-     * @return array|WP_Error|null
      */
     private static function parse_block($block, $block_num)
     {
-        // Extract optional title: ::Title::
+        // 1. Extract optional title: ::Title::
         $title = '';
-        if (preg_match('/^::(.+?)::\s*(.*)$/s', $block, $m)) {
+        if (preg_match('/^::(.+?)::\s*(.*)$/su', $block, $m)) {
             $title = trim($m[1]);
             $block = trim($m[2]);
         }
 
-        // Find answer block inside {}
-        if (!preg_match('/^(.*?)\{(.*)\}\s*$/s', $block, $m)) {
+        // 2. Find answer block inside {}
+        // Use a more flexible regex to find the first { and last }
+        $first_brace = mb_strpos($block, '{');
+        $last_brace = mb_strrpos($block, '}');
+
+        if ($first_brace === false || $last_brace === false || $last_brace < $first_brace) {
+            // Check if it might be a description (GIFT allows blocks without {})
+            // But for our engine, we expect questions. 
+            // If No {} found, we could treat it as a comment or error.
             return new WP_Error('no_answers', "Block #{$block_num}: No answer block {} found.");
         }
 
-        $question_text = trim($m[1]);
-        $answer_block = trim($m[2]);
+        $before_text = mb_substr($block, 0, $first_brace);
+        $answer_content = mb_substr($block, $first_brace + 1, $last_brace - $first_brace - 1);
+        $after_text = mb_substr($block, $last_brace + 1);
 
-        if (empty($question_text)) {
-            return new WP_Error('empty_question', "Block #{$block_num}: Empty question text.");
+        // Normalize question text: if there's text after braces, it's a fill_blank (cloze)
+        $is_cloze = (trim($before_text) !== '' && trim($after_text) !== '');
+        
+        if ($is_cloze) {
+            $question_text = trim($before_text) . ' ____ ' . trim($after_text);
+        } else {
+            $question_text = trim($before_text . ' ' . $after_text);
         }
 
-        // Detect question type
-        $type = self::detect_type($answer_block);
+        if (empty($question_text)) {
+            $question_text = "[$block_num]"; 
+        }
+
+        $answer_content = trim($answer_content);
+
+        // 3. Detect question type
+        $type = self::detect_type($answer_content);
+
+        // Special case: Essay
+        if (empty($answer_content)) {
+            $type = 'essay';
+        }
 
         switch ($type) {
             case 'tf':
-                return self::parse_tf($question_text, $answer_block, $title);
+                return self::parse_tf($question_text, $answer_content, $title);
             case 'matching':
-                return self::parse_matching($question_text, $answer_block, $title);
+                return self::parse_matching($question_text, $answer_content, $title);
             case 'short':
-                return self::parse_short($question_text, $answer_block, $title);
+                $res = self::parse_short($question_text, $answer_content, $title);
+                if ($is_cloze && !is_wp_error($res)) {
+                    $res['type'] = 'fill_blank';
+                }
+                return $res;
             case 'mcq':
-                return self::parse_mcq($question_text, $answer_block, $title);
+                $res = self::parse_mcq($question_text, $answer_content, $title);
+                if ($is_cloze && !is_wp_error($res)) {
+                    // Convert MCQ in the middle of text to fill_blank but with choices
+                    $res['type'] = 'fill_blank';
+                }
+                return $res;
+            case 'essay':
+                return array(
+                    'type' => 'essay',
+                    'question_text' => $question_text,
+                    'title' => $title,
+                    'answers_json' => json_encode(array('word_limit' => 300), JSON_UNESCAPED_UNICODE),
+                );
             default:
                 return new WP_Error('unknown_type', "Block #{$block_num}: Could not determine question type.");
         }
@@ -149,23 +196,38 @@ class Olama_Exam_Gift_Parser
         $choices = array();
         $correct_index = null;
 
-        // Split by = (correct) and ~ (wrong)
-        // Format: =correct ~wrong1 ~wrong2
-        preg_match_all('/([=~])([^=~]+)/', $answer_block, $matches, PREG_SET_ORDER);
+        // Extract all entries. We use a regex that looks for strings delimited by markers or start/end.
+        // First, normalize the block to handle cases where markers are at the end (RTL export issues)
+        // If we find markers at the end of lines, we logically move them to the start.
+        $lines = explode("\n", $answer_block);
+        $normalized_lines = array();
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+            // If line ends with = or ~, move it to the front
+            if (preg_match('/^(.*?)([=~])$/u', $line, $m)) {
+                $line = $m[2] . $m[1];
+            }
+            $normalized_lines[] = $line;
+        }
+        $answer_block = implode("\n", $normalized_lines);
+
+        // Now parse standard way
+        preg_match_all('/([=~])\s*([^=~]+)/u', $answer_block, $matches, PREG_SET_ORDER);
 
         if (empty($matches)) {
-            return new WP_Error('no_choices', 'MCQ: No answer choices found.');
+            return new WP_Error('no_choices', 'MCQ: No answer choices found after normalization.');
         }
 
-        foreach ($matches as $i => $match) {
+        foreach ($matches as $match) {
             $marker = $match[1];
             $text = trim($match[2]);
 
-            // Remove percentage weights like %50%
-            $text = preg_replace('/^%\d+%\s*/', '', $text);
+            // Remove percentage weights like %100%
+            $text = preg_replace('/^%\d+%\s*/u', '', $text);
 
             // Remove feedback (starting with #)
-            $text = preg_replace('/#.*$/', '', $text);
+            $text = preg_replace('/#.*$/u', '', $text);
             $text = trim($text);
 
             if (empty($text))
@@ -177,8 +239,12 @@ class Olama_Exam_Gift_Parser
             }
         }
 
-        if (empty($choices) || $correct_index === null) {
-            return new WP_Error('invalid_mcq', 'MCQ: Need at least one correct and one wrong answer.');
+        if (empty($choices)) {
+            return new WP_Error('invalid_mcq', 'MCQ: No choices extracted.');
+        }
+
+        if ($correct_index === null) {
+             return new WP_Error('no_correct', 'MCQ: No correct answer marked with = found.');
         }
 
         return array(
@@ -199,8 +265,20 @@ class Olama_Exam_Gift_Parser
     {
         $answers = array();
 
-        // Extract all =answer entries
-        preg_match_all('/=\s*([^=~#\n]+)/', $answer_block, $matches);
+        // Extract all entries. Support normalization like MCQ for RTL confusion
+        $lines = explode("\n", $answer_block);
+        $normalized_lines = array();
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+            if (preg_match('/^(.*?)([=])$/u', $line, $m)) {
+                $line = $m[2] . $m[1];
+            }
+            $normalized_lines[] = $line;
+        }
+        $answer_block = implode("\n", $normalized_lines);
+
+        preg_match_all('/=\s*([^=~#\n]+)/u', $answer_block, $matches);
 
         foreach ($matches[1] as $ans) {
             $ans = trim($ans);
@@ -231,7 +309,7 @@ class Olama_Exam_Gift_Parser
         $pairs = array();
 
         // Extract =left -> right pairs
-        preg_match_all('/=\s*(.+?)\s*->\s*(.+?)(?=\s*=|$)/s', $answer_block, $matches, PREG_SET_ORDER);
+        preg_match_all('/=\s*(.+?)\s*->\s*(.+?)(?=\s*=|$)/su', $answer_block, $matches, PREG_SET_ORDER);
 
         foreach ($matches as $match) {
             $left = trim($match[1]);

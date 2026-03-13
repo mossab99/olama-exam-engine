@@ -7,6 +7,10 @@ if (!defined('ABSPATH'))
     exit;
 
 global $wpdb;
+
+// Get active year and semester from the SIS
+$active_year = Olama_School_Academic::get_active_year();
+$active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
 $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
 ?>
 <div class="olama-exam-wrap">
@@ -28,8 +32,19 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
             <h3>📄 Moodle GIFT Format</h3>
         </div>
 
-        <!-- Grade → Subject → Unit selectors -->
-        <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr;">
+        <!-- Academic Context (read-only) + Grade/Subject/Unit selectors -->
+        <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;">
+            <div class="olama-exam-form-group">
+                <label><?php echo olama_exam_translate('Academic Year'); ?></label>
+                <input type="text" value="<?php echo esc_attr($active_year->year_name ?? '—'); ?>" readonly
+                    style="background:#f1f5f9; cursor:not-allowed;">
+            </div>
+            <div class="olama-exam-form-group">
+                <label><?php echo olama_exam_translate('Semester'); ?></label>
+                <input type="text" value="<?php echo esc_attr($active_semester->semester_name ?? '—'); ?>"
+                    readonly style="background:#f1f5f9; cursor:not-allowed;">
+                <input type="hidden" id="gift-semester-id" value="<?php echo esc_attr($active_semester->id ?? 0); ?>">
+            </div>
             <div class="olama-exam-form-group">
                 <label><?php echo olama_exam_translate('Grade'); ?></label>
                 <select id="gift-grade">
@@ -152,9 +167,16 @@ Match countries to capitals.{
         $('#gift-subject').on('change', function () {
             const subjectId = $(this).val();
             const gradeId = $('#gift-grade').val();
+            const semesterId = $('#gift-semester-id').val();
             $('#gift-unit').html('<option value="0">⏳</option>').prop('disabled', true);
             if (!subjectId || subjectId == '0') return;
-            $.post(olamaExam.ajaxUrl, { action: 'olama_exam_get_units_by_subject', nonce: olamaExam.nonce, grade_id: gradeId, subject_id: subjectId }, function (res) {
+            $.post(olamaExam.ajaxUrl, { 
+                action: 'olama_exam_get_units_by_subject', 
+                nonce: olamaExam.nonce, 
+                grade_id: gradeId, 
+                subject_id: subjectId,
+                semester_id: semesterId
+            }, function (res) {
                 let html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
                 (res.data || []).forEach(u => html += `<option value="${u.id}">${u.unit_number} - ${u.unit_name}</option>`);
                 $('#gift-unit').html(html).prop('disabled', false);
