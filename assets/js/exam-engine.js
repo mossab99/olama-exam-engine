@@ -535,13 +535,54 @@
             'pending': isArabic ? 'قيد المراجعة ⏳' : 'PENDING ⏳'
         };
 
+        const pct = parseFloat(data.percentage);
+        const radius = 90;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (pct / 100) * circumference;
+
         let html = '<div class="oe-score-summary">';
-        html += '<div class="oe-score-circle oe-score-' + data.result + '">';
-        html += '  <span class="oe-score-number">' + data.percentage + '%</span>';
-        html += '  <span class="oe-score-text">' + data.score + ' / ' + data.max_score + '</span>';
+        
+        // Circular Progress
+        html += '<div class="oe-result-circle-wrap">';
+        html += '  <svg class="oe-result-svg" viewBox="0 0 200 200">';
+        html += '    <circle class="oe-result-bg-circle" cx="100" cy="100" r="' + radius + '"></circle>';
+        html += '    <circle class="oe-result-progress-circle" id="oe-result-circle" cx="100" cy="100" r="' + radius + '"></circle>';
+        html += '  </svg>';
+        html += '  <div class="oe-score-content">';
+        html += '    <span class="oe-score-number">' + data.percentage + '%</span>';
+        html += '    <span class="oe-score-text">' + data.score + ' / ' + data.max_score + '</span>';
+        html += '  </div>';
         html += '</div>';
+
         html += '<div class="oe-result-label oe-result-' + data.result + '">' + (resultLabels[data.result] || data.result) + '</div>';
-        html += '</div>';
+
+        // Stats Grid
+        html += '<div class="oe-stats-grid">';
+        
+        // Total Questions
+        html += '  <div class="oe-stat-card">';
+        html += '    <span class="oe-stat-val">' + state.totalQuestions + '</span>';
+        html += '    <span class="oe-stat-label">' + (isArabic ? 'إجمالي الأسئلة' : 'Total') + '</span>';
+        html += '  </div>';
+
+        // Correct
+        let correctCount = 0;
+        if (data.details) {
+            correctCount = data.details.filter(function(d) { return d.status === 'correct'; }).length;
+        }
+        html += '  <div class="oe-stat-card">';
+        html += '    <span class="oe-stat-val" style="color:var(--oe-success)">' + correctCount + '</span>';
+        html += '    <span class="oe-stat-label">' + (isArabic ? 'صحيحة' : 'Correct') + '</span>';
+        html += '  </div>';
+
+        // Result Color indicator card
+        html += '  <div class="oe-stat-card">';
+        html += '    <span class="oe-stat-val">' + data.percentage + '%</span>';
+        html += '    <span class="oe-stat-label">' + (isArabic ? 'النسبة' : 'Grade') + '</span>';
+        html += '  </div>';
+
+        html += '</div>'; // close stats-grid
+        html += '</div>'; // close score-summary
 
         if (data.show_results && data.details) {
             html += '<div class="oe-answer-review">';
@@ -551,7 +592,7 @@
 
                 html += '<div class="oe-review-card ' + cardClass + '">';
                 html += '  <div class="oe-review-header">';
-                html += '    <span class="oe-review-num">Q' + (i + 1) + '</span>';
+                html += '    <span class="oe-review-num">' + (isArabic ? 'سؤال ' : 'Question ') + (i + 1) + '</span>';
                 html += '    <span class="oe-review-status">' + statusIcon + '</span>';
                 html += '  </div>';
                 html += '  <div class="oe-review-question">' + escHtml(d.text) + '</div>';
@@ -563,11 +604,22 @@
             html += '</div>';
         }
 
-        html += '<div style="text-align:center; margin-top:24px;">';
-        html += '<a href="?exam_view=dashboard" class="oe-btn oe-btn-primary">← ' + (isArabic ? 'العودة' : 'Back to Dashboard') + '</a>';
+        html += '<div style="text-align:center; margin-top:40px;">';
+        html += '<a href="?page=olama-exam-create" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
         html += '</div>';
 
         resultsEl.innerHTML = html;
+
+        // Animate the circle
+        setTimeout(function() {
+            const circle = document.getElementById('oe-result-circle');
+            if (circle) {
+                circle.style.strokeDashoffset = offset;
+            }
+        }, 100);
+
+        // Scroll to top to see result
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // ── Intersection Observer for fade-in ─────────────────────

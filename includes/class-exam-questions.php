@@ -30,6 +30,14 @@ class Olama_Exam_Questions
             $query .= " AND q.unit_id = %d";
             $params[] = intval($filters['unit_id']);
         }
+        if (!empty($filters['grade_id'])) {
+            $query .= " AND cu.grade_id = %d";
+            $params[] = intval($filters['grade_id']);
+        }
+        if (!empty($filters['subject_id'])) {
+            $query .= " AND cu.subject_id = %d";
+            $params[] = intval($filters['subject_id']);
+        }
         // Legacy: still support category_id filter for backward compatibility
         if (!empty($filters['category_id'])) {
             $query .= " AND q.category_id = %d";

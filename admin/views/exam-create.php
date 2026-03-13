@@ -658,6 +658,11 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             scheduleInfo = res.data;
             materialUnits = res.data.material_units || [];
 
+            // If no material units found, default to showing all subject units
+            if (materialUnits.length === 0) {
+                $('#q-show-all-units').prop('checked', true);
+            }
+
             // Feature #1: Auto-generate title (only for new exams)
             const isNew = $('input[name="id"]').val() == '0';
             if (isNew && res.data.auto_title) {
@@ -756,6 +761,8 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         $.post(olamaExam.ajaxUrl, {
             action: 'olama_exam_get_questions',
             nonce: olamaExam.nonce,
+            grade_id: $('#exam-grade-select').val(),
+            subject_id: $('#exam-subject-select').val(),
             unit_id: $('#q-filter-unit').val(),
             type: $('#q-filter-type').val(),
             search: $('#q-filter-search').val(),
@@ -822,6 +829,8 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         $.post(olamaExam.ajaxUrl, {
             action: 'olama_exam_get_questions',
             nonce: olamaExam.nonce,
+            grade_id: $('#exam-grade-select').val(),
+            subject_id: $('#exam-subject-select').val(),
         }, function(res) {
             if (!res.success) return;
             const all = res.data;

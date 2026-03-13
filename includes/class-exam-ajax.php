@@ -477,6 +477,8 @@ class Olama_Exam_Ajax
             'id' => intval($_POST['id'] ?? 0),
             'category_id' => intval($_POST['category_id'] ?? 0),
             'unit_id' => intval($_POST['unit_id'] ?? 0),
+            'grade_id' => intval($_POST['grade_id'] ?? 0),
+            'subject_id' => intval($_POST['subject_id'] ?? 0),
             'type' => sanitize_text_field($_POST['type'] ?? ''),
             'difficulty' => sanitize_text_field($_POST['difficulty'] ?? ''),
             'language' => sanitize_text_field($_POST['language'] ?? ''),
