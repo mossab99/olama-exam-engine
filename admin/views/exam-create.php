@@ -660,7 +660,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
             // If no material units found, default to showing all subject units
             if (materialUnits.length === 0) {
-                $('#q-show-all-units').prop('checked', true);
+                $('#q-show-all-units').prop('checked', true).trigger('change');
             }
 
             // Feature #1: Auto-generate title (only for new exams)
@@ -696,6 +696,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             subject_id: subjectId,
         }, function(res) {
             allSubjectUnits = res.data || [];
+            populateUnitDropdowns();
         });
     }
 
