@@ -496,31 +496,31 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     function buildStatusBtn(e) {
         switch (e.status) {
             case 'draft':
-                return `<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" 
-                    data-id="${e.id}" data-status="published" title="Publish">📢</button>`;
+                return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
+                    'data-id="' + e.id + '" data-status="published" title="Publish">📢</button>';
             case 'published':
-                return `<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" 
-                    data-id="${e.id}" data-status="active" title="Activate">▶️</button>`;
+                return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
+                    'data-id="' + e.id + '" data-status="active" title="Activate">▶️</button>';
             case 'active':
-                return `<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" 
-                    data-id="${e.id}" data-status="closed" title="Close">⏹️</button>`;
+                return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
+                    'data-id="' + e.id + '" data-status="closed" title="Close">⏹️</button>';
             case 'closed':
-                return `<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" 
-                    data-id="${e.id}" data-status="draft" title="Re-edit">🔄</button>`;
+                return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
+                    'data-id="' + e.id + '" data-status="draft" title="Re-edit">🔄</button>';
         }
         return '';
     }
 
     function escHtml(str) {
         if (!str) return '';
-        const d = document.createElement('div');
+        var d = document.createElement('div');
         d.textContent = str;
         return d.innerHTML;
     }
 
     // List view events
     $('#filter-exam-status').on('change', loadExams);
-    let searchTimer;
+    var searchTimer;
     $('#filter-exam-search').on('keyup', function() {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(loadExams, 300);
@@ -528,7 +528,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // List filter: Grade → Section cascade
     $('#filter-exam-grade').on('change', function() {
-        const gradeId = $(this).val();
+        var gradeId = $(this).val();
         $('#filter-exam-section').html('<option value="">⏳</option>').prop('disabled', true);
         if (!gradeId) { loadExams(); return; }
         $.post(olamaExam.ajaxUrl, { action: 'olama_exam_get_sections_by_grade', nonce: olamaExam.nonce, grade_id: gradeId }, function(res) {
@@ -550,6 +550,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // Status change
     $(document).on('click', '.btn-status', function() {
+        var $btn = $(this);
         $.post(olamaExam.ajaxUrl, {
             action: 'olama_exam_update_status',
             nonce: olamaExam.nonce,
@@ -576,9 +577,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // ── Grade → Section + Subject Cascade ──────────────────
     $('#exam-grade-select').on('change', function() {
-        const gradeId = $(this).val();
-        const sectionSel = $('#exam-section-select');
-        const subjectSel = $('#exam-subject-select');
+        var gradeId = $(this).val();
+        var sectionSel = $('#exam-section-select');
+        var subjectSel = $('#exam-subject-select');
 
         if (!gradeId || gradeId == '0') {
             sectionSel.html('<option value="0">— <?php echo olama_exam_translate("Select Grade First"); ?> —</option>').prop('disabled', true);
@@ -587,8 +588,8 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             return;
         }
 
-        let sectionsLoaded = false;
-        let subjectsLoaded = false;
+        var sectionsLoaded = false;
+        var subjectsLoaded = false;
 
         function checkReady() {
             if (sectionsLoaded && subjectsLoaded) {
@@ -605,11 +606,12 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         }, function(res) {
             sectionsLoaded = true;
             if (res.success) {
-                let html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
-                res.data.forEach(function(s) {
-                    const sel = (<?php echo intval($exam->section_id ?? 0); ?> == s.id) ? 'selected' : '';
-                    html += `<option value="${s.id}" ${sel}>${s.section_name}</option>`;
-                });
+                var html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
+                for (var i = 0; i < res.data.length; i++) {
+                    var s = res.data[i];
+                    var sel = (<?php echo intval($exam->section_id ?? 0); ?> == s.id) ? 'selected' : '';
+                    html += '<option value="' + s.id + '" ' + sel + '>' + s.section_name + '</option>';
+                }
                 sectionSel.html(html).prop('disabled', false);
             }
             checkReady();
@@ -624,11 +626,12 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         }, function(res) {
             subjectsLoaded = true;
             if (res.success) {
-                let html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
-                res.data.forEach(function(s) {
-                    const sel = (<?php echo intval($exam->subject_id ?? 0); ?> == s.id) ? 'selected' : '';
-                    html += `<option value="${s.id}" ${sel}>${s.subject_name}</option>`;
-                });
+                var html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
+                for (var j = 0; j < res.data.length; j++) {
+                    var s2 = res.data[j];
+                    var sel2 = (<?php echo intval($exam->subject_id ?? 0); ?> == s2.id) ? 'selected' : '';
+                    html += '<option value="' + s2.id + '" ' + sel2 + '>' + s2.subject_name + '</option>';
+                }
                 subjectSel.html(html).prop('disabled', false);
             }
             checkReady();
