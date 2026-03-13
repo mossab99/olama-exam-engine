@@ -416,20 +416,20 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 <!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
 <script>
 (function($) {
-    const statusLabels = <?php echo json_encode(array_map(function($s){ return $s['label']; }, $status_labels)); ?>;
-    const statusClasses = <?php echo json_encode(array_map(function($s){ return $s['class']; }, $status_labels)); ?>;
-    let selectedIds = <?php echo json_encode($exam_questions); ?>;
+    var statusLabels = <?php echo json_encode(array_map(function($s){ return $s['label']; }, $status_labels)); ?>;
+    var statusClasses = <?php echo json_encode(array_map(function($s){ return $s['class']; }, $status_labels)); ?>;
+    var selectedIds = <?php echo json_encode($exam_questions); ?>;
 
     // Cached schedule data
-    let scheduleInfo = null;
-    let materialUnits = [];
-    let allSubjectUnits = [];
+    var scheduleInfo = null;
+    var materialUnits = [];
+    var allSubjectUnits = [];
 
     // ── Exam List ──────────────────────────────────────────
     function loadExams() {
         if ($('#exams-table').length === 0) return; // not on list view
 
-        const filters = {
+        var filters = {
             action: 'olama_exam_get_exams',
             nonce: olamaExam.nonce,
             status: $('#filter-exam-status').val(),
@@ -445,7 +445,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             $('#exams-loading').hide();
             if (!res.success) return;
 
-            const exams = res.data;
+            var exams = res.data;
             $('#exam-count').text(exams.length);
 
             if (exams.length === 0) {
@@ -453,39 +453,40 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 return;
             }
 
-            let html = '';
-            exams.forEach(function(e) {
-                const startDate = e.start_time ? new Date(e.start_time).toLocaleString('en-GB', {
+            var html = '';
+            for (var i = 0; i < exams.length; i++) {
+                var e = exams[i];
+                var startDate = e.start_time ? new Date(e.start_time).toLocaleString('en-GB', {
                     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 }) : '—';
 
-                html += `<tr>
-                    <td><strong>${escHtml(e.title)}</strong></td>
-                    <td>${escHtml(e.grade_name || '')} ${escHtml(e.section_name || '')}</td>
-                    <td>${escHtml(e.subject_name || '—')}</td>
-                    <td style="text-align:center;">${e.question_count}</td>
-                    <td>${e.duration_minutes} min</td>
-                    <td style="font-size:12px;">${startDate}</td>
-                    <td><span class="olama-exam-badge ${statusClasses[e.status] || ''}">${statusLabels[e.status] || e.status}</span></td>
-                    <td>
-                        <div class="oe-action-buttons">
-                            <div class="oe-action-group main">
-                                <a href="?page=olama-exam-create&edit=${e.id}" 
-                                    class="olama-exam-btn olama-exam-btn-primary olama-exam-btn-sm" title="<?php echo olama_exam_translate("Edit"); ?>">✏️</a>
-                                <a href="?page=olama-exam-student-preview&id=${e.id}" 
-                                    class="olama-exam-btn olama-exam-btn-student olama-exam-btn-sm" title="<?php echo olama_exam_translate("Student Preview"); ?>">👨‍🎓</a>
-                            </div>
-                            <div class="oe-action-group secondary">
-                                <a href="?page=olama-exam-preview&id=${e.id}" 
-                                    class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" title="<?php echo olama_exam_translate("Teacher Preview"); ?>">👁️</a>
-                                ${buildStatusBtn(e)}
-                                <button class="olama-exam-btn olama-exam-btn-danger olama-exam-btn-sm btn-delete-exam" 
-                                    data-id="${e.id}" title="<?php echo olama_exam_translate("Delete"); ?>">🗑</button>
-                            </div>
-                        </div>
-                    </td>
-                </tr>`;
-            });
+                html += '<tr>' +
+                    '<td><strong>' + escHtml(e.title) + '</strong></td>' +
+                    '<td>' + escHtml((e.grade_name || '') + ' ' + (e.section_name || '')) + '</td>' +
+                    '<td>' + escHtml(e.subject_name || '—') + '</td>' +
+                    '<td style="text-align:center;">' + e.question_count + '</td>' +
+                    '<td>' + e.duration_minutes + ' min</td>' +
+                    '<td style="font-size:12px;">' + startDate + '</td>' +
+                    '<td><span class="olama-exam-badge ' + (statusClasses[e.status] || '') + '">' + (statusLabels[e.status] || e.status) + '</span></td>' +
+                    '<td>' +
+                        '<div class="oe-action-buttons">' +
+                            '<div class="oe-action-group main">' +
+                                '<a href="?page=olama-exam-create&edit=' + e.id + '" ' +
+                                    'class="olama-exam-btn olama-exam-btn-primary olama-exam-btn-sm" title="<?php echo olama_exam_translate("Edit"); ?>">✏️</a>' +
+                                '<a href="?page=olama-exam-student-preview&id=' + e.id + '" ' +
+                                    'class="olama-exam-btn olama-exam-btn-student olama-exam-btn-sm" title="<?php echo olama_exam_translate("Student Preview"); ?>">👨‍🎓</a>' +
+                            '</div>' +
+                            '<div class="oe-action-group secondary">' +
+                                '<a href="?page=olama-exam-preview&id=' + e.id + '" ' +
+                                    'class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" title="<?php echo olama_exam_translate("Teacher Preview"); ?>">👁️</a>' +
+                                buildStatusBtn(e) +
+                                '<button class="olama-exam-btn olama-exam-btn-danger olama-exam-btn-sm btn-delete-exam" ' +
+                                    'data-id="' + e.id + '" title="<?php echo olama_exam_translate("Delete"); ?>">🗑</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</td>' +
+                '</tr>';
+            }
 
             $('#exams-tbody').html(html);
             $('#exams-table').show();
@@ -531,8 +532,11 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         $('#filter-exam-section').html('<option value="">⏳</option>').prop('disabled', true);
         if (!gradeId) { loadExams(); return; }
         $.post(olamaExam.ajaxUrl, { action: 'olama_exam_get_sections_by_grade', nonce: olamaExam.nonce, grade_id: gradeId }, function(res) {
-            let html = '<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>';
-            (res.data || []).forEach(s => html += `<option value="${s.id}">${s.section_name}</option>`);
+            var html = '<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>';
+            var sections = res.data || [];
+            for (var i = 0; i < sections.length; i++) {
+                html += '<option value="' + sections[i].id + '">' + sections[i].section_name + '</option>';
+            }
             $('#filter-exam-section').html(html).prop('disabled', false);
             loadExams();
         });
@@ -546,7 +550,6 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // Status change
     $(document).on('click', '.btn-status', function() {
-        const $btn = $(this);
         $.post(olamaExam.ajaxUrl, {
             action: 'olama_exam_update_status',
             nonce: olamaExam.nonce,
@@ -604,7 +607,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             if (res.success) {
                 let html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
                 res.data.forEach(function(s) {
-                    const sel = (<?php echo $exam ? $exam->section_id : 0; ?> == s.id) ? 'selected' : '';
+                    const sel = (<?php echo intval($exam->section_id ?? 0); ?> == s.id) ? 'selected' : '';
                     html += `<option value="${s.id}" ${sel}>${s.section_name}</option>`;
                 });
                 sectionSel.html(html).prop('disabled', false);
@@ -623,7 +626,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             if (res.success) {
                 let html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
                 res.data.forEach(function(s) {
-                    const sel = (<?php echo $exam ? $exam->subject_id : 0; ?> == s.id) ? 'selected' : '';
+                    const sel = (<?php echo intval($exam->subject_id ?? 0); ?> == s.id) ? 'selected' : '';
                     html += `<option value="${s.id}" ${sel}>${s.subject_name}</option>`;
                 });
                 subjectSel.html(html).prop('disabled', false);
@@ -634,9 +637,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // ── Fetch Exam Schedule Info when all 3 are selected ──
     function fetchScheduleInfo() {
-        const gradeId   = $('#exam-grade-select').val();
-        const sectionId = $('#exam-section-select').val();
-        const subjectId = $('#exam-subject-select').val();
+        var gradeId   = $('#exam-grade-select').val();
+        var sectionId = $('#exam-section-select').val();
+        var subjectId = $('#exam-subject-select').val();
 
         if (!gradeId || gradeId == '0' || !subjectId || subjectId == '0') return;
 
@@ -664,7 +667,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             }
 
             // Feature #1: Auto-generate title (only for new exams)
-            const isNew = $('input[name="id"]').val() == '0';
+            var isNew = $('input[name="id"]').val() == '0';
             if (isNew && res.data.auto_title) {
                 $('#exam-title-input').val(res.data.auto_title);
                 $('#exam-title-hint').show();
@@ -672,7 +675,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
             // Feature #2: Default dates from exam schedule
             if (isNew && res.data.exam_date) {
-                const d = res.data.exam_date; // format: YYYY-MM-DD
+                var d = res.data.exam_date; // format: YYYY-MM-DD
                 $('#exam-start-time').val(d + 'T00:00');
                 $('#exam-end-time').val(d + 'T23:59');
             }
@@ -701,23 +704,25 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     }
 
     function populateUnitDropdowns() {
-        const showAll = $('#q-show-all-units').is(':checked');
-        const units = showAll ? allSubjectUnits : materialUnits;
-        const currentRandomUnit = <?php echo $exam ? $exam->random_unit_id : 0; ?>;
+        var showAll = $('#q-show-all-units').is(':checked');
+        var units = showAll ? allSubjectUnits : materialUnits;
+        var currentRandomUnit = <?php echo intval($exam->random_unit_id ?? 0); ?>;
 
         // Manual mode unit filter
-        let html = '<option value=""><?php echo olama_exam_translate("All Exam Material Units"); ?></option>';
-        units.forEach(u => {
-            html += `<option value="${u.id}">${u.unit_number} - ${u.unit_name} (${u.question_count})</option>`;
-        });
+        var html = '<option value=""><?php echo olama_exam_translate("All Exam Material Units"); ?></option>';
+        for (var i = 0; i < units.length; i++) {
+            var u = units[i];
+            html += '<option value="' + u.id + '">' + u.unit_number + ' - ' + u.unit_name + ' (' + u.question_count + ')</option>';
+        }
         $('#q-filter-unit').html(html);
 
         // Random mode unit selector
-        let rHtml = '<option value="0">— <?php echo olama_exam_translate("All Units"); ?> —</option>';
-        units.forEach(u => {
-            const sel = (currentRandomUnit == u.id) ? 'selected' : '';
-            rHtml += `<option value="${u.id}" ${sel}>${u.unit_number} - ${u.unit_name} (${u.question_count})</option>`;
-        });
+        var rHtml = '<option value="0">— <?php echo olama_exam_translate("All Units"); ?> —</option>';
+        for (var j = 0; j < units.length; j++) {
+            var u2 = units[j];
+            var sel = (currentRandomUnit == u2.id) ? 'selected' : '';
+            rHtml += '<option value="' + u2.id + '" ' + sel + '>' + u2.unit_number + ' - ' + u2.unit_name + ' (' + u2.question_count + ')</option>';
+        }
         $('#random-unit-select').html(rHtml);
     }
 
@@ -735,16 +740,17 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     });
     <?php endif; ?>
 
-    // Auto-load list sections if filter_grade is set
     <?php if ($list_grade_id > 0): ?>
     $(document).ready(function() {
-        const gradeId = <?php echo $list_grade_id; ?>;
+        var gradeId = <?php echo $list_grade_id; ?>;
         $.post(olamaExam.ajaxUrl, { action: 'olama_exam_get_sections_by_grade', nonce: olamaExam.nonce, grade_id: gradeId }, function(res) {
-            let html = '<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>';
-            (res.data || []).forEach(s => {
-                const sel = (<?php echo $list_section_id; ?> == s.id) ? 'selected' : '';
-                html += `<option value="${s.id}" ${sel}>${s.section_name}</option>`;
-            });
+            var html = '<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>';
+            var sections = res.data || [];
+            for (var i = 0; i < sections.length; i++) {
+                var s = sections[i];
+                var sel = (<?php echo $list_section_id; ?> == s.id) ? 'selected' : '';
+                html += '<option value="' + s.id + '" ' + sel + '>' + s.section_name + '</option>';
+            }
             $('#filter-exam-section').html(html).prop('disabled', false);
         });
     });
@@ -752,7 +758,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // ── Question Mode Toggle ───────────────────────────────
     $('input[name="question_mode"]').on('change', function() {
-        const mode = $(this).val();
+        var mode = $(this).val();
         $('#random-mode-settings').toggle(mode === 'random');
         $('#manual-mode-settings').toggle(mode === 'manual');
     });
@@ -769,7 +775,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             search: $('#q-filter-search').val(),
         }, function(res) {
             if (!res.success) return;
-            const qs = res.data;
+            var qs = res.data;
             $('#available-count').text(qs.length);
 
             if (qs.length === 0) {
@@ -777,18 +783,25 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 return;
             }
 
-            let html = '';
-            qs.forEach(function(q) {
-                const isSelected = selectedIds.includes(q.id) || selectedIds.includes(parseInt(q.id));
-                const text = q.question_text.length > 60 ? q.question_text.substring(0, 60) + '...' : q.question_text;
-                html += `<div class="q-item" data-id="${q.id}">
-                    <span class="q-meta">${q.type}</span>
-                    <span class="q-text">${escHtml(text)}</span>
-                    <span class="q-meta">${escHtml(q.unit_name || '')}</span>
-                    <button type="button" class="q-action add ${isSelected ? 'disabled' : ''}" 
-                        ${isSelected ? 'disabled style="opacity:0.3;"' : ''} data-id="${q.id}">＋</button>
-                </div>`;
-            });
+            var html = '';
+            for (var i = 0; i < qs.length; i++) {
+                var q = qs[i];
+                var isSelected = false;
+                for (var k = 0; k < selectedIds.length; k++) {
+                    if (selectedIds[k] == q.id) {
+                        isSelected = true;
+                        break;
+                    }
+                }
+                var text = q.question_text.length > 60 ? q.question_text.substring(0, 60) + '...' : q.question_text;
+                html += '<div class="q-item" data-id="' + q.id + '">' +
+                    '<span class="q-meta">' + q.type + '</span>' +
+                    '<span class="q-text">' + escHtml(text) + '</span>' +
+                    '<span class="q-meta">' + escHtml(q.unit_name || '') + '</span>' +
+                    '<button type="button" class="q-action add ' + (isSelected ? 'disabled' : '') + '" ' +
+                        (isSelected ? 'disabled style="opacity:0.3;"' : '') + ' data-id="' + q.id + '">＋</button>' +
+                '</div>';
+            }
             $('#available-questions').html(html);
         });
     }
@@ -800,21 +813,34 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // Add question
     $(document).on('click', '.q-action.add:not(.disabled)', function() {
-        const id = parseInt($(this).data('id'));
-        if (selectedIds.includes(id)) return;
+        var id = parseInt($(this).data('id'));
+        var alreadySelected = false;
+        for (var i = 0; i < selectedIds.length; i++) {
+            if (selectedIds[i] == id) {
+                alreadySelected = true;
+                break;
+            }
+        }
+        if (alreadySelected) return;
         selectedIds.push(id);
         updateSelectedUI();
         // Disable in available list
-        $(`.q-action.add[data-id="${id}"]`).addClass('disabled').prop('disabled', true).css('opacity', '0.3');
+        $('.q-action.add[data-id="' + id + '"]').addClass('disabled').prop('disabled', true).css('opacity', '0.3');
     });
 
     // Remove question
     $(document).on('click', '.q-action.remove', function() {
-        const id = parseInt($(this).data('id'));
-        selectedIds = selectedIds.filter(i => i !== id);
+        var id = parseInt($(this).data('id'));
+        var newIds = [];
+        for (var i = 0; i < selectedIds.length; i++) {
+            if (selectedIds[i] != id) {
+                newIds.push(selectedIds[i]);
+            }
+        }
+        selectedIds = newIds;
         updateSelectedUI();
         // Re-enable in available list  
-        $(`.q-action.add[data-id="${id}"]`).removeClass('disabled').prop('disabled', false).css('opacity', '1');
+        $('.q-action.add[data-id="' + id + '"]').removeClass('disabled').prop('disabled', false).css('opacity', '1');
     });
 
     function updateSelectedUI() {
@@ -834,19 +860,26 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             subject_id: $('#exam-subject-select').val(),
         }, function(res) {
             if (!res.success) return;
-            const all = res.data;
-            let html = '';
-            selectedIds.forEach(function(id, idx) {
-                const q = all.find(q => q.id == id);
-                if (!q) return;
-                const text = q.question_text.length > 50 ? q.question_text.substring(0, 50) + '...' : q.question_text;
-                html += `<div class="q-item" data-id="${q.id}">
-                    <span class="q-meta" style="font-weight:600;">${idx + 1}</span>
-                    <span class="q-text">${escHtml(text)}</span>
-                    <span class="q-meta">${q.type}</span>
-                    <button type="button" class="q-action remove" data-id="${q.id}">✕</button>
-                </div>`;
-            });
+            var all = res.data;
+            var html = '';
+            for (var i = 0; i < selectedIds.length; i++) {
+                var id = selectedIds[i];
+                var q = null;
+                for (var j = 0; j < all.length; j++) {
+                    if (all[j].id == id) {
+                        q = all[j];
+                        break;
+                    }
+                }
+                if (!q) continue;
+                var text = q.question_text.length > 50 ? q.question_text.substring(0, 50) + '...' : q.question_text;
+                html += '<div class="q-item" data-id="' + q.id + '">' +
+                    '<span class="q-meta" style="font-weight:600;">' + (i + 1) + '</span>' +
+                    '<span class="q-text">' + escHtml(text) + '</span>' +
+                    '<span class="q-meta">' + q.type + '</span>' +
+                    '<button type="button" class="q-action remove" data-id="' + q.id + '">✕</button>' +
+                '</div>';
+            }
             $('#selected-questions').html(html);
         });
     }
@@ -859,19 +892,20 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     // ── Save Exam ──────────────────────────────────────────
     $('#exam-form').on('submit', function(e) {
         e.preventDefault();
-        const formData = $(this).serializeArray();
-        const data = {};
-        formData.forEach(function(item) { data[item.name] = item.value; });
+        var formData = $(this).serializeArray();
+        var data = {};
+        for (var i = 0; i < formData.length; i++) {
+            data[formData[i].name] = formData[i].value;
+        }
         data.action = 'olama_exam_save_exam';
         data.nonce = olamaExam.nonce;
 
         $.post(olamaExam.ajaxUrl, data, function(res) {
             if (res.success) {
                 ExamAdmin.toast(res.data.message);
-                // Feature #5: Redirect to list filtered by grade + section
-                const gradeId = $('#exam-grade-select').val();
-                const sectionId = $('#exam-section-select').val();
-                let url = '?page=olama-exam-create';
+                var gradeId = $('#exam-grade-select').val();
+                var sectionId = $('#exam-section-select').val();
+                var url = '?page=olama-exam-create';
                 if (gradeId && gradeId != '0') url += '&filter_grade=' + gradeId;
                 if (sectionId && sectionId != '0') url += '&filter_section=' + sectionId;
                 window.location = url;
