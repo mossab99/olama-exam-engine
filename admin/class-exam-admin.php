@@ -15,6 +15,19 @@ class Olama_Exam_Admin
     }
 
     /**
+     * Helper to get appropriate capability with fallback
+     * @param string $cap The required capability from Olama School.
+     * @return string Required capability capability to pass to WordPress functions.
+     */
+    private function get_capability($cap)
+    {
+        if (class_exists('Olama_School_Permissions')) {
+            return $cap;
+        }
+        return 'manage_options';
+    }
+
+    /**
      * Register admin menu and submenus
      */
     public function register_menus()
@@ -23,7 +36,7 @@ class Olama_Exam_Admin
         add_menu_page(
             olama_exam_translate('Exam Engine'),
             olama_exam_translate('Exam Engine'),
-            'manage_options',
+            $this->get_capability('olama_manage_question_bank'),
             'olama-exam',
             array($this, 'render_question_bank'),
             'dashicons-welcome-learn-more',
@@ -35,7 +48,7 @@ class Olama_Exam_Admin
             'olama-exam',
             olama_exam_translate('Question Bank'),
             olama_exam_translate('Question Bank'),
-            'manage_options',
+            $this->get_capability('olama_manage_question_bank'),
             'olama-exam',
             array($this, 'render_question_bank')
         );
@@ -45,7 +58,7 @@ class Olama_Exam_Admin
             null,
             olama_exam_translate('Import GIFT'),
             olama_exam_translate('Import GIFT'),
-            'manage_options',
+            $this->get_capability('olama_manage_question_bank'),
             'olama-exam-import-gift',
             array($this, 'render_gift_import')
         );
@@ -55,7 +68,7 @@ class Olama_Exam_Admin
             null,
             olama_exam_translate('Import CSV'),
             olama_exam_translate('Import CSV'),
-            'manage_options',
+            $this->get_capability('olama_manage_question_bank'),
             'olama-exam-import-csv',
             array($this, 'render_csv_import')
         );
@@ -65,7 +78,7 @@ class Olama_Exam_Admin
             'olama-exam',
             olama_exam_translate('Create Exam'),
             olama_exam_translate('Create Exam'),
-            'manage_options',
+            $this->get_capability('olama_create_exams'),
             'olama-exam-create',
             array($this, 'render_exam_create')
         );
@@ -75,7 +88,7 @@ class Olama_Exam_Admin
             'olama-exam',
             olama_exam_translate('Results'),
             olama_exam_translate('Results'),
-            'manage_options',
+            $this->get_capability('olama_view_exam_results'),
             'olama-exam-results',
             array($this, 'render_results')
         );
@@ -85,7 +98,7 @@ class Olama_Exam_Admin
             'olama-exam',
             olama_exam_translate('Grade Essays'),
             olama_exam_translate('Grade Essays'),
-            'manage_options',
+            $this->get_capability('olama_grade_exams'),
             'olama-exam-grade-essays',
             array($this, 'render_grade_essays')
         );
@@ -95,7 +108,7 @@ class Olama_Exam_Admin
             null, // Hide from menu
             olama_exam_translate('Exam Preview'),
             olama_exam_translate('Exam Preview'),
-            'manage_options',
+            $this->get_capability('olama_manage_question_bank'),
             'olama-exam-preview',
             array($this, 'render_exam_preview')
         );
@@ -105,7 +118,7 @@ class Olama_Exam_Admin
             null,
             olama_exam_translate('Student Preview'),
             olama_exam_translate('Student Preview'),
-            'manage_options',
+            $this->get_capability('olama_manage_question_bank'),
             'olama-exam-student-preview',
             array($this, 'render_student_preview')
         );
