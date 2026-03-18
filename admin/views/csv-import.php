@@ -70,6 +70,12 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
                     <option value="0">— <?php echo olama_exam_translate('Select Subject First'); ?> —</option>
                 </select>
             </div>
+            <div class="olama-exam-form-group">
+                <label><?php echo olama_exam_translate('Lesson'); ?></label>
+                <select id="csv-lesson" disabled>
+                    <option value="0">— <?php echo olama_exam_translate('General Unit Questions'); ?> —</option>
+                </select>
+            </div>
         </div>
 
         <div class="olama-exam-form-row">
@@ -177,6 +183,29 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
                 const unitId = new URLSearchParams(window.location.search).get('unit_id');
                 if (unitId && $('#csv-unit option[value="' + unitId + '"]').length > 0) {
                     $('#csv-unit').val(unitId);
+                    $('#csv-unit').trigger('change');
+                }
+            });
+        });
+
+        $('#csv-unit').on('change', function () {
+            const unitId = $(this).val();
+            $('#csv-lesson').html('<option value="0">— <?php echo olama_exam_translate("General Unit Questions"); ?> —</option>').prop('disabled', true);
+            if (!unitId || unitId == '0') return;
+            $.post(olamaExam.ajaxUrl, { 
+                action: 'olama_exam_get_lessons_by_unit', 
+                nonce: olamaExam.nonce, 
+                unit_id: unitId
+            }, function (res) {
+                let html = '<option value="0">— <?php echo olama_exam_translate("General Unit Questions"); ?> —</option>';
+                if (res.success && res.data) {
+                    res.data.forEach(l => html += `<option value="${l.id}">${l.lesson_number} - ${l.lesson_title}</option>`);
+                }
+                $('#csv-lesson').html(html).prop('disabled', false);
+
+                const paramLessonId = new URLSearchParams(window.location.search).get('lesson_id');
+                if (paramLessonId && $('#csv-lesson option[value="' + paramLessonId + '"]').length > 0) {
+                    $('#csv-lesson').val(paramLessonId);
                 }
             });
         });
@@ -267,6 +296,7 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
             fd.append('nonce', olamaExam.nonce);
             fd.append('csv_file', fileInput.files[0]);
             fd.append('unit_id', unitId);
+            fd.append('lesson_id', $('#csv-lesson').val() || 0);
             fd.append('mode', 'import');
 
             $(this).prop('disabled', true).text('⏳ Importing...');

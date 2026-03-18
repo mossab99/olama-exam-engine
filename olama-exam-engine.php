@@ -114,6 +114,7 @@ function olama_exam_init()
     olama_exam_migrate_unit_id();
     olama_exam_migrate_preview_support();
     olama_exam_migrate_student_uid();
+    olama_exam_migrate_lesson_id();
 }
 add_action('plugins_loaded', 'olama_exam_init', 20); // Priority 20 = after SIS plugin
 
@@ -175,6 +176,20 @@ function olama_exam_migrate_student_uid()
     Olama_Exam_DB::migrate_student_uid();
 
     update_option('olama_exam_student_uid_migrated', true);
+}
+
+/**
+ * Migration: Add lesson_id to questions table
+ */
+function olama_exam_migrate_lesson_id()
+{
+    if (get_option('olama_exam_lesson_id_migrated', false)) {
+        return;
+    }
+
+    Olama_Exam_DB::migrate_student_uid(); // this now also migrates lesson_id
+
+    update_option('olama_exam_lesson_id_migrated', true);
 }
 
 // ── Enqueue Assets ─────────────────────────────────────────────

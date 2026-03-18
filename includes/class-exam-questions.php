@@ -30,6 +30,10 @@ class Olama_Exam_Questions
             $query .= " AND q.unit_id = %d";
             $params[] = intval($filters['unit_id']);
         }
+        if (isset($filters['lesson_id']) && $filters['lesson_id'] !== '') {
+            $query .= " AND q.lesson_id = %d";
+            $params[] = intval($filters['lesson_id']);
+        }
         if (!empty($filters['grade_id'])) {
             $query .= " AND cu.grade_id = %d";
             $params[] = intval($filters['grade_id']);
@@ -92,6 +96,7 @@ class Olama_Exam_Questions
         $fields = array(
             'category_id' => intval($data['category_id'] ?? 0),
             'unit_id' => intval($data['unit_id'] ?? 0),
+            'lesson_id' => intval($data['lesson_id'] ?? 0),
             'type' => sanitize_text_field($data['type'] ?? 'mcq'),
             'question_text' => wp_kses_post($data['question_text'] ?? ''),
             'answers_json' => wp_unslash($data['answers_json'] ?? '{}'),
@@ -110,12 +115,13 @@ class Olama_Exam_Questions
             // Update: increment version
             $wpdb->query($wpdb->prepare(
                 "UPDATE $table SET 
-                    category_id = %d, unit_id = %d, type = %s, question_text = %s, answers_json = %s,
+                    category_id = %d, unit_id = %d, lesson_id = %d, type = %s, question_text = %s, answers_json = %s,
                     difficulty = %s, language = %s, explanation = %s, image_filename = %s,
                     version = version + 1, updated_at = %s
                 WHERE id = %d",
                 $fields['category_id'],
                 $fields['unit_id'],
+                $fields['lesson_id'],
                 $fields['type'],
                 $fields['question_text'],
                 $fields['answers_json'],
@@ -168,6 +174,7 @@ class Olama_Exam_Questions
         return self::save_question(array(
             'category_id' => $original->category_id,
             'unit_id' => $original->unit_id,
+            'lesson_id' => $original->lesson_id,
             'type' => $original->type,
             'question_text' => $original->question_text . ' (copy)',
             'answers_json' => $original->answers_json,

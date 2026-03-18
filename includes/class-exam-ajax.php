@@ -35,6 +35,7 @@ class Olama_Exam_Ajax
             'olama_exam_get_subjects_by_grade',
             'olama_exam_get_sections_by_grade',
             'olama_exam_get_units_by_subject',
+            'olama_exam_get_lessons_by_unit',
             'olama_exam_get_exam_schedule_info',
 
             // ── Exam Management (Phase 3) ──
@@ -262,7 +263,10 @@ class Olama_Exam_Ajax
 
         $units = $wpdb->get_results($wpdb->prepare(
             "SELECT cu.id, cu.unit_number, cu.unit_name,
-                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.unit_id = cu.id) as question_count
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.unit_id = cu.id) as question_count,
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.unit_id = cu.id AND q.lesson_id = 0) as unit_level_question_count,
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_curriculum_lessons cl WHERE cl.unit_id = cu.id) as lesson_count,
+                    (SELECT COUNT(DISTINCT q2.lesson_id) FROM {$wpdb->prefix}olama_exam_questions q2 WHERE q2.unit_id = cu.id AND q2.lesson_id > 0) as covered_lesson_count
              FROM {$wpdb->prefix}olama_curriculum_units cu
              WHERE cu.grade_id = %d AND cu.subject_id = %d AND cu.semester_id = %d
              ORDER BY cu.unit_number ASC",
@@ -272,6 +276,29 @@ class Olama_Exam_Ajax
         ));
 
         wp_send_json_success($units);
+    }
+
+    public static function handle_get_lessons_by_unit()
+    {
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams'));
+
+        global $wpdb;
+        $unit_id = intval($_POST['unit_id'] ?? 0);
+
+        if ($unit_id <= 0) {
+            wp_send_json_success(array());
+        }
+
+        $lessons = $wpdb->get_results($wpdb->prepare(
+            "SELECT cl.id, cl.lesson_number, cl.lesson_title,
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.lesson_id = cl.id) as question_count
+             FROM {$wpdb->prefix}olama_curriculum_lessons cl
+             WHERE cl.unit_id = %d
+             ORDER BY CAST(lesson_number AS UNSIGNED) ASC, cl.id ASC",
+            $unit_id
+        ));
+
+        wp_send_json_success($lessons);
     }
 
     /**
@@ -405,6 +432,7 @@ class Olama_Exam_Ajax
             'id' => intval($_POST['id'] ?? 0),
             'category_id' => intval($_POST['category_id'] ?? 0),
             'unit_id' => intval($_POST['unit_id'] ?? 0),
+            'lesson_id' => intval($_POST['lesson_id'] ?? 0),
             'type' => sanitize_text_field($_POST['type'] ?? 'mcq'),
             'question_text' => wp_kses_post($_POST['question_text'] ?? ''),
             'answers_json' => wp_unslash($_POST['answers_json'] ?? '{}'),
@@ -507,6 +535,7 @@ class Olama_Exam_Ajax
             'id' => intval($_POST['id'] ?? 0),
             'category_id' => intval($_POST['category_id'] ?? 0),
             'unit_id' => intval($_POST['unit_id'] ?? 0),
+            'lesson_id' => isset($_POST['lesson_id']) ? sanitize_text_field($_POST['lesson_id']) : '',
             'grade_id' => intval($_POST['grade_id'] ?? 0),
             'subject_id' => intval($_POST['subject_id'] ?? 0),
             'type' => sanitize_text_field($_POST['type'] ?? ''),
@@ -539,6 +568,7 @@ class Olama_Exam_Ajax
 
         $category_id = intval($_POST['category_id'] ?? 0);
         $unit_id = intval($_POST['unit_id'] ?? 0);
+        $lesson_id = intval($_POST['lesson_id'] ?? 0);
         $language = sanitize_text_field($_POST['language'] ?? 'ar');
         $difficulty = sanitize_text_field($_POST['difficulty'] ?? 'medium');
         $mode = sanitize_text_field($_POST['mode'] ?? 'preview'); // preview|import
@@ -562,7 +592,7 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => olama_exam_translate('Please select a unit for import.')));
         }
 
-        $result = Olama_Exam_Gift_Parser::import($parsed, $category_id, $language, $difficulty, $unit_id);
+        $result = Olama_Exam_Gift_Parser::import($parsed, $category_id, $language, $difficulty, $unit_id, $lesson_id);
         wp_send_json_success($result);
     }
 
@@ -572,6 +602,7 @@ class Olama_Exam_Ajax
 
         $category_id = intval($_POST['category_id'] ?? 0);
         $unit_id = intval($_POST['unit_id'] ?? 0);
+        $lesson_id = intval($_POST['lesson_id'] ?? 0);
         $mode = sanitize_text_field($_POST['mode'] ?? 'preview');
 
         if (empty($_FILES['csv_file'])) {
@@ -602,7 +633,7 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => olama_exam_translate('Please select a unit for import.')));
         }
 
-        $result = Olama_Exam_Csv_Parser::import($parsed, $category_id, $unit_id);
+        $result = Olama_Exam_Csv_Parser::import($parsed, $category_id, $unit_id, $lesson_id);
         wp_send_json_success($result);
     }
 

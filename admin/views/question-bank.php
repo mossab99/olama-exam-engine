@@ -80,19 +80,34 @@ $diff_labels = array(
         </div>
     </div>
 
-    <!-- Completion Ratio Bar -->
-    <div id="qb-completion-bar" class="olama-exam-card" style="display:none;">
-        <div style="padding:16px 20px; display:flex; align-items:center; gap:16px;">
-            <span style="font-weight:600; white-space:nowrap;">
-                📊 <?php echo olama_exam_translate('Coverage'); ?>:
-                <span id="qb-coverage-text" style="color:#6366f1;">0 / 0</span>
+    <!-- Completion Ratio Bars -->
+    <div id="qb-completion-bars" class="olama-exam-card" style="display:none; padding:16px 20px;">
+        <!-- Units Progress Bar -->
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
+            <span style="font-weight:600; white-space:nowrap; width:180px;">
+                📊 <?php echo olama_exam_translate('Units Coverage'); ?>:
+                <span id="qb-units-coverage-text" style="color:#6366f1;">0 / 0</span>
             </span>
             <div style="flex:1; background:#e2e8f0; border-radius:99px; height:12px; overflow:hidden;">
-                <div id="qb-coverage-fill"
+                <div id="qb-units-coverage-fill"
                     style="height:100%; background:linear-gradient(90deg,#6366f1,#818cf8); border-radius:99px; transition:width 0.4s ease; width:0%;">
                 </div>
             </div>
-            <span id="qb-coverage-pct" style="font-weight:600; color:#6366f1; min-width:44px; text-align:right;">0%</span>
+            <span id="qb-units-coverage-pct" style="font-weight:600; color:#6366f1; min-width:44px; text-align:right;">0%</span>
+        </div>
+        
+        <!-- Lessons Progress Bar -->
+        <div style="display:flex; align-items:center; gap:16px;">
+            <span style="font-weight:600; white-space:nowrap; width:180px;">
+                📚 <?php echo olama_exam_translate('Lessons Coverage'); ?>:
+                <span id="qb-lessons-coverage-text" style="color:#10b981;">0 / 0</span>
+            </span>
+            <div style="flex:1; background:#e2e8f0; border-radius:99px; height:12px; overflow:hidden;">
+                <div id="qb-lessons-coverage-fill"
+                    style="height:100%; background:linear-gradient(90deg,#10b981,#34d399); border-radius:99px; transition:width 0.4s ease; width:0%;">
+                </div>
+            </div>
+            <span id="qb-lessons-coverage-pct" style="font-weight:600; color:#10b981; min-width:44px; text-align:right;">0%</span>
         </div>
     </div>
 
@@ -131,6 +146,9 @@ $diff_labels = array(
         </div>
         <!-- Filters -->
         <div style="padding:12px 20px; display:flex; gap:10px; flex-wrap:wrap; border-bottom:1px solid #e2e8f0;">
+            <select id="filter-lesson" style="min-width:160px;" disabled>
+                <option value=""><?php echo olama_exam_translate('All Lessons'); ?></option>
+            </select>
             <select id="filter-type" style="min-width:140px;">
                 <option value=""><?php echo olama_exam_translate('All'); ?> —
                     <?php echo olama_exam_translate('Question Type'); ?>
@@ -189,6 +207,16 @@ $diff_labels = array(
                     <input type="hidden" name="id" id="q-id" value="0">
                     <input type="hidden" name="image_filename" id="q-image-filename" value="">
                     <input type="hidden" name="unit_id" id="q-unit-id" value="0">
+
+                    <!-- Row: Lesson -->
+                    <div class="olama-exam-form-row">
+                        <div class="olama-exam-form-group">
+                            <label><?php echo olama_exam_translate('Lesson'); ?></label>
+                            <select name="lesson_id" id="q-lesson-id" disabled>
+                                <option value="0">— <?php echo olama_exam_translate('General Unit Question'); ?> —</option>
+                            </select>
+                        </div>
+                    </div>
 
                     <!-- Row: Type + Difficulty -->
                     <div class="olama-exam-form-row">
@@ -333,6 +361,36 @@ $diff_labels = array(
             </form>
         </div>
     </div>
+
+    <!-- AI Prompt Modal -->
+    <div id="ai-prompt-modal" class="olama-exam-modal-overlay">
+        <div class="olama-exam-modal" style="max-width:800px;">
+            <div class="olama-exam-modal-header">
+                <h3>🤖 <?php echo olama_exam_translate('AI Prompt'); ?></h3>
+                <button class="olama-exam-modal-close">&times;</button>
+            </div>
+            <div class="olama-exam-modal-body">
+                <p style="margin-bottom:12px; color:#64748b; font-size:14px;">
+                    <?php echo olama_exam_translate('Copy the prompt below and paste it into an AI tool (like ChatGPT or Gemini) to generate questions. You can adjust the number of questions before copying.'); ?>
+                </p>
+                
+                <div class="olama-exam-form-row">
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Number of Questions'); ?></label>
+                        <input type="number" id="ai-prompt-qcount" value="10" min="1" max="50">
+                    </div>
+                </div>
+
+                <div style="position:relative; margin-top:16px;">
+                    <textarea id="ai-prompt-text" rows="15" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; font-family:monospace; font-size:13px; resize:vertical; background:#f8fafc;" readonly></textarea>
+                    <button type="button" id="ai-prompt-copy-btn" class="olama-exam-btn olama-exam-btn-primary olama-exam-btn-sm" style="position:absolute; top:12px; left:12px;">
+                        📋 <?php echo olama_exam_translate('Copy Prompt'); ?>
+                    </button>
+                    <span id="ai-prompt-copy-feedback" style="position:absolute; top:18px; left:140px; color:#10b981; font-size:12px; font-weight:600; display:none;">✅ <?php echo olama_exam_translate('Copied!'); ?></span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -342,11 +400,14 @@ $diff_labels = array(
     border-radius: 10px;
     padding: 16px 20px;
     margin-bottom: 10px;
+    display: block;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+.qb-unit-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: all 0.2s ease;
-    cursor: default;
 }
 .qb-unit-card:hover { border-color: #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,0.08); }
 .qb-unit-card.active { border-color: #6366f1; background: #f5f3ff; }
@@ -382,6 +443,7 @@ $diff_labels = array(
         const diffLabels = <?php echo json_encode($diff_labels); ?>;
         let activeUnitId = 0;
         let unitsList = [];
+        let lessonsList = [];
 
         // ── Grade → Subject Cascade ────────────────────────────
         $('#qb-grade-select').on('change', function () {
@@ -390,7 +452,7 @@ $diff_labels = array(
 
             // Reset everything downstream
             subjectSel.html('<option value="0">— <?php echo olama_exam_translate("Select Grade First"); ?> —</option>').prop('disabled', true);
-            $('#qb-units-container, #qb-completion-bar, #qb-questions-panel').hide();
+            $('#qb-units-container, #qb-completion-bars, #qb-questions-panel').hide();
             activeUnitId = 0;
 
             if (!gradeId || gradeId == '0') return;
@@ -420,7 +482,7 @@ $diff_labels = array(
             activeUnitId = 0;
 
             if (!subjectId || subjectId == '0' || !gradeId || gradeId == '0') {
-                $('#qb-units-container, #qb-completion-bar').hide();
+                $('#qb-units-container, #qb-completion-bars').hide();
                 return;
             }
 
@@ -445,41 +507,77 @@ $diff_labels = array(
                 unitsList = res.data;
                 if (unitsList.length === 0) {
                     $('#qb-units-empty').show();
-                    $('#qb-completion-bar').hide();
+                    $('#qb-completion-bars').hide();
                     return;
                 }
 
-                // Completion ratio
-                const withQuestions = unitsList.filter(u => parseInt(u.question_count) > 0).length;
-                const total = unitsList.length;
-                const pct = Math.round((withQuestions / total) * 100);
-                $('#qb-coverage-text').text(`${withQuestions} / ${total} <?php echo olama_exam_translate('units covered'); ?>`);
-                $('#qb-coverage-fill').css('width', pct + '%');
-                $('#qb-coverage-pct').text(pct + '%');
-                $('#qb-completion-bar').show();
+                // Unit-level completion ratio (only counting units with designated unit questions)
+                const withUnitQuestions = unitsList.filter(u => parseInt(u.unit_level_question_count) > 0).length;
+                const totalUnits = unitsList.length;
+                const pctUnits = totalUnits > 0 ? Math.round((withUnitQuestions / totalUnits) * 100) : 0;
+                $('#qb-units-coverage-text').text(`${withUnitQuestions} / ${totalUnits}`);
+                $('#qb-units-coverage-fill').css('width', pctUnits + '%');
+                $('#qb-units-coverage-pct').text(pctUnits + '%');
+
+                // Subject-wide lessons completion ratio
+                const totalLessons = unitsList.reduce((acc, u) => acc + (parseInt(u.lesson_count) || 0), 0);
+                const coveredLessons = unitsList.reduce((acc, u) => acc + (parseInt(u.covered_lesson_count) || 0), 0);
+                const pctLessons = totalLessons > 0 ? Math.round((coveredLessons / totalLessons) * 100) : 0;
+                $('#qb-lessons-coverage-text').text(`${coveredLessons} / ${totalLessons}`);
+                $('#qb-lessons-coverage-fill').css('width', pctLessons + '%');
+                $('#qb-lessons-coverage-pct').text(pctLessons + '%');
+
+                $('#qb-completion-bars').show();
 
                 // Render unit cards
                 let html = '';
                 unitsList.forEach(function (u) {
                     const qc = parseInt(u.question_count) || 0;
+                    const lc = parseInt(u.lesson_count) || 0;
+                    const clc = parseInt(u.covered_lesson_count) || 0;
                     const hasQ = qc > 0 ? 'has-questions' : '';
+                    let coveragePct = lc > 0 ? Math.round((clc / lc) * 100) : 0;
+
                     html += `<div class="qb-unit-card" data-unit-id="${u.id}">
-                        <div class="qb-unit-info">
-                            <div class="qb-unit-number">${escapeHtml(u.unit_number)}</div>
-                            <div class="qb-unit-name">${escapeHtml(u.unit_name)}</div>
+                        <div class="qb-unit-header">
+                            <div class="qb-unit-info">
+                                <div class="qb-unit-number">${escapeHtml(u.unit_number)}</div>
+                                <div class="qb-unit-name">${escapeHtml(u.unit_name)}</div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div class="qb-unit-qcount ${hasQ}">${qc} <?php echo olama_exam_translate('questions'); ?></div>
+                                <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <div style="width:100px; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; position:relative;" title="${clc} covered out of ${lc} lessons">
+                                            <div style="width:${coveragePct}%; height:100%; background:#10b981;"></div>
+                                        </div>
+                                        <div style="font-size:12px; color:#64748b; width:36px; text-align:right;">${coveragePct}%</div>
+                                    </div>
+                                    <div style="font-size:11px; color:#94a3b8;">${clc}/${lc} lessons covered</div>
+                                </div>
+                                <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm qb-ai-prompt-btn"
+                                    data-unit-id="${u.id}" data-unit-name="${escapeHtml(u.unit_name)}" data-level="unit">
+                                    🤖 <?php echo olama_exam_translate('AI Prompt'); ?>
+                                </button>
+                                <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm qb-view-lessons-btn"
+                                    data-unit-id="${u.id}" data-unit-name="${escapeHtml(u.unit_name)}">
+                                    📂 <?php echo olama_exam_translate('View Lessons'); ?>
+                                </button>
+                                <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm qb-view-unit-btn"
+                                    data-unit-id="${u.id}" data-unit-name="${escapeHtml(u.unit_name)}">
+                                    📋 <?php echo olama_exam_translate('View Questions'); ?>
+                                </button>
+                            </div>
                         </div>
-                        <div class="qb-unit-qcount ${hasQ}">${qc} <?php echo olama_exam_translate('questions'); ?></div>
-                        <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm qb-view-unit-btn"
-                            data-unit-id="${u.id}" data-unit-name="${escapeHtml(u.unit_name)}" style="margin-inline-start:12px;">
-                            📋 <?php echo olama_exam_translate('View Questions'); ?>
-                        </button>
+                        <div class="qb-unit-lessons" id="qb-unit-lessons-${u.id}" style="display:none; margin-top:16px; border-top:1px solid #e2e8f0; padding-top:16px;">
+                            <div style="text-align:center; padding:10px; color:#64748b;">⏳ Loading lessons...</div>
+                        </div>
                     </div>`;
                 });
                 $('#qb-units-list').html(html).show();
             });
         }
 
-        // ── View Questions for a Unit ──────────────────────────
         $(document).on('click', '.qb-view-unit-btn', function () {
             activeUnitId = parseInt($(this).data('unit-id'));
             const unitName = $(this).data('unit-name');
@@ -491,9 +589,138 @@ $diff_labels = array(
             $(`.qb-unit-card[data-unit-id="${activeUnitId}"]`).addClass('active');
 
             $('#qb-questions-panel').show();
-            loadQuestions();
+            
+            // Fetch lessons for the active unit
+            $('#filter-lesson, #q-lesson-id').prop('disabled', true).html('<option value="">...Loading...</option>');
+            $.post(olamaExam.ajaxUrl, {
+                action: 'olama_exam_get_lessons_by_unit',
+                nonce: olamaExam.nonce,
+                unit_id: activeUnitId
+            }, function (res) {
+                if (res.success) {
+                    lessonsList = res.data;
+                    let filterHtml = '<option value="">' + '<?php echo olama_exam_translate("All Lessons"); ?>' + '</option>';
+                    filterHtml += '<option value="0">— <?php echo olama_exam_translate("General Unit Question"); ?> —</option>';
+                    
+                    let selectHtml = '<option value="0">— <?php echo olama_exam_translate("General Unit Question"); ?> —</option>';
+                    
+                    lessonsList.forEach(function (l) {
+                        const opt = `<option value="${l.id}">${escapeHtml(l.lesson_number)}: ${escapeHtml(l.lesson_title)}</option>`;
+                        filterHtml += opt;
+                        selectHtml += opt;
+                    });
+                    
+                    $('#filter-lesson').html(filterHtml).prop('disabled', false).val('');
+                    $('#q-lesson-id').html(selectHtml).prop('disabled', false);
+                } else {
+                    $('#filter-lesson').html('<option value="">' + '<?php echo olama_exam_translate("All Lessons"); ?>' + '</option>').prop('disabled', true);
+                    $('#q-lesson-id').html('<option value="0">— <?php echo olama_exam_translate("General Unit Question"); ?> —</option>').prop('disabled', true);
+                }
+                
+                loadQuestions();
+            });
 
             // Scroll to panel
+            $('html, body').animate({ scrollTop: $('#qb-questions-panel').offset().top - 40 }, 300);
+        });
+
+        // ── View Lessons Toggle ────────────────────────────────
+        $(document).on('click', '.qb-view-lessons-btn', function () {
+            const unitId = $(this).data('unit-id');
+            const lessonsContainer = $(`#qb-unit-lessons-${unitId}`);
+            
+            if (lessonsContainer.is(':visible')) {
+                lessonsContainer.slideUp();
+                return;
+            }
+            
+            lessonsContainer.slideDown();
+            
+            if (lessonsContainer.data('loaded')) {
+                return;
+            }
+            
+            $.post(olamaExam.ajaxUrl, {
+                action: 'olama_exam_get_lessons_by_unit',
+                nonce: olamaExam.nonce,
+                unit_id: unitId
+            }, function (res) {
+                if (!res.success) {
+                    lessonsContainer.html('<div style="color:red; text-align:center;">Failed to load.</div>');
+                    return;
+                }
+                
+                let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+                if (res.data.length === 0) {
+                    html += '<div style="text-align:center; color:#64748b; font-size:13px;">No lessons found.</div>';
+                } else {
+                    res.data.forEach(function(l) {
+                        const qc = parseInt(l.question_count) || 0;
+                        const hasQ = qc > 0 ? 'background:#dcfce7; color:#16a34a;' : 'background:#f1f5f9; color:#64748b;';
+                        html += `<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
+                            <div style="font-size:14px; font-weight:500; color:#334155;">
+                                ${escapeHtml(l.lesson_number)}: ${escapeHtml(l.lesson_title)}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="font-size:12px; padding:2px 10px; border-radius:99px; font-weight:500; ${hasQ}">${qc} questions</div>
+                                <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm qb-ai-prompt-btn"
+                                    data-unit-id="${unitId}" data-lesson-name="${escapeHtml(l.lesson_title)}" data-level="lesson">
+                                    🤖 <?php echo olama_exam_translate('AI Prompt'); ?>
+                                </button>
+                                <button class="olama-exam-btn olama-exam-btn-primary olama-exam-btn-sm qb-view-lesson-questions-btn"
+                                    data-unit-id="${unitId}" data-lesson-id="${l.id}">
+                                    📝 View Questions
+                                </button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                html += '</div>';
+                lessonsContainer.html(html).data('loaded', true);
+            });
+        });
+
+        // ── View Lesson Questions ──────────────────────────────
+        $(document).on('click', '.qb-view-lesson-questions-btn', function () {
+            const unitId = $(this).data('unit-id');
+            const lessonId = parseInt($(this).data('lesson-id'));
+            
+            activeUnitId = unitId;
+            const unitName = $(`.qb-view-unit-btn[data-unit-id="${unitId}"]`).data('unit-name');
+            $('#qb-active-unit-name').text(unitName);
+            $('#q-unit-id').val(activeUnitId);
+
+            $('.qb-unit-card').removeClass('active');
+            $(`.qb-unit-card[data-unit-id="${activeUnitId}"]`).addClass('active');
+
+            $('#qb-questions-panel').show();
+            
+            $('#filter-lesson, #q-lesson-id').prop('disabled', true).html('<option value="">...Loading...</option>');
+            $.post(olamaExam.ajaxUrl, {
+                action: 'olama_exam_get_lessons_by_unit',
+                nonce: olamaExam.nonce,
+                unit_id: activeUnitId
+            }, function (res) {
+                if (res.success) {
+                    lessonsList = res.data;
+                    let filterHtml = '<option value="">' + '<?php echo olama_exam_translate("All Lessons"); ?>' + '</option>';
+                    filterHtml += '<option value="0">— <?php echo olama_exam_translate("General Unit Question"); ?> —</option>';
+                    
+                    let selectHtml = '<option value="0">— <?php echo olama_exam_translate("General Unit Question"); ?> —</option>';
+                    
+                    lessonsList.forEach(function (l) {
+                        const opt = `<option value="${l.id}">${escapeHtml(l.lesson_number)}: ${escapeHtml(l.lesson_title)}</option>`;
+                        filterHtml += opt;
+                        selectHtml += opt;
+                    });
+                    
+                    $('#filter-lesson').html(filterHtml).prop('disabled', false).val(lessonId);
+                    $('#q-lesson-id').html(selectHtml).prop('disabled', false);
+                }
+                
+                loadQuestions();
+            });
+
             $('html, body').animate({ scrollTop: $('#qb-questions-panel').offset().top - 40 }, 300);
         });
 
@@ -510,6 +737,7 @@ $diff_labels = array(
                 action: 'olama_exam_get_questions',
                 nonce: olamaExam.nonce,
                 unit_id: activeUnitId,
+                lesson_id: $('#filter-lesson').val(),
                 type: $('#filter-type').val(),
                 difficulty: $('#filter-difficulty').val(),
                 search: $('#filter-search').val(),
@@ -562,7 +790,7 @@ $diff_labels = array(
         }
 
         // ── Filter Events ──────────────────────────────────────
-        $('#filter-type, #filter-difficulty').on('change', function () { if (activeUnitId) loadQuestions(); });
+        $('#filter-type, #filter-difficulty, #filter-lesson').on('change', function () { if (activeUnitId) loadQuestions(); });
         let searchTimer;
         $('#filter-search').on('keyup', function () {
             clearTimeout(searchTimer);
@@ -690,6 +918,7 @@ $diff_labels = array(
             $('#question-type-select').val(q.type).trigger('change');
             $('#q-difficulty').val(q.difficulty);
             $('#q-unit-id').val(q.unit_id || activeUnitId);
+            $('#q-lesson-id').val(q.lesson_id || 0);
             $('#q-language').val(q.language);
             $('#q-text').val(q.question_text);
             $('#q-explanation').val(q.explanation || '');
@@ -739,6 +968,8 @@ $diff_labels = array(
             $('#olama-exam-question-form')[0].reset();
             $('#q-id').val(0);
             $('#q-unit-id').val(activeUnitId);
+            const curLesson = $('#filter-lesson').val();
+            $('#q-lesson-id').val(curLesson ? curLesson : 0);
             $('#q-image-filename').val('');
             $('#q-image-preview').text('');
             $('.olama-exam-remove-image').hide();
@@ -755,17 +986,210 @@ $diff_labels = array(
             $('#question-modal').addClass('active');
         });
 
+        // ── AI Prompt Modal Handlers ───────────────────────────
+        $(document).on('click', '.qb-ai-prompt-btn', function () {
+            const level = $(this).data('level');
+            let unitName = $(this).data('unit-name') || '';
+            let lessonName = '';
+            
+            if (level === 'lesson') {
+                const unitId = $(this).data('unit-id');
+                lessonName = $(this).data('lesson-name') || '';
+                const unitBtn = $(`.qb-view-unit-btn[data-unit-id="${unitId}"]`);
+                if (unitBtn.length) {
+                    unitName = unitBtn.data('unit-name') || '';
+                }
+            }
+
+            const gradeName = $('#qb-grade-select option:selected').text();
+            const subjectName = $('#qb-subject-select option:selected').text();
+            
+            // The semester is in the second read-only input in the header row
+            const semesterName = $('input[readonly]').eq(1).val() || ''; 
+
+            $('#ai-prompt-modal').data('context', {
+                grade: gradeName,
+                subject: subjectName,
+                semester: semesterName,
+                unit: unitName,
+                lesson: lessonName
+            });
+
+            generateAiPrompt();
+            $('#ai-prompt-modal').addClass('active');
+        });
+
+        $('#ai-prompt-qcount').on('input change', function() {
+            generateAiPrompt();
+        });
+
+        $('#ai-prompt-copy-btn').on('click', function() {
+            const text = $('#ai-prompt-text').val();
+            
+            const showCopied = function() {
+                $('#ai-prompt-copy-feedback').fadeIn(200).delay(1500).fadeOut(200);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                // Modern secure contexts (HTTPS or localhost)
+                navigator.clipboard.writeText(text).then(showCopied).catch(function(err) {
+                    console.error('Async: Could not copy text: ', err);
+                });
+            } else {
+                // Fallback for older browsers or HTTP (non-secure) environments
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                
+                // Move off-screen to prevent scrolling to bottom
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                document.body.appendChild(textArea);
+                
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showCopied();
+                    } else {
+                        console.error('Fallback: Copy command was unsuccessful');
+                    }
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        });
+
+        function generateAiPrompt() {
+            const ctx = $('#ai-prompt-modal').data('context');
+            if (!ctx) return;
+            
+            const qCount = $('#ai-prompt-qcount').val() || 10;
+            
+            let lessonLine = '';
+            if (ctx.lesson) {
+                lessonLine = `- الدرس: ${ctx.lesson}`;
+            }
+
+            const promptTemplate = `أنت خبير أكاديمي متخصص في إعداد بنوك الأسئلة التعليمية وفق أفضل معايير التقييم.
+
+🎯 الهدف:
+إنشاء بنك أسئلة احترافي بصيغة GIFT لاستخدامه في أنظمة إدارة التعلم (مثل Moodle).
+
+⚠️ شرط أساسي:
+يجب الالتزام التام بتنسيق GIFT بدون أي نص خارج التنسيق.
+
+---
+
+🔹 تعليمات عامة:
+
+- أنشئ أسئلة واضحة، دقيقة، وخالية من الغموض.
+- اربط كل سؤال بهدف تعليمي محدد.
+- استخدم لغة عربية فصحى سليمة.
+- تجنب التكرار في الأسئلة والإجابات.
+- نوّع مستويات الصعوبة (سهل، متوسط، صعب).
+- لا تضف أي شرح أو تعليق خارج تنسيق GIFT.
+
+---
+
+🔹 أنواع الأسئلة (إلزامي استخدام جميع الأنواع):
+
+1. اختيار من متعدد (Multiple Choice)
+::عنوان السؤال::نص السؤال؟{=إجابة صحيحة ~خيار خاطئ ~خيار خاطئ}
+
+---
+
+2. صح أو خطأ
+⚠️ اكتب الإجابة بصيغة (صح / خطأ) فقط
+
+مثال:
+نص السؤال.{صح}
+
+---
+
+3. إجابة قصيرة (Short Answer)
+نص السؤال؟{=إجابة1 =إجابة2}
+
+---
+
+4. مطابقة (Matching)
+نص السؤال.{
+=عنصر1 -> إجابة1
+=عنصر2 -> إجابة2
+}
+
+---
+
+5. ترتيب (Ordering)
+⚠️ استخدم ترتيب رقمي داخل الإجابة (محاكاة للترتيب)
+
+مثال:
+رتب الخطوات التالية.{
+=1 الخطوة الأولى
+=2 الخطوة الثانية
+=3 الخطوة الثالثة
+}
+
+---
+
+6. املأ الفراغ (Fill in the Blank)
+العاصمة هي {=باريس}.
+
+---
+
+7. مقالي (Essay)
+::سؤال مقالي::اشرح المفهوم التالي.{}
+
+---
+
+🔹 بيانات الإدخال (يجب تعبئتها):
+
+- عدد الأسئلة: ${qCount}
+- الفصل الدراسي: ${ctx.semester}
+- الصف الدراسي: ${ctx.grade}
+- المادة: ${ctx.subject}
+- الوحدة: ${ctx.unit}
+${lessonLine}
+
+---
+
+🔹 توزيع الأسئلة:
+
+- يجب توزيع الأسئلة على جميع الأنواع السبعة.
+- الحد الأدنى: سؤال واحد لكل نوع.
+- وزّع باقي الأسئلة بشكل متوازن.
+
+---
+
+🔹 مخرجات الإجابة (مهم جداً):
+
+- أعد فقط الأسئلة بصيغة GIFT.
+- لا تضف عناوين أو شروحات أو ملاحظات.
+- لا تكتب أي نص خارج تنسيق GIFT.
+
+---
+
+🚀 ابدأ الآن.`;
+
+            $('#ai-prompt-text').val(promptTemplate);
+        }
+
         // ── Import GIFT/CSV ────────────────────────────────────
         $('#qb-import-gift-btn').on('click', function () {
             const gradeId = $('#qb-grade-select').val();
             const subjectId = $('#qb-subject-select').val();
-            window.location.href = `?page=olama-exam-import-gift&unit_id=${activeUnitId}&grade_id=${gradeId}&subject_id=${subjectId}`;
+            const lessonId = $('#filter-lesson').val() || 0;
+            window.location.href = `?page=olama-exam-import-gift&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
         });
 
         $('#qb-import-csv-btn').on('click', function () {
             const gradeId = $('#qb-grade-select').val();
             const subjectId = $('#qb-subject-select').val();
-            window.location.href = `?page=olama-exam-import-csv&unit_id=${activeUnitId}&grade_id=${gradeId}&subject_id=${subjectId}`;
+            const lessonId = $('#filter-lesson').val() || 0;
+            window.location.href = `?page=olama-exam-import-csv&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
         });
 
         // ── Open Edit Question ─────────────────────────────────
@@ -795,6 +1219,7 @@ $diff_labels = array(
                 nonce: olamaExam.nonce,
                 id: $('#q-id').val(),
                 unit_id: $('#q-unit-id').val(),
+                lesson_id: $('#q-lesson-id').val(),
                 type: type,
                 question_text: $('#q-text').val(),
                 answers_json: buildAnswersJson(type),

@@ -37,6 +37,7 @@ class Olama_Exam_DB
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             category_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             unit_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             type VARCHAR(20) NOT NULL DEFAULT 'mcq',
             question_text TEXT NOT NULL,
             answers_json LONGTEXT NOT NULL,
@@ -137,6 +138,7 @@ class Olama_Exam_DB
     
     /**
      * Migration: Update student_id to student_uid (VARCHAR) in attempts table.
+     * Migration: Add lesson_id to questions table if not exists.
      */
     public static function migrate_student_uid()
     {
@@ -160,6 +162,21 @@ class Olama_Exam_DB
             $wpdb->query("ALTER TABLE {$table} CHANGE student_id student_uid VARCHAR(100) NOT NULL");
             $wpdb->query("ALTER TABLE {$table} ADD KEY idx_student (student_uid)");
             $wpdb->query("ALTER TABLE {$table} ADD KEY idx_exam_student (exam_id, student_uid)");
+        }
+
+        // Add lesson_id to exam_questions if not exists
+        $questions_table = "{$wpdb->prefix}olama_exam_questions";
+        $q_cols = $wpdb->get_results("SHOW COLUMNS FROM {$questions_table}");
+        $has_lesson_id = false;
+        foreach ($q_cols as $col) {
+            if ($col->Field === 'lesson_id') {
+                $has_lesson_id = true;
+                break;
+            }
+        }
+        if (!$has_lesson_id) {
+            $wpdb->query("ALTER TABLE {$questions_table} ADD COLUMN lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER unit_id");
+            $wpdb->query("ALTER TABLE {$questions_table} ADD KEY idx_lesson (lesson_id)");
         }
     }
 

@@ -66,6 +66,12 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
                     <option value="0">— <?php echo olama_exam_translate('Select Subject First'); ?> —</option>
                 </select>
             </div>
+            <div class="olama-exam-form-group">
+                <label><?php echo olama_exam_translate('Lesson'); ?></label>
+                <select id="gift-lesson" disabled>
+                    <option value="0">— <?php echo olama_exam_translate('General Unit Questions'); ?> —</option>
+                </select>
+            </div>
         </div>
 
         <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr;">
@@ -185,6 +191,29 @@ Match countries to capitals.{
                 const unitId = new URLSearchParams(window.location.search).get('unit_id');
                 if (unitId && $('#gift-unit option[value="' + unitId + '"]').length > 0) {
                     $('#gift-unit').val(unitId);
+                    $('#gift-unit').trigger('change');
+                }
+            });
+        });
+
+        $('#gift-unit').on('change', function () {
+            const unitId = $(this).val();
+            $('#gift-lesson').html('<option value="0">— <?php echo olama_exam_translate("General Unit Questions"); ?> —</option>').prop('disabled', true);
+            if (!unitId || unitId == '0') return;
+            $.post(olamaExam.ajaxUrl, { 
+                action: 'olama_exam_get_lessons_by_unit', 
+                nonce: olamaExam.nonce, 
+                unit_id: unitId
+            }, function (res) {
+                let html = '<option value="0">— <?php echo olama_exam_translate("General Unit Questions"); ?> —</option>';
+                if (res.success && res.data) {
+                    res.data.forEach(l => html += `<option value="${l.id}">${l.lesson_number} - ${l.lesson_title}</option>`);
+                }
+                $('#gift-lesson').html(html).prop('disabled', false);
+
+                const paramLessonId = new URLSearchParams(window.location.search).get('lesson_id');
+                if (paramLessonId && $('#gift-lesson option[value="' + paramLessonId + '"]').length > 0) {
+                    $('#gift-lesson').val(paramLessonId);
                 }
             });
         });
@@ -277,6 +306,7 @@ Match countries to capitals.{
                 nonce: olamaExam.nonce,
                 gift_content: $('#gift-content').val(),
                 unit_id: unitId,
+                lesson_id: $('#gift-lesson').val() || 0,
                 language: $('#gift-language').val(),
                 difficulty: $('#gift-difficulty').val(),
                 mode: 'import',

@@ -257,7 +257,7 @@ class Olama_Exam_Csv_Parser
      * @param int   $category_id
      * @return array ['imported' => int, 'skipped' => int, 'errors' => [...]]
      */
-    public static function import($parsed, $category_id, $unit_id = 0)
+    public static function import($parsed, $category_id, $unit_id = 0, $lesson_id = 0)
     {
         $imported = 0;
         $skipped = 0;
@@ -267,6 +267,7 @@ class Olama_Exam_Csv_Parser
             $result = Olama_Exam_Questions::save_question(array(
                 'category_id' => $category_id,
                 'unit_id' => $unit_id,
+                'lesson_id' => $lesson_id,
                 'type' => $q['type'],
                 'question_text' => $q['question_text'],
                 'answers_json' => $q['answers_json'],
