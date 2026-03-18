@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // ── Constants ──────────────────────────────────────────────────
-define('OLAMA_EXAM_VERSION', '1.0.0');
+define('OLAMA_EXAM_VERSION', '1.1.0');
 define('OLAMA_EXAM_PATH', plugin_dir_path(__FILE__));
 define('OLAMA_EXAM_URL', plugin_dir_url(__FILE__));
 define('OLAMA_EXAM_BASENAME', plugin_basename(__FILE__));
