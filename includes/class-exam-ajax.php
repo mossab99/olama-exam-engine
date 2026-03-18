@@ -81,7 +81,7 @@ class Olama_Exam_Ajax
     /**
      * Verify nonce and user permissions
      */
-    private static function verify_request($capability = 'manage_options')
+    private static function verify_request($capabilities = 'manage_options')
     {
         if (!check_ajax_referer('olama_exam_nonce', 'nonce', false)) {
             wp_send_json_error(array('message' => 'Security check failed.'), 403);
@@ -91,16 +91,46 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'You must be logged in.'), 401);
         }
 
-        if ($capability && !current_user_can($capability)) {
-            wp_send_json_error(array('message' => 'Insufficient permissions.'), 403);
+        if ($capabilities) {
+            $caps = is_array($capabilities) ? $capabilities : array($capabilities);
+            $has_cap = false;
+
+            foreach ($caps as $cap) {
+                if (class_exists('Olama_School_Permissions') && strpos($cap, 'olama_') === 0) {
+                    if (Olama_School_Permissions::can($cap)) {
+                        $has_cap = true;
+                        break;
+                    }
+                } else {
+                    if (current_user_can($cap)) {
+                        $has_cap = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$has_cap) {
+                wp_send_json_error(array('message' => 'Insufficient permissions.'), 403);
+            }
         }
+    }
+
+    /**
+     * Helper to check if the current user is an admin or teacher managing exams
+     */
+    public static function can_manage_exams()
+    {
+        if (class_exists('Olama_School_Permissions')) {
+            return Olama_School_Permissions::can('olama_create_exams') || Olama_School_Permissions::can('olama_manage_question_bank');
+        }
+        return current_user_can('manage_options');
     }
 
     // ── Category Handlers ──────────────────────────────────────
 
     public static function handle_get_categories()
     {
-        self::verify_request('manage_options');
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams'));
 
         global $wpdb;
         $table = "{$wpdb->prefix}olama_exam_question_categories";
@@ -114,7 +144,7 @@ class Olama_Exam_Ajax
 
     public static function handle_save_category()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         global $wpdb;
         $table = "{$wpdb->prefix}olama_exam_question_categories";
@@ -141,7 +171,7 @@ class Olama_Exam_Ajax
 
     public static function handle_delete_category()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         global $wpdb;
         $id = intval($_POST['id'] ?? 0);
@@ -172,7 +202,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_subjects_by_grade()
     {
-        self::verify_request('manage_options');
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
 
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
@@ -190,7 +220,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_sections_by_grade()
     {
-        self::verify_request('manage_options');
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
 
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
@@ -213,7 +243,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_units_by_subject()
     {
-        self::verify_request('manage_options');
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
 
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
@@ -250,7 +280,7 @@ class Olama_Exam_Ajax
      */
     public static function handle_get_exam_schedule_info()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_create_exams');
 
         global $wpdb;
         $grade_id   = intval($_POST['grade_id'] ?? 0);
@@ -369,7 +399,7 @@ class Olama_Exam_Ajax
 
     public static function handle_save_question()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $data = array(
             'id' => intval($_POST['id'] ?? 0),
@@ -398,7 +428,7 @@ class Olama_Exam_Ajax
 
     public static function handle_delete_question()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $id = intval($_POST['id'] ?? 0);
         if ($id <= 0) {
@@ -415,7 +445,7 @@ class Olama_Exam_Ajax
 
     public static function handle_bulk_delete_questions()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $ids = array_map('intval', $_POST['ids'] ?? array());
         if (empty($ids)) {
@@ -431,7 +461,7 @@ class Olama_Exam_Ajax
 
     public static function handle_duplicate_question()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $id = intval($_POST['id'] ?? 0);
         if ($id <= 0) {
@@ -451,7 +481,7 @@ class Olama_Exam_Ajax
 
     public static function handle_upload_question_image()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         if (empty($_FILES['question_image'])) {
             wp_send_json_error(array('message' => 'No file uploaded.'));
@@ -471,7 +501,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_questions()
     {
-        self::verify_request('manage_options');
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams'));
 
         $filters = array(
             'id' => intval($_POST['id'] ?? 0),
@@ -505,7 +535,7 @@ class Olama_Exam_Ajax
 
     public static function handle_import_gift()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $category_id = intval($_POST['category_id'] ?? 0);
         $unit_id = intval($_POST['unit_id'] ?? 0);
@@ -538,7 +568,7 @@ class Olama_Exam_Ajax
 
     public static function handle_import_csv()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $category_id = intval($_POST['category_id'] ?? 0);
         $unit_id = intval($_POST['unit_id'] ?? 0);
@@ -578,7 +608,7 @@ class Olama_Exam_Ajax
 
     public static function handle_download_csv_template()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_manage_question_bank');
 
         $path = Olama_Exam_Csv_Parser::get_template_path();
         if (!file_exists($path)) {
@@ -597,7 +627,7 @@ class Olama_Exam_Ajax
 
     public static function handle_save_exam()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_create_exams');
 
         $result = Olama_Exam_Manager::save_exam($_POST);
 
@@ -613,7 +643,7 @@ class Olama_Exam_Ajax
 
     public static function handle_delete_exam()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
         $result = Olama_Exam_Manager::delete_exam($id);
@@ -627,7 +657,7 @@ class Olama_Exam_Ajax
 
     public static function handle_update_status()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
         $status = sanitize_text_field($_POST['status'] ?? '');
@@ -646,7 +676,7 @@ class Olama_Exam_Ajax
 
     public static function handle_preview()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
         $result = Olama_Exam_Manager::preview_exam($id);
@@ -660,7 +690,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_exams()
     {
-        self::verify_request('manage_options');
+        self::verify_request(array('olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
 
         $filters = array();
         if (!empty($_POST['grade_id']))
@@ -717,7 +747,7 @@ class Olama_Exam_Ajax
             }
         }
 
-        $is_admin_override = current_user_can('manage_options');
+        $is_admin_override = self::can_manage_exams();
         $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, $is_preview, $is_admin_override);
 
         if (is_wp_error($result)) {
@@ -823,7 +853,7 @@ class Olama_Exam_Ajax
 
     public static function handle_grade_essay()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_grade_exams');
 
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         $question_id = intval($_POST['question_id'] ?? 0);
@@ -844,7 +874,7 @@ class Olama_Exam_Ajax
 
     public static function handle_delete_attempt()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_grade_exams');
 
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         if ($attempt_id <= 0) {
@@ -873,7 +903,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_results()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_view_exam_results');
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
 
@@ -892,7 +922,7 @@ class Olama_Exam_Ajax
 
     public static function handle_export_csv()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_view_exam_results');
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
 
@@ -944,7 +974,7 @@ class Olama_Exam_Ajax
 
     public static function handle_get_question_stats()
     {
-        self::verify_request('manage_options');
+        self::verify_request('olama_view_exam_results');
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
 

@@ -243,7 +243,7 @@ class Olama_Exam_Engine
             return new WP_Error('not_found', 'Attempt not found.');
         }
 
-        if ($student_uid && $attempt->student_uid !== $student_uid && !current_user_can('manage_options')) {
+        if ($student_uid && $attempt->student_uid !== $student_uid && !Olama_Exam_Ajax::can_manage_exams()) {
             return new WP_Error('not_owner', 'This attempt does not belong to you.');
         }
 

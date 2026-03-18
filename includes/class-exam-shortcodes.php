@@ -210,7 +210,7 @@ class Olama_Exam_Shortcodes
         }
 
         $student_uid = sanitize_text_field($_GET['student_uid'] ?? '');
-        $manual_student_uid = (current_user_can('manage_options')) ? sanitize_text_field($_GET['manual_student_uid'] ?? '') : '';
+        $manual_student_uid = (Olama_Exam_Ajax::can_manage_exams()) ? sanitize_text_field($_GET['manual_student_uid'] ?? '') : '';
         $final_student_uid = $manual_student_uid ?: $student_uid;
 
         ?>
@@ -288,7 +288,7 @@ class Olama_Exam_Shortcodes
         // Security check is done securely in the query using family_id unless admin
         $family_where = "";
         $family_id = "";
-        if (!current_user_can('manage_options')) {
+        if (!Olama_Exam_Ajax::can_manage_exams()) {
             $family_id = wp_get_current_user()->user_login;
             $family_where = $wpdb->prepare(" AND a.student_uid IN (SELECT student_uid FROM {$wpdb->prefix}olama_students WHERE family_id = %s) ", $family_id);
         }
