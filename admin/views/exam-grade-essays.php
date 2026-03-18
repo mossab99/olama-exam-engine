@@ -239,8 +239,8 @@ if ($grading_attempt_id) {
                                 </td>
                                 <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: center;">
                                     <a href="<?php echo admin_url('admin.php?page=olama-exam-grade-essays&grade_attempt=' . $pa->attempt_id); ?>"
-                                        class="button button-primary" style="padding: 4px 16px; font-size: 13px;">
-                                        ✏️ <?php echo olama_exam_translate('Grade'); ?>
+                                       class="button button-primary" style="padding: 4px 16px; font-size: 13px;">
+                                        ✏️ <?php echo olama_exam_translate('Evaluate Answer'); ?>
                                     </a>
                                 <?php if (!$pa->has_ungraded_essays): ?>
                                                         <span style="display:inline-block; margin-top:4px; color:#059669; font-size:12px;">✅ <?php echo olama_exam_translate('Graded'); ?></span>

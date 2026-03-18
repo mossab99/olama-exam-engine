@@ -196,7 +196,7 @@ return array(
     'Grade Essays' => 'تصحيح المقالات',
     'Pending Essay Grading' => 'مقالات بانتظار التصحيح',
     'No essays pending grading.' => 'لا توجد مقالات بحاجة للتصحيح.',
-    'Grade' => 'تصحيح',
+    'Evaluate Answer' => 'تصحيح',
     'Graded' => 'تم التصحيح',
     'Student Answer' => 'إجابة الطالب',
     'No answer provided' => 'لم يتم تقديم إجابة',
