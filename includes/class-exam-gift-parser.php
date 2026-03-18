@@ -150,8 +150,8 @@ class Olama_Exam_Gift_Parser
     {
         $trimmed = strtoupper(trim($answer_block));
 
-        // True/False: {TRUE}, {FALSE}, {T}, {F}
-        if (in_array($trimmed, array('TRUE', 'FALSE', 'T', 'F'))) {
+        // True/False: {TRUE}, {FALSE}, {T}, {F}, {صح}, {خطأ}
+        if (in_array($trimmed, array('TRUE', 'FALSE', 'T', 'F', 'صح', 'خطأ'))) {
             return 'tf';
         }
 
@@ -178,7 +178,7 @@ class Olama_Exam_Gift_Parser
      */
     private static function parse_tf($question_text, $answer_block, $title)
     {
-        $correct = in_array(strtoupper(trim($answer_block)), array('TRUE', 'T'));
+        $correct = in_array(strtoupper(trim($answer_block)), array('TRUE', 'T', 'صح'));
 
         return array(
             'type' => 'tf',

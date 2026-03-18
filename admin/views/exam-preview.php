@@ -181,8 +181,8 @@ function render_preview_answer_area($q, $answers) {
         case 'tf':
             $correct = filter_var($answers['correct'] ?? true, FILTER_VALIDATE_BOOLEAN);
             echo '<div class="oe-tf-container">';
-            echo '<button type="button" class="oe-tf-btn ' . ($correct ? 'oe-selected-true preview-correct' : '') . '">' . ($correct ? '✅' : '') . ' ' . (get_locale() === 'ar' ? 'صح' : 'True') . '</button>';
-            echo '<button type="button" class="oe-tf-btn ' . (!$correct ? 'oe-selected-false preview-correct' : '') . '">' . (!$correct ? '✅' : '') . ' ' . (get_locale() === 'ar' ? 'خطأ' : 'False') . '</button>';
+            echo '<button type="button" class="oe-tf-btn ' . ($correct ? 'oe-selected-true preview-correct' : '') . '">' . ($correct ? '✅' : '') . ' صح</button>';
+            echo '<button type="button" class="oe-tf-btn ' . (!$correct ? 'oe-selected-false preview-correct' : '') . '">' . (!$correct ? '✅' : '') . ' خطأ</button>';
             echo '</div>';
             break;
 

@@ -275,6 +275,20 @@ class Olama_Exam_Ajax
             $semester_id
         ));
 
+        if (!empty($units)) {
+            $unit_ids = array_column($units, 'id');
+            $ids_str = implode(',', $unit_ids);
+            $lessons = $wpdb->get_results("SELECT cl.id, cl.unit_id, cl.lesson_number, cl.lesson_title, (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.lesson_id = cl.id) as question_count FROM {$wpdb->prefix}olama_curriculum_lessons cl WHERE cl.unit_id IN ($ids_str) ORDER BY CAST(lesson_number AS UNSIGNED) ASC, cl.id ASC");
+            
+            $lessons_by_unit = [];
+            foreach ($lessons as $lesson) {
+                $lessons_by_unit[$lesson->unit_id][] = $lesson;
+            }
+            foreach ($units as &$unit) {
+                $unit->lessons = $lessons_by_unit[$unit->id] ?? [];
+            }
+        }
+
         wp_send_json_success($units);
     }
 
@@ -396,6 +410,16 @@ class Olama_Exam_Ajax
                  WHERE cu.id IN ($ids_str)
                  ORDER BY cu.unit_number ASC"
             );
+
+            $lessons = $wpdb->get_results("SELECT cl.id, cl.unit_id, cl.lesson_number, cl.lesson_title, (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.lesson_id = cl.id) as question_count FROM {$wpdb->prefix}olama_curriculum_lessons cl WHERE cl.unit_id IN ($ids_str) ORDER BY CAST(lesson_number AS UNSIGNED) ASC, cl.id ASC");
+            
+            $lessons_by_unit = [];
+            foreach ($lessons as $lesson) {
+                $lessons_by_unit[$lesson->unit_id][] = $lesson;
+            }
+            foreach ($material_units as &$unit) {
+                $unit->lessons = $lessons_by_unit[$unit->id] ?? [];
+            }
         }
 
         wp_send_json_success([
@@ -739,12 +763,24 @@ class Olama_Exam_Ajax
         if (!empty($_POST['semester_id']))
             $filters['semester_id'] = intval($_POST['semester_id']);
 
-        $exams = Olama_Exam_Manager::get_exams($filters);
+        $exams = Olama_Exam_Manager::get_exams($filters, true);
 
-        // Add attempt count to each exam
+        // Compute question_count efficiently without N+1 queries
         foreach ($exams as &$exam) {
-            $exam->attempt_count = Olama_Exam_Manager::get_attempt_count($exam->id);
-            $exam->question_count = count(Olama_Exam_Manager::get_exam_questions($exam->id));
+            if ($exam->question_mode === 'random') {
+                // For random mode, the count is stored directly
+                $exam->question_count = intval($exam->random_count ?? 0);
+            } else {
+                // For manual mode, count the IDs from the JSON stored in DB
+                // We need a lightweight fetch of just manual_question_ids
+                global $wpdb;
+                $ids_json = $wpdb->get_var($wpdb->prepare(
+                    "SELECT manual_question_ids FROM {$wpdb->prefix}olama_exam_exams WHERE id = %d",
+                    $exam->id
+                ));
+                $ids = $ids_json ? json_decode($ids_json, true) : array();
+                $exam->question_count = is_array($ids) ? count($ids) : 0;
+            }
         }
 
         wp_send_json_success($exams);

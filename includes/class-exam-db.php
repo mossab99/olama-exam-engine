@@ -51,6 +51,8 @@ class Olama_Exam_DB
             PRIMARY KEY (id),
             KEY idx_category (category_id),
             KEY idx_unit (unit_id),
+            KEY idx_unit_lesson (unit_id, lesson_id),
+            KEY idx_lesson (lesson_id),
             KEY idx_type (type),
             KEY idx_difficulty (difficulty),
             KEY idx_language (language)
@@ -75,6 +77,7 @@ class Olama_Exam_DB
             random_count INT UNSIGNED NULL,
             random_category_id BIGINT UNSIGNED NULL,
             random_unit_id BIGINT UNSIGNED NULL,
+            random_lesson_id BIGINT UNSIGNED NULL,
             random_difficulty VARCHAR(10) NULL,
             manual_question_ids LONGTEXT NULL,
             show_results TINYINT(1) NOT NULL DEFAULT 0,
@@ -177,6 +180,20 @@ class Olama_Exam_DB
         if (!$has_lesson_id) {
             $wpdb->query("ALTER TABLE {$questions_table} ADD COLUMN lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER unit_id");
             $wpdb->query("ALTER TABLE {$questions_table} ADD KEY idx_lesson (lesson_id)");
+        }
+
+        // Add random_lesson_id to exams table if not exists
+        $exams_table = "{$wpdb->prefix}olama_exam_exams";
+        $e_cols = $wpdb->get_results("SHOW COLUMNS FROM {$exams_table}");
+        $has_random_lesson_id = false;
+        foreach ($e_cols as $col) {
+            if ($col->Field === 'random_lesson_id') {
+                $has_random_lesson_id = true;
+                break;
+            }
+        }
+        if (!$has_random_lesson_id) {
+            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN random_lesson_id BIGINT UNSIGNED NULL AFTER random_unit_id");
         }
     }
 

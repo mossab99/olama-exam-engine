@@ -237,67 +237,85 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 <h3>❓ <?php echo olama_exam_translate('Questions'); ?></h3>
             </div>
             <div style="padding:20px;">
-                <!-- Mode Selection -->
-                <div class="olama-exam-form-group" style="margin-bottom:20px;">
-                    <label style="font-weight:600;"><?php echo olama_exam_translate('Question Selection Mode'); ?></label>
-                    <div style="display:flex; gap:20px; margin-top:8px;">
-                        <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
-                            <input type="radio" name="question_mode" value="manual" 
-                                <?php echo (!$exam || $exam->question_mode === 'manual') ? 'checked' : ''; ?>>
-                            📝 <?php echo olama_exam_translate('Manual Selection'); ?>
-                        </label>
-                        <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
-                            <input type="radio" name="question_mode" value="random"
-                                <?php echo ($exam && $exam->question_mode === 'random') ? 'checked' : ''; ?>>
-                            🎲 <?php echo olama_exam_translate('Random from Unit'); ?>
-                        </label>
+                <!-- Mode Selector Cards -->
+                <div class="oe-mode-selector">
+                    <label class="oe-mode-card <?php echo (!$exam || $exam->question_mode === 'manual') ? 'active' : ''; ?>">
+                        <input type="radio" name="question_mode" value="manual" 
+                            <?php echo (!$exam || $exam->question_mode === 'manual') ? 'checked' : ''; ?>>
+                        <div class="oe-mode-icon">📝</div>
+                        <div class="oe-mode-info">
+                            <h4><?php echo olama_exam_translate('Manual Selection'); ?></h4>
+                            <p><?php echo olama_exam_translate('Hand-pick questions from the question bank'); ?></p>
+                        </div>
+                        <div class="oe-mode-check">✓</div>
+                    </label>
+                    <label class="oe-mode-card <?php echo ($exam && $exam->question_mode === 'random') ? 'active' : ''; ?>">
+                        <input type="radio" name="question_mode" value="random"
+                            <?php echo ($exam && $exam->question_mode === 'random') ? 'checked' : ''; ?>>
+                        <div class="oe-mode-icon">🎲</div>
+                        <div class="oe-mode-info">
+                            <h4><?php echo olama_exam_translate('Random from Unit'); ?></h4>
+                            <p><?php echo olama_exam_translate('Auto-select random questions per student'); ?></p>
+                        </div>
+                        <div class="oe-mode-check">✓</div>
+                    </label>
+                </div>
+
+                <!-- Toggle: Show all subject units -->
+                <div class="oe-toggle-option">
+                    <div class="oe-toggle-switch">
+                        <input type="checkbox" id="q-show-all-units">
+                        <label class="oe-toggle-slider" for="q-show-all-units"></label>
                     </div>
+                    <label class="oe-toggle-label" for="q-show-all-units">
+                        <?php echo olama_exam_translate('Show all subject units'); ?>
+                        <span><?php echo olama_exam_translate('Select from the entire subject curriculum instead of just assigned material.'); ?></span>
+                    </label>
                 </div>
 
                 <!-- Random Mode Settings -->
                 <div id="random-mode-settings" style="display:<?php echo ($exam && $exam->question_mode === 'random') ? 'block' : 'none'; ?>;">
-                    <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr;">
-                        <div class="olama-exam-form-group">
-                            <label><?php echo olama_exam_translate('Unit'); ?></label>
-                            <select name="random_unit_id" id="random-unit-select">
-                                <option value="0">— <?php echo olama_exam_translate('All Units'); ?> —</option>
-                            </select>
+                    <div class="oe-random-panel">
+                        <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr;">
+                            <div class="olama-exam-form-group">
+                                <label><?php echo olama_exam_translate('Unit'); ?></label>
+                                <select name="random_unit_id" id="random-unit-select">
+                                    <option value="0">— <?php echo olama_exam_translate('All Units'); ?> —</option>
+                                </select>
+                            </div>
+                            <div class="olama-exam-form-group">
+                                <label><?php echo olama_exam_translate('Number of Questions'); ?></label>
+                                <input type="number" name="random_count" value="<?php echo esc_attr($exam->random_count ?? 10); ?>" 
+                                    min="1" max="200">
+                            </div>
+                            <div class="olama-exam-form-group">
+                                <label><?php echo olama_exam_translate('Difficulty Filter'); ?></label>
+                                <select name="random_difficulty">
+                                    <option value=""><?php echo olama_exam_translate('All'); ?></option>
+                                    <option value="easy" <?php echo ($exam && $exam->random_difficulty === 'easy') ? 'selected' : ''; ?>>
+                                        <?php echo olama_exam_translate('Easy'); ?></option>
+                                    <option value="medium" <?php echo ($exam && $exam->random_difficulty === 'medium') ? 'selected' : ''; ?>>
+                                        <?php echo olama_exam_translate('Medium'); ?></option>
+                                    <option value="hard" <?php echo ($exam && $exam->random_difficulty === 'hard') ? 'selected' : ''; ?>>
+                                        <?php echo olama_exam_translate('Hard'); ?></option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="olama-exam-form-group">
-                            <label><?php echo olama_exam_translate('Number of Questions'); ?></label>
-                            <input type="number" name="random_count" value="<?php echo esc_attr($exam->random_count ?? 10); ?>" 
-                                min="1" max="200">
-                        </div>
-                        <div class="olama-exam-form-group">
-                            <label><?php echo olama_exam_translate('Difficulty Filter'); ?></label>
-                            <select name="random_difficulty">
-                                <option value=""><?php echo olama_exam_translate('All'); ?></option>
-                                <option value="easy" <?php echo ($exam && $exam->random_difficulty === 'easy') ? 'selected' : ''; ?>>
-                                    <?php echo olama_exam_translate('Easy'); ?></option>
-                                <option value="medium" <?php echo ($exam && $exam->random_difficulty === 'medium') ? 'selected' : ''; ?>>
-                                    <?php echo olama_exam_translate('Medium'); ?></option>
-                                <option value="hard" <?php echo ($exam && $exam->random_difficulty === 'hard') ? 'selected' : ''; ?>>
-                                    <?php echo olama_exam_translate('Hard'); ?></option>
-                            </select>
+                        <div class="oe-random-hint">
+                            <span class="oe-hint-icon">💡</span>
+                            <?php echo olama_exam_translate('Questions will be randomly selected each time a student starts the exam.'); ?>
                         </div>
                     </div>
-                    <p style="font-size:13px; color:#64748b; margin-top:8px;">
-                        💡 <?php echo olama_exam_translate('Questions will be randomly selected each time a student starts the exam.'); ?>
-                    </p>
                 </div>
 
                 <!-- Manual Mode: Question List -->
                 <div id="manual-mode-settings" style="display:<?php echo (!$exam || $exam->question_mode === 'manual') ? 'block' : 'none'; ?>;">
-                    <!-- Search/Filter bar -->
-                    <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
-                        <select id="q-filter-unit" style="min-width:220px;">
+                    <!-- Search Toolbar -->
+                    <div class="oe-question-toolbar">
+                        <select id="q-filter-unit">
                             <option value=""><?php echo olama_exam_translate('All Units (select subject first)'); ?></option>
                         </select>
-                        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; white-space:nowrap;">
-                            <input type="checkbox" id="q-show-all-units">
-                            <?php echo olama_exam_translate('Show all subject units'); ?>
-                        </label>
-                        <select id="q-filter-type" style="min-width:140px;">
+                        <select id="q-filter-type">
                             <option value=""><?php echo olama_exam_translate('All Types'); ?></option>
                             <option value="mcq"><?php echo olama_exam_translate('MCQ'); ?></option>
                             <option value="tf"><?php echo olama_exam_translate('True / False'); ?></option>
@@ -307,40 +325,41 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                             <option value="fill_blank"><?php echo olama_exam_translate('Fill in the Blank'); ?></option>
                             <option value="essay"><?php echo olama_exam_translate('Essay'); ?></option>
                         </select>
-                        <input type="search" id="q-filter-search" placeholder="<?php echo olama_exam_translate('Search questions...'); ?>"
-                            style="flex:1; min-width:200px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
-                        <button type="button" class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" id="btn-search-questions">
-                            🔍 <?php echo olama_exam_translate('Search'); ?>
+                        <div class="oe-search-input-wrap">
+                            <input type="search" id="q-filter-search" placeholder="<?php echo olama_exam_translate('Search questions...'); ?>">
+                        </div>
+                        <button type="button" class="oe-search-btn" id="btn-search-questions">
+                            <?php echo olama_exam_translate('Search'); ?>
                         </button>
                     </div>
 
-                    <!-- Available Questions -->
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <!-- Questions Panels -->
+                    <div class="oe-questions-grid">
                         <!-- Left: Available -->
-                        <div>
-                            <h4 style="margin:0 0 8px; color:#374151;">
-                                📚 <?php echo olama_exam_translate('Available Questions'); ?>
-                                (<span id="available-count">0</span>)
-                            </h4>
-                            <div id="available-questions" 
-                                style="border:1px solid #e2e8f0; border-radius:8px; max-height:400px; overflow-y:auto; padding:8px;">
-                                <p style="color:#94a3b8; text-align:center; padding:20px;">
-                                    <?php echo olama_exam_translate('Use search filters to find questions.'); ?>
-                                </p>
+                        <div class="oe-panel">
+                            <div class="oe-panel-header available">
+                                <h4>📚 <?php echo olama_exam_translate('Available Questions'); ?></h4>
+                                <span class="oe-panel-count" id="available-count">0</span>
+                            </div>
+                            <div id="available-questions" class="oe-panel-body available">
+                                <div class="oe-empty-state">
+                                    <div class="oe-empty-icon">🔎</div>
+                                    <div class="oe-empty-text"><?php echo olama_exam_translate('Use search filters to find questions.'); ?></div>
+                                </div>
                             </div>
                         </div>
                         <!-- Right: Selected -->
-                        <div>
-                            <h4 style="margin:0 0 8px; color:#374151;">
-                                ✅ <?php echo olama_exam_translate('Selected Questions'); ?>
-                                (<span id="selected-count">0</span>)
-                            </h4>
-                            <div id="selected-questions"
-                                style="border:2px dashed #6366f1; border-radius:8px; min-height:200px; max-height:400px; overflow-y:auto; padding:8px;"
+                        <div class="oe-panel">
+                            <div class="oe-panel-header selected">
+                                <h4>✅ <?php echo olama_exam_translate('Selected Questions'); ?></h4>
+                                <span class="oe-panel-count" id="selected-count">0</span>
+                            </div>
+                            <div id="selected-questions" class="oe-panel-body selected"
                                 data-initial='<?php echo json_encode($exam_questions); ?>'>
-                                <p class="empty-msg" style="color:#94a3b8; text-align:center; padding:20px;">
-                                    <?php echo olama_exam_translate('Click + to add questions here.'); ?>
-                                </p>
+                                <div class="oe-empty-state empty-msg">
+                                    <div class="oe-empty-icon">📋</div>
+                                    <div class="oe-empty-text"><?php echo olama_exam_translate('Click + to add questions here.'); ?></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -388,29 +407,6 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 .olama-exam-btn-student:hover {
     background: #4f46e5;
 }
-
-.q-item {
-    padding: 10px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    margin-bottom: 6px;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: default;
-    transition: all 0.15s ease;
-}
-.q-item:hover { border-color: #6366f1; background: #f8fafc; }
-.q-item .q-text { flex: 1; font-size: 13px; color: #1e293b; }
-.q-item .q-meta { font-size: 11px; color: #94a3b8; white-space: nowrap; }
-.q-item .q-action { 
-    border: none; background: none; cursor: pointer; font-size: 16px; 
-    padding: 2px 6px; border-radius: 4px; transition: background 0.15s; 
-}
-.q-item .q-action:hover { background: #e2e8f0; }
-.q-item .q-action.add { color: #16a34a; }
-.q-item .q-action.remove { color: #dc2626; }
 </style>
 
 <!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
@@ -710,12 +706,19 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         var showAll = $('#q-show-all-units').is(':checked');
         var units = showAll ? allSubjectUnits : materialUnits;
         var currentRandomUnit = <?php echo intval($exam->random_unit_id ?? 0); ?>;
+        var currentRandomLesson = <?php echo intval($exam->random_lesson_id ?? 0); ?>;
 
         // Manual mode unit filter
         var html = '<option value=""><?php echo olama_exam_translate("All Exam Material Units"); ?></option>';
         for (var i = 0; i < units.length; i++) {
             var u = units[i];
-            html += '<option value="' + u.id + '">' + u.unit_number + ' - ' + u.unit_name + ' (' + u.question_count + ')</option>';
+            html += '<option value="u_' + u.id + '">' + u.unit_number + ' - ' + u.unit_name + ' (' + u.question_count + ')</option>';
+            if (u.lessons && u.lessons.length > 0) {
+                for (var k = 0; k < u.lessons.length; k++) {
+                    var l = u.lessons[k];
+                    html += '<option value="l_' + l.id + '">&nbsp;&nbsp;&nbsp;↳ ' + l.lesson_number + ' - ' + l.lesson_title + ' (' + l.question_count + ')</option>';
+                }
+            }
         }
         $('#q-filter-unit').html(html);
 
@@ -723,8 +726,15 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         var rHtml = '<option value="0">— <?php echo olama_exam_translate("All Units"); ?> —</option>';
         for (var j = 0; j < units.length; j++) {
             var u2 = units[j];
-            var sel = (currentRandomUnit == u2.id) ? 'selected' : '';
-            rHtml += '<option value="' + u2.id + '" ' + sel + '>' + u2.unit_number + ' - ' + u2.unit_name + ' (' + u2.question_count + ')</option>';
+            var selU = (currentRandomUnit == u2.id && currentRandomLesson == 0) ? 'selected' : '';
+            rHtml += '<option value="u_' + u2.id + '" ' + selU + '>' + u2.unit_number + ' - ' + u2.unit_name + ' (' + u2.question_count + ')</option>';
+            if (u2.lessons && u2.lessons.length > 0) {
+                for (var m = 0; m < u2.lessons.length; m++) {
+                    var l2 = u2.lessons[m];
+                    var selL = (currentRandomLesson == l2.id) ? 'selected' : '';
+                    rHtml += '<option value="l_' + l2.id + '" ' + selL + '>&nbsp;&nbsp;&nbsp;↳ ' + l2.lesson_number + ' - ' + l2.lesson_title + ' (' + l2.question_count + ')</option>';
+                }
+            }
         }
         $('#random-unit-select').html(rHtml);
     }
@@ -762,18 +772,50 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     // ── Question Mode Toggle ───────────────────────────────
     $('input[name="question_mode"]').on('change', function() {
         var mode = $(this).val();
+        // Toggle active class on mode cards
+        $('.oe-mode-card').removeClass('active');
+        $(this).closest('.oe-mode-card').addClass('active');
         $('#random-mode-settings').toggle(mode === 'random');
         $('#manual-mode-settings').toggle(mode === 'manual');
     });
 
+    // Type badge CSS classes map
+    var typeBadgeClasses = {
+        'mcq': 'olama-exam-badge-mcq',
+        'tf': 'olama-exam-badge-tf',
+        'short': 'olama-exam-badge-short',
+        'matching': 'olama-exam-badge-matching',
+        'ordering': 'olama-exam-badge-ordering',
+        'fill_blank': 'olama-exam-badge-fill_blank',
+        'essay': 'olama-exam-badge-essay'
+    };
+
+    function getTypeBadge(type) {
+        var cls = typeBadgeClasses[type] || 'olama-exam-badge-essay';
+        var label = type ? type.toUpperCase().replace('_', ' ') : '';
+        return '<span class="q-type-badge ' + cls + '">' + label + '</span>';
+    }
+
     // ── Manual Question Selection ──────────────────────────
     function searchQuestions() {
+        var filterVal = $('#q-filter-unit').val();
+        var filterUnit = '';
+        var filterLesson = '';
+        if (filterVal) {
+            if (filterVal.startsWith('u_')) {
+                filterUnit = filterVal.substring(2);
+            } else if (filterVal.startsWith('l_')) {
+                filterLesson = filterVal.substring(2);
+            }
+        }
+
         $.post(olamaExam.ajaxUrl, {
             action: 'olama_exam_get_questions',
             nonce: olamaExam.nonce,
             grade_id: $('#exam-grade-select').val(),
             subject_id: $('#exam-subject-select').val(),
-            unit_id: $('#q-filter-unit').val(),
+            unit_id: filterUnit,
+            lesson_id: filterLesson,
             type: $('#q-filter-type').val(),
             search: $('#q-filter-search').val(),
         }, function(res) {
@@ -782,7 +824,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             $('#available-count').text(qs.length);
 
             if (qs.length === 0) {
-                $('#available-questions').html('<p style="color:#94a3b8; text-align:center; padding:20px;"><?php echo olama_exam_translate("No questions found."); ?></p>');
+                $('#available-questions').html('<div class="oe-empty-state"><div class="oe-empty-icon">📭</div><div class="oe-empty-text"><?php echo olama_exam_translate("No questions found."); ?></div></div>');
                 return;
             }
 
@@ -798,9 +840,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 }
                 var text = q.question_text.length > 60 ? q.question_text.substring(0, 60) + '...' : q.question_text;
                 html += '<div class="q-item" data-id="' + q.id + '">' +
-                    '<span class="q-meta">' + q.type + '</span>' +
+                    getTypeBadge(q.type) +
                     '<span class="q-text">' + escHtml(text) + '</span>' +
-                    '<span class="q-meta">' + escHtml(q.unit_name || '') + '</span>' +
+                    '<span class="q-unit-name">' + escHtml(q.unit_name || '') + '</span>' +
                     '<button type="button" class="q-action add ' + (isSelected ? 'disabled' : '') + '" ' +
                         (isSelected ? 'disabled style="opacity:0.3;"' : '') + ' data-id="' + q.id + '">＋</button>' +
                 '</div>';
@@ -851,7 +893,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         $('#manual-question-ids').val(JSON.stringify(selectedIds));
 
         if (selectedIds.length === 0) {
-            $('#selected-questions').html('<p class="empty-msg" style="color:#94a3b8; text-align:center; padding:20px;"><?php echo olama_exam_translate("Click + to add questions here."); ?></p>');
+            $('#selected-questions').html('<div class="oe-empty-state empty-msg"><div class="oe-empty-icon">📋</div><div class="oe-empty-text"><?php echo olama_exam_translate("Click + to add questions here."); ?></div></div>');
             return;
         }
 
@@ -877,9 +919,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 if (!q) continue;
                 var text = q.question_text.length > 50 ? q.question_text.substring(0, 50) + '...' : q.question_text;
                 html += '<div class="q-item" data-id="' + q.id + '">' +
-                    '<span class="q-meta" style="font-weight:600;">' + (i + 1) + '</span>' +
+                    '<span class="q-number">' + (i + 1) + '</span>' +
                     '<span class="q-text">' + escHtml(text) + '</span>' +
-                    '<span class="q-meta">' + q.type + '</span>' +
+                    getTypeBadge(q.type) +
                     '<button type="button" class="q-action remove" data-id="' + q.id + '">✕</button>' +
                 '</div>';
             }
@@ -898,7 +940,21 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         var formData = $(this).serializeArray();
         var data = {};
         for (var i = 0; i < formData.length; i++) {
-            data[formData[i].name] = formData[i].value;
+            if (formData[i].name === 'random_unit_id') {
+                var randomVal = formData[i].value;
+                if (randomVal && randomVal.startsWith('u_')) {
+                    data['random_unit_id'] = randomVal.substring(2);
+                    data['random_lesson_id'] = '0';
+                } else if (randomVal && randomVal.startsWith('l_')) {
+                    data['random_unit_id'] = '0';
+                    data['random_lesson_id'] = randomVal.substring(2);
+                } else {
+                    data['random_unit_id'] = '0';
+                    data['random_lesson_id'] = '0';
+                }
+            } else {
+                data[formData[i].name] = formData[i].value;
+            }
         }
         data.action = 'olama_exam_save_exam';
         data.nonce = olamaExam.nonce;

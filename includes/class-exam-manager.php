@@ -23,14 +23,27 @@ class Olama_Exam_Manager
     /**
      * Get exams with optional filters
      */
-    public static function get_exams($filters = array())
+    public static function get_exams($filters = array(), $include_counts = false)
     {
         global $wpdb;
         $table = "{$wpdb->prefix}olama_exam_exams";
 
-        $query = "SELECT e.*, 
+        // Select specific columns to avoid fetching LONGTEXT (manual_question_ids) in list views
+        $columns = "e.id, e.title, e.section_id, e.subject_id, e.teacher_id,
+                    e.academic_year_id, e.semester_id,
+                    e.start_time, e.end_time, e.duration_minutes, e.passing_grade,
+                    e.max_attempts, e.question_mode, e.random_count,
+                    e.random_category_id, e.random_unit_id, e.random_lesson_id,
+                    e.random_difficulty, e.show_results, e.status, e.created_at,
                     s.section_name, g.grade_name, sub.subject_name,
-                    u.display_name as teacher_name
+                    u.display_name as teacher_name";
+
+        if ($include_counts) {
+            $columns .= ",
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts a WHERE a.exam_id = e.id) as attempt_count";
+        }
+
+        $query = "SELECT $columns
                   FROM $table e
                   LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
                   LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
@@ -135,6 +148,7 @@ class Olama_Exam_Manager
             $fields['random_count'] = intval($data['random_count'] ?? 10);
             $fields['random_category_id'] = intval($data['random_category_id'] ?? 0);
             $fields['random_unit_id'] = intval($data['random_unit_id'] ?? 0);
+            $fields['random_lesson_id'] = intval($data['random_lesson_id'] ?? 0);
             $fields['random_difficulty'] = sanitize_text_field($data['random_difficulty'] ?? '');
             $fields['manual_question_ids'] = null;
         } else {
@@ -147,6 +161,7 @@ class Olama_Exam_Manager
             $fields['random_count'] = null;
             $fields['random_category_id'] = null;
             $fields['random_unit_id'] = null;
+            $fields['random_lesson_id'] = null;
             $fields['random_difficulty'] = null;
         }
 
@@ -267,41 +282,70 @@ class Olama_Exam_Manager
     }
 
     /**
-     * Resolve random question selection from a category
+     * Resolve random question selection from a category.
+     * Uses a two-step approach: fetch matching IDs first, sample in PHP,
+     * then fetch full rows — avoids expensive ORDER BY RAND().
      */
     private static function resolve_random_questions($exam)
     {
         global $wpdb;
-        $query = "SELECT q.*, cu.unit_name, cu.unit_number 
-                  FROM {$wpdb->prefix}olama_exam_questions q
-                  LEFT JOIN {$wpdb->prefix}olama_curriculum_units cu ON q.unit_id = cu.id
-                  WHERE 1=1";
+
+        // Step 1: Fetch only matching IDs (lightweight)
+        $id_query = "SELECT q.id 
+                     FROM {$wpdb->prefix}olama_exam_questions q
+                     WHERE 1=1";
         $params = array();
 
-        if (!empty($exam->random_unit_id)) {
-            $query .= " AND q.unit_id = %d";
+        if (!empty($exam->random_lesson_id)) {
+            $id_query .= " AND q.lesson_id = %d";
+            $params[] = intval($exam->random_lesson_id);
+        } elseif (!empty($exam->random_unit_id)) {
+            $id_query .= " AND q.unit_id = %d";
             $params[] = intval($exam->random_unit_id);
         } elseif (!empty($exam->random_category_id)) {
             // Legacy fallback
-            $query .= " AND q.category_id = %d";
+            $id_query .= " AND q.category_id = %d";
             $params[] = intval($exam->random_category_id);
         }
         if (!empty($exam->random_difficulty)) {
-            $query .= " AND q.difficulty = %s";
+            $id_query .= " AND q.difficulty = %s";
             $params[] = $exam->random_difficulty;
         }
 
-        $query .= " ORDER BY RAND()";
-
-        if (!empty($exam->random_count)) {
-            $query .= " LIMIT %d";
-            $params[] = intval($exam->random_count);
-        }
-
         if (!empty($params)) {
-            return $wpdb->get_results($wpdb->prepare($query, $params));
+            $all_ids = $wpdb->get_col($wpdb->prepare($id_query, $params));
+        } else {
+            $all_ids = $wpdb->get_col($id_query);
         }
-        return $wpdb->get_results($query);
+
+        if (empty($all_ids)) {
+            return array();
+        }
+
+        // Step 2: Random sample in PHP (fast, no temp table)
+        $count = intval($exam->random_count ?? count($all_ids));
+        if ($count >= count($all_ids)) {
+            $selected_ids = $all_ids;
+            shuffle($selected_ids);
+        } else {
+            $keys = array_rand($all_ids, $count);
+            $keys = is_array($keys) ? $keys : array($keys);
+            $selected_ids = array_map(function ($k) use ($all_ids) {
+                return $all_ids[$k];
+            }, $keys);
+            shuffle($selected_ids);
+        }
+
+        // Step 3: Fetch full rows for selected IDs only
+        $placeholders = implode(',', array_fill(0, count($selected_ids), '%d'));
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT q.*, cu.unit_name, cu.unit_number 
+             FROM {$wpdb->prefix}olama_exam_questions q
+             LEFT JOIN {$wpdb->prefix}olama_curriculum_units cu ON q.unit_id = cu.id
+             WHERE q.id IN ($placeholders)
+             ORDER BY FIELD(q.id, $placeholders)",
+            array_merge($selected_ids, $selected_ids)
+        ));
     }
 
     /**

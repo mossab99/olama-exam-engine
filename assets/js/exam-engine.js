@@ -152,8 +152,8 @@
         const trueClass = (saved === true || saved === 'true') ? ' oe-selected-true' : '';
         const falseClass = (saved === false || saved === 'false') ? ' oe-selected-false' : '';
         return '<div class="oe-tf-container">' +
-            '<button type="button" class="oe-tf-btn' + trueClass + '" data-qid="' + qId + '" data-value="true">✅ ' + (document.documentElement.lang === 'ar' ? 'صح' : 'True') + '</button>' +
-            '<button type="button" class="oe-tf-btn' + falseClass + '" data-qid="' + qId + '" data-value="false">❌ ' + (document.documentElement.lang === 'ar' ? 'خطأ' : 'False') + '</button>' +
+            '<button type="button" class="oe-tf-btn' + trueClass + '" data-qid="' + qId + '" data-value="true">✅ صح</button>' +
+            '<button type="button" class="oe-tf-btn' + falseClass + '" data-qid="' + qId + '" data-value="false">❌ خطأ</button>' +
             '</div>';
     }
 
