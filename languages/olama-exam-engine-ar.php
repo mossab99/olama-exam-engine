@@ -245,4 +245,20 @@ return array(
     'Back to Results' => 'العودة إلى النتائج',
     'Manual grading' => 'تصحيح يدوي',
     'Correct answer' => 'الإجابة الصحيحة',
+
+    // ── Questions Section Redesign ──
+    'Hand-pick questions from the question bank' => 'اختر الأسئلة يدوياً من بنك الأسئلة',
+    'Random from Unit' => 'عشوائي من الوحدة',
+    'Auto-select random questions per student' => 'اختيار أسئلة عشوائية تلقائياً لكل طالب',
+    'Show all subject units' => 'عرض جميع وحدات المادة',
+    'Select from the entire subject curriculum instead of just assigned material.' => 'اختر من المنهج الكامل للمادة بدلاً من المواد المقررة فقط.',
+    'All Units (select subject first)' => 'كل الوحدات (اختر المادة أولاً)',
+    'All Units' => 'كل الوحدات',
+    'Unit' => 'الوحدة',
+    'All Exam Material Units' => 'كل وحدات مادة الاختبار',
+    'Auto-generated after selecting grade, section & subject' => 'يتم إنشاؤه تلقائياً بعد اختيار الصف والشعبة والمادة',
+    'Title auto-generated from exam schedule. You can edit it.' => 'تم إنشاء العنوان تلقائياً من جدول الاختبارات. يمكنك تعديله.',
+    'Student Preview' => 'معاينة الطالب',
+    'Teacher Preview' => 'معاينة المعلم',
+    'Check this to select from the entire subject curriculum instead of just assigned material.' => 'اختر من المنهج الكامل للمادة بدلاً من المواد المقررة فقط.',
 );
