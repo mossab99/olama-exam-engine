@@ -1,0 +1,8 @@
+# AI Development Rules for Olama Exam Engine
+
+- Do not perform a full-repository scan unless explicitly requested.
+- When refactoring modules from the Core, only load the specific class file being moved and its corresponding entry point in the Core.
+- Always prioritize RTL/Arabic compatibility when suggesting UI changes.
+- **Token Saver**: For files over 50KB (e.g., `class-admin.php`, `class-shortcodes.php`), do NOT read the entire file. Use `grep_search` to find relevant sections first, then use `view_file` with `StartLine` and `EndLine` to read only the necessary chunks.
+- Maintain consistency with the existing WordPress plugin architecture and coding standards.
+- Use the `olama_exam_translate()` function for all user-facing strings to ensure proper localization.

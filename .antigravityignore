@@ -1,0 +1,22 @@
+# Exclude dependencies and version control
+node_modules/
+vendor/
+.git/
+
+# Exclude build artifacts
+assets/dist/
+
+# Exclude legacy and backup files
+*.bak
+*-old.php
+diag*.php
+fix_db*.php
+
+# Exclude large media, translation, and log files
+**/*.po
+**/*.mo
+**/*.log
+**/*.min.css
+**/*.min.js
+assets/images/
+uploads/
