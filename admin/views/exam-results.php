@@ -31,7 +31,7 @@ $grades = class_exists('Olama_School_Grade') ? Olama_School_Grade::get_grades() 
 $sections = ($selected_grade_id && $selected_year_id && class_exists('Olama_School_Section')) ? Olama_School_Section::get_by_grade($selected_grade_id, $selected_year_id) : array();
 
 // Build Exam Query
-$exam_query = "SELECT e.id, e.title, sub.subject_name, s.section_name
+$exam_query = "SELECT e.id, e.title, sub.subject_name, s.section_name, e.is_placement
                FROM {$wpdb->prefix}olama_exam_exams e
                LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
                LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
@@ -39,7 +39,13 @@ $exam_query = "SELECT e.id, e.title, sub.subject_name, s.section_name
 
 if ($selected_year_id) $exam_query .= $wpdb->prepare(" AND e.academic_year_id = %d", $selected_year_id);
 if ($selected_semester_id) $exam_query .= $wpdb->prepare(" AND e.semester_id = %d", $selected_semester_id);
-if ($selected_section_id) $exam_query .= $wpdb->prepare(" AND e.section_id = %d", $selected_section_id);
+
+if ($selected_section_id) {
+    $exam_query .= $wpdb->prepare(" AND e.section_id = %d", $selected_section_id);
+} else {
+    // If no section, maybe show placement tests?
+    // User might want to see placement tests specifically if they are not associated with a section
+}
 
 $exam_query .= " ORDER BY e.created_at DESC";
 $exams = $wpdb->get_results($exam_query);
@@ -54,11 +60,14 @@ $review_data = null;
 // ── Handle Attempt Review ─────────────────────────────
 if ($review_attempt_id) {
     $review_attempt = $wpdb->get_row($wpdb->prepare(
-        "SELECT a.*, e.title as exam_title, e.passing_grade, e.show_results,
-                st.student_name, sub.subject_name, s.section_name
+        "SELECT a.*, e.title as exam_title, e.passing_grade, e.show_results, e.is_placement,
+                COALESCE(st.student_name, p.student_name) as student_name,
+                sub.subject_name, s.section_name,
+                p.guardian_name, p.mobile, p.old_school, p.last_finished_grade, p.address
          FROM {$wpdb->prefix}olama_exam_attempts a
          JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
          LEFT JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
+         LEFT JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id
          LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
          LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
          WHERE a.id = %d",
@@ -134,23 +143,41 @@ if ($selected_exam_id && !$review_attempt_id) {
     ));
 
     if ($selected_exam) {
-        $attempts = $wpdb->get_results($wpdb->prepare(
-            "SELECT 
-                s.student_name, 
-                s.student_uid,
-                sec.section_name,
-                g.grade_name,
-                a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at
-             FROM {$wpdb->prefix}olama_student_enrollment e_sis
-             JOIN {$wpdb->prefix}olama_students s ON e_sis.student_id = s.id
-             JOIN {$wpdb->prefix}olama_sections sec ON e_sis.section_id = sec.id
-             JOIN {$wpdb->prefix}olama_grades g ON sec.grade_id = g.id
-             LEFT JOIN {$wpdb->prefix}olama_exam_attempts a ON (a.student_uid = s.student_uid AND a.exam_id = %d)
-             WHERE e_sis.section_id = %d
-             ORDER BY s.student_name ASC",
-            $selected_exam_id,
-            $selected_exam->section_id
-        ));
+        if ($selected_exam->is_placement) {
+            $attempts = $wpdb->get_results($wpdb->prepare(
+                "SELECT 
+                    p.student_name, 
+                    a.student_uid,
+                    p.guardian_name as section_name,
+                    p.old_school as grade_name,
+                    p.mobile,
+                    p.last_finished_grade,
+                    a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at
+                 FROM {$wpdb->prefix}olama_exam_attempts a
+                 JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id
+                 WHERE a.exam_id = %d AND a.submitted_at IS NOT NULL
+                 ORDER BY a.submitted_at DESC",
+                $selected_exam_id
+            ));
+        } else {
+            $attempts = $wpdb->get_results($wpdb->prepare(
+                "SELECT 
+                    s.student_name, 
+                    s.student_uid,
+                    sec.section_name,
+                    g.grade_name,
+                    a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at
+                 FROM {$wpdb->prefix}olama_student_enrollment e_sis
+                 JOIN {$wpdb->prefix}olama_students s ON e_sis.student_id = s.id
+                 JOIN {$wpdb->prefix}olama_sections sec ON e_sis.section_id = sec.id
+                 JOIN {$wpdb->prefix}olama_grades g ON sec.grade_id = g.id
+                 LEFT JOIN {$wpdb->prefix}olama_exam_attempts a ON (a.student_uid = s.student_uid AND a.exam_id = %d)
+                 WHERE e_sis.section_id = %d
+                 ORDER BY s.student_name ASC",
+                $selected_exam_id,
+                $selected_exam->section_id
+            ));
+        }
 
         // Calculate statistics
         if (!empty($attempts)) {
@@ -218,6 +245,21 @@ if ($selected_exam_id && !$review_attempt_id) {
                     <?php echo esc_html($ra->exam_title); ?></span>
                 <span><strong><?php echo olama_exam_translate('Student'); ?>:</strong>
                     <?php echo esc_html($ra->student_name ?? 'ID: ' . $ra->student_uid); ?></span>
+                <?php if (!empty($ra->guardian_name)): ?>
+                    <span><strong><?php echo olama_exam_translate('Guardian'); ?>:</strong> <?php echo esc_html($ra->guardian_name); ?></span>
+                <?php endif; ?>
+                <?php if (!empty($ra->mobile)): ?>
+                    <span><strong><?php echo olama_exam_translate('Mobile Number'); ?>:</strong> <?php echo esc_html($ra->mobile); ?></span>
+                <?php endif; ?>
+                <?php if (!empty($ra->old_school)): ?>
+                    <span><strong><?php echo olama_exam_translate('Old School'); ?>:</strong> <?php echo esc_html($ra->old_school); ?></span>
+                <?php endif; ?>
+                <?php if (!empty($ra->last_finished_grade)): ?>
+                    <span><strong><?php echo olama_exam_translate('Last Finished Grade'); ?>:</strong> <?php echo esc_html($ra->last_finished_grade); ?></span>
+                <?php endif; ?>
+                <?php if (!empty($ra->address)): ?>
+                    <span><strong><?php echo olama_exam_translate('Address'); ?>:</strong> <?php echo esc_html($ra->address); ?></span>
+                <?php endif; ?>
                 <span><strong><?php echo olama_exam_translate('Score'); ?>:</strong>
                     <?php echo ($ra->score ?? 0) . ' / ' . ($ra->max_score ?? 0); ?>
                     (<?php echo $ra->percentage ?? 0; ?>%)</span>

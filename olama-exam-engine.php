@@ -215,9 +215,21 @@ function olama_exam_enqueue_admin_assets($hook)
         false // Load in header so olamaExam + ExamAdmin are available to inline scripts
     );
 
+    // Find a page with the shortcode
+    $exams_page_url = home_url('/exams/'); // Default fallback
+    $pages = get_posts(array(
+        'post_type' => 'page',
+        's' => '[olama_exam]',
+        'posts_per_page' => 1
+    ));
+    if (!empty($pages) && has_shortcode($pages[0]->post_content, 'olama_exam')) {
+        $exams_page_url = get_permalink($pages[0]->ID);
+    }
+
     wp_localize_script('olama-exam-admin', 'olamaExam', array(
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('olama_exam_nonce'),
+        'examsPageUrl' => $exams_page_url,
     ));
 
     // Enqueue WP media for question images

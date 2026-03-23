@@ -34,8 +34,8 @@ class Olama_Exam_Manager
                     e.start_time, e.end_time, e.duration_minutes, e.passing_grade,
                     e.max_attempts, e.question_mode, e.random_count,
                     e.random_category_id, e.random_unit_id, e.random_lesson_id,
-                    e.random_difficulty, e.show_results, e.status, e.created_at,
-                    s.section_name, g.grade_name, sub.subject_name,
+                    e.random_difficulty, e.show_results, e.is_placement, e.status, e.created_at,
+                    s.section_name, COALESCE(g.grade_name, g2.grade_name) as grade_name, sub.subject_name,
                     u.display_name as teacher_name";
 
         if ($include_counts) {
@@ -48,12 +48,14 @@ class Olama_Exam_Manager
                   LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
                   LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
                   LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-                  LEFT JOIN {$wpdb->prefix}users u ON e.teacher_id = u.ID
+                  LEFT JOIN {$wpdb->prefix}olama_grades g2 ON sub.grade_id = g2.id
+                  LEFT JOIN {$wpdb->users} u ON e.teacher_id = u.ID
                   WHERE 1=1";
         $params = array();
 
         if (!empty($filters['grade_id'])) {
-            $query .= " AND s.grade_id = %d";
+            $query .= " AND (s.grade_id = %d OR sub.grade_id = %d)";
+            $params[] = intval($filters['grade_id']);
             $params[] = intval($filters['grade_id']);
         }
         if (!empty($filters['section_id'])) {
@@ -79,6 +81,10 @@ class Olama_Exam_Manager
         if (!empty($filters['semester_id'])) {
             $query .= " AND e.semester_id = %d";
             $params[] = intval($filters['semester_id']);
+        }
+        if (isset($filters['is_placement'])) {
+            $query .= " AND e.is_placement = %d";
+            $params[] = intval($filters['is_placement']);
         }
         if (!empty($filters['search'])) {
             $query .= " AND e.title LIKE %s";
@@ -133,13 +139,14 @@ class Olama_Exam_Manager
             'max_attempts' => intval($data['max_attempts'] ?? 1),
             'question_mode' => sanitize_text_field($data['question_mode'] ?? 'manual'),
             'show_results' => intval($data['show_results'] ?? 0),
+            'is_placement' => (isset($data['is_placement']) && ($data['is_placement'] === 'on' || $data['is_placement'] == 1)) ? 1 : 0,
         );
 
         // Validate required
         if (empty($fields['title'])) {
             return new WP_Error('empty_title', olama_exam_translate('Exam title is required.'));
         }
-        if (empty($fields['section_id'])) {
+        if (empty($fields['section_id']) && !$fields['is_placement']) {
             return new WP_Error('empty_section', olama_exam_translate('Section is required.'));
         }
 

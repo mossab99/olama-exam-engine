@@ -34,16 +34,6 @@ class Olama_Exam_Engine
             return new WP_Error('outside_window', olama_exam_translate('This exam is outside its scheduled time window.'));
         }
 
-        // Check max attempts (unless preview or override)
-        $attempt_count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts WHERE exam_id = %d AND student_uid = %s",
-            $exam_id,
-            $student_uid
-        ));
-        if (!$is_preview && !$is_admin_override && $attempt_count >= $exam->max_attempts) {
-            return new WP_Error('max_attempts', olama_exam_translate('You have used all your attempts for this exam.'));
-        }
-
         // Check for existing unsubmitted attempt (resume instead)
         $existing = $wpdb->get_row($wpdb->prepare(
             "SELECT id FROM {$wpdb->prefix}olama_exam_attempts 
@@ -54,6 +44,16 @@ class Olama_Exam_Engine
         ));
         if ($existing) {
             return self::resume_exam($existing->id);
+        }
+
+        // Check max attempts (unless preview or override)
+        $attempt_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts WHERE exam_id = %d AND student_uid = %s",
+            $exam_id,
+            $student_uid
+        ));
+        if (!$is_preview && !$is_admin_override && $attempt_count >= $exam->max_attempts) {
+            return new WP_Error('max_attempts', olama_exam_translate('You have used all your attempts for this exam.'));
         }
 
         // Get questions
@@ -105,9 +105,28 @@ class Olama_Exam_Engine
         // Return data for frontend (WITHOUT correct answers)
         $display_questions = self::strip_correct_answers($snapshot);
 
+        // Get student name for display
+        $student_name = 'Student';
+        if ($is_preview) {
+            $student_name = olama_exam_translate('Preview Student');
+        } else {
+            // Check placement info first
+            $placement = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_exam_placement_info WHERE attempt_id = %d", $attempt_id));
+            if ($placement) {
+                $student_name = $placement->student_name;
+            } else {
+                // Check SIS students
+                $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $student_uid));
+                if ($sis_student) {
+                    $student_name = $sis_student->student_name;
+                }
+            }
+        }
+
         return array(
             'attempt_id' => $attempt_id,
             'exam_title' => $exam->title,
+            'student_name' => $student_name,
             'duration_minutes' => intval($exam->duration_minutes),
             'started_at' => $now,
             'questions' => $display_questions,
@@ -215,9 +234,22 @@ class Olama_Exam_Engine
 
         $remaining_seconds = max(0, ($exam->duration_minutes * 60) - $elapsed);
 
+        // Get student name for display
+        $student_name = 'Student';
+        $placement = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_exam_placement_info WHERE attempt_id = %d", $attempt_id));
+        if ($placement) {
+            $student_name = $placement->student_name;
+        } else {
+            $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $attempt->student_uid));
+            if ($sis_student) {
+                $student_name = $sis_student->student_name;
+            }
+        }
+
         return array(
             'attempt_id' => intval($attempt_id),
             'exam_title' => $exam->title,
+            'student_name' => $student_name,
             'duration_minutes' => intval($exam->duration_minutes),
             'started_at' => $attempt->started_at,
             'remaining_seconds' => $remaining_seconds,

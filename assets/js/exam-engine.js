@@ -56,6 +56,8 @@
             }
 
             document.getElementById('oe-exam-title').textContent = data.exam_title;
+            const studentNameEl = document.getElementById('oe-student-name');
+            if (studentNameEl) studentNameEl.textContent = data.student_name;
             document.getElementById('oe-total-count').textContent = state.totalQuestions;
 
             renderQuestions();

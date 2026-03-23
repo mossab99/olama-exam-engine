@@ -278,7 +278,21 @@
     font-size: 18px;
     font-weight: 700;
     color: #0f172a;
-    margin: 0;
+    margin: 0 0 4px 0;
+}
+
+.oe-student-name-display {
+    font-size: 14px;
+    color: var(--oe-text-light);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.oe-student-name-display::before {
+    content: '👤';
+    font-size: 12px;
 }
 
 /* ── Timer ────────────────────────────────────────────────── */

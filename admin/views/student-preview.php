@@ -66,6 +66,7 @@ wp_enqueue_script('olama-exam-engine', OLAMA_EXAM_URL . 'assets/js/exam-engine.j
         <div class="oe-header-top">
             <div class="oe-header-info">
                 <h2 id="oe-exam-title"></h2>
+                <div id="oe-student-name" class="oe-student-name-display"></div>
             </div>
             <div class="oe-timer" id="oe-timer">
                 <span class="oe-timer-icon">⏱</span>

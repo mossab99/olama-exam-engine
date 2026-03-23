@@ -77,18 +77,39 @@ class Olama_Exam_Ajax
                 add_action("wp_ajax_nopriv_{$action}", array(__CLASS__, $method));
             }
         }
+        add_action('wp_ajax_nopriv_olama_exam_start_placement', array(__CLASS__, 'handle_start_placement'));
+    }
+
+    /**
+     * Helper to check if an exam is a placement test
+     */
+    private static function is_placement_exam($exam_id) {
+        global $wpdb;
+        return (bool) $wpdb->get_var($wpdb->prepare("SELECT is_placement FROM {$wpdb->prefix}olama_exam_exams WHERE id = %d", $exam_id));
     }
 
     /**
      * Verify nonce and user permissions
      */
-    private static function verify_request($capabilities = 'manage_options')
+    private static function verify_request($capabilities = 'manage_options', $allow_placement = false)
     {
         if (!check_ajax_referer('olama_exam_nonce', 'nonce', false)) {
             wp_send_json_error(array('message' => 'Security check failed.'), 403);
         }
 
         if (!is_user_logged_in()) {
+            if ($allow_placement && isset($_POST['exam_id'])) {
+                if (self::is_placement_exam(intval($_POST['exam_id']))) {
+                    return; // Allow
+                }
+            }
+            if ($allow_placement && isset($_POST['attempt_id'])) {
+                global $wpdb;
+                $exam_id = $wpdb->get_var($wpdb->prepare("SELECT exam_id FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", intval($_POST['attempt_id'])));
+                if ($exam_id && self::is_placement_exam($exam_id)) {
+                    return; // Allow
+                }
+            }
             wp_send_json_error(array('message' => 'You must be logged in.'), 401);
         }
 
@@ -250,30 +271,33 @@ class Olama_Exam_Ajax
         $grade_id = intval($_POST['grade_id'] ?? 0);
         $subject_id = intval($_POST['subject_id'] ?? 0);
         $semester_id = intval($_POST['semester_id'] ?? 0);
+        $is_placement = (isset($_POST['is_placement']) && ($_POST['is_placement'] === 'true' || $_POST['is_placement'] == 1));
 
         if ($grade_id <= 0 || $subject_id <= 0) {
             wp_send_json_success(array());
         }
 
-        // If semester_id not provided, get the active semester
-        if ($semester_id <= 0) {
-            $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
-            $semester_id = $active_semester ? $active_semester->id : 0;
-        }
-
-        $units = $wpdb->get_results($wpdb->prepare(
-            "SELECT cu.id, cu.unit_number, cu.unit_name,
+        $query = "SELECT cu.id, cu.unit_number, cu.unit_name,
                     (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.unit_id = cu.id) as question_count,
                     (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions q WHERE q.unit_id = cu.id AND q.lesson_id = 0) as unit_level_question_count,
                     (SELECT COUNT(*) FROM {$wpdb->prefix}olama_curriculum_lessons cl WHERE cl.unit_id = cu.id) as lesson_count,
                     (SELECT COUNT(DISTINCT q2.lesson_id) FROM {$wpdb->prefix}olama_exam_questions q2 WHERE q2.unit_id = cu.id AND q2.lesson_id > 0) as covered_lesson_count
              FROM {$wpdb->prefix}olama_curriculum_units cu
-             WHERE cu.grade_id = %d AND cu.subject_id = %d AND cu.semester_id = %d
-             ORDER BY cu.unit_number ASC",
-            $grade_id,
-            $subject_id,
-            $semester_id
-        ));
+             WHERE cu.grade_id = %d AND cu.subject_id = %d";
+        $params = array($grade_id, $subject_id);
+
+        if (!$is_placement) {
+            // If semester_id not provided, get the active semester
+            if ($semester_id <= 0) {
+                $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
+                $semester_id = $active_semester ? $active_semester->id : 0;
+            }
+            $query .= " AND cu.semester_id = %d";
+            $params[] = $semester_id;
+        }
+
+        $query .= " ORDER BY cu.unit_number ASC";
+        $units = $wpdb->get_results($wpdb->prepare($query, $params));
 
         if (!empty($units)) {
             $unit_ids = array_column($units, 'id');
@@ -327,6 +351,7 @@ class Olama_Exam_Ajax
         $grade_id   = intval($_POST['grade_id'] ?? 0);
         $subject_id = intval($_POST['subject_id'] ?? 0);
         $section_id = intval($_POST['section_id'] ?? 0);
+        $is_placement = intval($_POST['is_placement'] ?? 0);
 
         if ($grade_id <= 0 || $subject_id <= 0) {
             wp_send_json_error('Missing grade or subject');
@@ -340,32 +365,37 @@ class Olama_Exam_Ajax
             wp_send_json_error('No active year or semester');
         }
 
-        // Get active semester exam (التقويم)
-        $semester_exam = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}olama_semester_exams
-             WHERE semester_id = %d AND (grade_id = %d OR grade_id IS NULL) AND is_active = 1
-             ORDER BY grade_id DESC
-             LIMIT 1",
-            $active_semester->id,
-            $grade_id
-        ));
+        $semester_exam = null;
+        if (!$is_placement) {
+            $semester_exam = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}olama_semester_exams
+                 WHERE semester_id = %d AND (grade_id = %d OR grade_id IS NULL) AND is_active = 1
+                 ORDER BY grade_id DESC
+                 LIMIT 1",
+                $active_semester->id,
+                $grade_id
+            ));
+        }
 
-        if (!$semester_exam) {
+        if (!$semester_exam && !$is_placement) {
             wp_send_json_error('No active exam schedule found');
         }
 
         // Get the SIS exam entry for this grade + subject + semester_exam
-        $sis_exam = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}olama_exams
-             WHERE academic_year_id = %d AND semester_id = %d AND semester_exam_id = %d
-                   AND grade_id = %d AND subject_id = %d
-             LIMIT 1",
-            $active_year->id,
-            $active_semester->id,
-            $semester_exam->id,
-            $grade_id,
-            $subject_id
-        ));
+        $sis_exam = null;
+        if ($semester_exam) {
+            $sis_exam = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}olama_exams
+                 WHERE academic_year_id = %d AND semester_id = %d AND semester_exam_id = %d
+                       AND grade_id = %d AND subject_id = %d
+                 LIMIT 1",
+                $active_year->id,
+                $active_semester->id,
+                $semester_exam->id,
+                $grade_id,
+                $subject_id
+            ));
+        }
 
         // Get names for auto-title
         $grade_name   = $wpdb->get_var($wpdb->prepare("SELECT grade_name FROM {$wpdb->prefix}olama_grades WHERE id = %d", $grade_id));
@@ -377,11 +407,12 @@ class Olama_Exam_Ajax
 
         // Build auto-title
         $title_parts = array_filter([
+            $is_placement ? olama_exam_translate('Placement Test') : '',
             $active_year->year_name,
             $active_semester->semester_name,
-            $semester_exam->exam_name,
+            ($semester_exam && !$is_placement) ? $semester_exam->exam_name : '',
             $grade_name,
-            $section_name,
+            ($section_name && !$is_placement) ? $section_name : '',
             $subject_name,
         ]);
         $auto_title = implode(' - ', $title_parts);
@@ -425,12 +456,12 @@ class Olama_Exam_Ajax
         wp_send_json_success([
             'auto_title'      => $auto_title,
             'exam_date'       => $sis_exam ? $sis_exam->exam_date : null,
-            'semester_exam'   => [
+            'semester_exam'   => $semester_exam ? [
                 'id'         => $semester_exam->id,
                 'exam_name'  => $semester_exam->exam_name,
                 'start_date' => $semester_exam->start_date,
                 'end_date'   => $semester_exam->end_date,
-            ],
+            ] : null,
             'material_unit_ids' => $material_unit_ids,
             'material_units'    => $material_units,
             'sis_exam_id'       => $sis_exam ? $sis_exam->id : null,
@@ -786,11 +817,67 @@ class Olama_Exam_Ajax
         wp_send_json_success($exams);
     }
 
+    /**
+     * Start a placement test for a prospective student
+     */
+    public static function handle_start_placement()
+    {
+        if (!check_ajax_referer('olama_exam_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => 'Security check failed.'), 403);
+        }
+
+        global $wpdb;
+        $exam_id = intval($_POST['exam_id'] ?? 0);
+        $student_name = sanitize_text_field($_POST['student_name'] ?? '');
+        $guardian_name = sanitize_text_field($_POST['guardian_name'] ?? '');
+        $mobile = sanitize_text_field($_POST['mobile'] ?? '');
+        $old_school = sanitize_text_field($_POST['old_school'] ?? '');
+        $last_finished_grade = sanitize_text_field($_POST['last_finished_grade'] ?? '');
+        $address = sanitize_textarea_field($_POST['address'] ?? '');
+
+        if (empty($student_name)) {
+            wp_send_json_error(array('message' => 'Student name is required.'));
+        }
+
+        $exam = Olama_Exam_Manager::get_exam($exam_id);
+        if (!$exam || !$exam->is_placement || $exam->status !== 'active') {
+            wp_send_json_error(array('message' => 'Invalid or inactive placement test.'));
+        }
+
+        // Generate a unique UID for this placement session
+        $student_uid = 'placement_' . substr(md5($student_name . time() . rand()), 0, 10);
+
+        // Start the exam via the engine
+        $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, false, true);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        // Save metadata
+        $wpdb->insert("{$wpdb->prefix}olama_exam_placement_info", array(
+            'attempt_id' => $result['attempt_id'],
+            'student_name' => $student_name,
+            'guardian_name' => $guardian_name,
+            'mobile' => $mobile,
+            'old_school' => $old_school,
+            'last_finished_grade' => $last_finished_grade,
+            'address' => $address,
+            'created_at' => current_time('mysql')
+        ));
+
+        wp_send_json_success(array(
+            'exam_id' => $exam_id,
+            'student_uid' => $student_uid,
+            'attempt_id' => $result['attempt_id']
+        ));
+    }
+    
     // ── Student Engine Handlers (Phase 4) ─────────────────────
 
     public static function handle_start()
     {
-        self::verify_request(null);
+        self::verify_request(null, true);
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
@@ -800,8 +887,9 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family
-        if (!current_user_can('manage_options')) {
+        // Security: if not admin, verify student belongs to family (skip for placement)
+        $is_placement = self::is_placement_exam($exam_id);
+        if (!current_user_can('manage_options') && !$is_placement) {
             global $wpdb;
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
@@ -826,7 +914,7 @@ class Olama_Exam_Ajax
 
     public static function handle_autosave()
     {
-        self::verify_request(null);
+        self::verify_request(null, true);
 
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
@@ -838,9 +926,12 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family
-        if (!current_user_can('manage_options')) {
-            global $wpdb;
+        // Security: if not admin, verify student belongs to family (skip for placement)
+        global $wpdb;
+        $exam_id = $wpdb->get_var($wpdb->prepare("SELECT exam_id FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
+        $is_placement = self::is_placement_exam($exam_id);
+        
+        if (!current_user_can('manage_options') && !$is_placement) {
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
@@ -867,7 +958,7 @@ class Olama_Exam_Ajax
 
     public static function handle_submit()
     {
-        self::verify_request(null);
+        self::verify_request(null, true);
 
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
@@ -878,9 +969,12 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family
-        if (!current_user_can('manage_options')) {
-            global $wpdb;
+        // Security: if not admin, verify student belongs to family (skip for placement)
+        global $wpdb;
+        $exam_id = $wpdb->get_var($wpdb->prepare("SELECT exam_id FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
+        $is_placement = self::is_placement_exam($exam_id);
+
+        if (!current_user_can('manage_options') && !$is_placement) {
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",

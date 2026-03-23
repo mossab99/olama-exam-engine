@@ -20,21 +20,35 @@ class Olama_Exam_Shortcodes
      */
     public function render_exam_shortcode($atts)
     {
-        if (!is_user_logged_in()) {
+        $view = sanitize_text_field($_GET['exam_view'] ?? 'dashboard');
+        $exam_id = intval($_GET['exam_id'] ?? 0);
+        $attempt_id = intval($_GET['attempt_id'] ?? 0);
+
+        // Check if this is a placement test
+        $is_placement = false;
+        if ($exam_id > 0) {
+            global $wpdb;
+            $is_placement = $wpdb->get_var($wpdb->prepare("SELECT is_placement FROM {$wpdb->prefix}olama_exam_exams WHERE id = %d", $exam_id));
+        }
+
+        if (!is_user_logged_in() && !$is_placement) {
             return '<div class="olama-exam-login-required">' .
                 olama_exam_translate('Please log in to access exams.') .
                 '</div>';
         }
 
-        $view = sanitize_text_field($_GET['exam_view'] ?? 'dashboard');
-        $exam_id = intval($_GET['exam_id'] ?? 0);
-        $attempt_id = intval($_GET['attempt_id'] ?? 0);
+        // If not logged in and it's a placement test, we must show form unless taking
+        if (!is_user_logged_in() && $is_placement && $view === 'dashboard') {
+            $view = 'placement';
+        }
 
         switch ($view) {
             case 'take':
                 return $this->render_exam_taking($exam_id);
             case 'results':
                 return $this->render_results($attempt_id);
+            case 'placement':
+                return $this->render_placement_form($exam_id);
             default:
                 return $this->render_dashboard();
         }
@@ -230,6 +244,7 @@ class Olama_Exam_Shortcodes
                 <div class="oe-header-top">
                     <div class="oe-header-info">
                         <h2 id="oe-exam-title"></h2>
+                        <div id="oe-student-name" class="oe-student-name-display"></div>
                     </div>
                     <div class="oe-timer" id="oe-timer">
                         <span class="oe-timer-icon">⏱</span>
@@ -407,5 +422,121 @@ class Olama_Exam_Shortcodes
             default:
                 return false;
         }
+    }
+
+    /**
+     * Render the prospective student info form for placement tests
+     */
+    private function render_placement_form($exam_id)
+    {
+        if (!$exam_id) {
+            return '<div class="oe-error">' . olama_exam_translate('Invalid placement test.') . '</div>';
+        }
+
+        global $wpdb;
+        $exam = $wpdb->get_row($wpdb->prepare("SELECT e.*, g.grade_name FROM {$wpdb->prefix}olama_exam_exams e LEFT JOIN {$wpdb->prefix}olama_grades g ON e.section_id = g.id WHERE e.id = %d", $exam_id));
+
+        if (!$exam || !$exam->is_placement) {
+            return '<div class="oe-error">' . olama_exam_translate('This is not a placement test.') . '</div>';
+        }
+
+        ob_start();
+        ?>
+        <div class="oe-container" dir="auto">
+            <div class="oe-placement-card">
+                <div class="oe-placement-header">
+                    <h2><?php echo olama_exam_translate('Grade Placement Test'); ?></h2>
+                    <p><?php echo esc_html($exam->title); ?></p>
+                </div>
+                <form id="oe-placement-form" class="oe-form">
+                    <input type="hidden" name="exam_id" value="<?php echo $exam_id; ?>">
+                    
+                    <div class="oe-form-group">
+                        <label><?php echo olama_exam_translate('Student Name'); ?> *</label>
+                        <input type="text" name="student_name" required placeholder="<?php echo olama_exam_translate('Full Name'); ?>">
+                    </div>
+
+                    <div class="oe-form-row">
+                        <div class="oe-form-group">
+                            <label><?php echo olama_exam_translate('Guardian Name'); ?></label>
+                            <input type="text" name="guardian_name">
+                        </div>
+                        <div class="oe-form-group">
+                            <label><?php echo olama_exam_translate('Mobile Number'); ?> *</label>
+                            <input type="tel" name="mobile" required>
+                        </div>
+                    </div>
+
+                    <div class="oe-form-row">
+                        <div class="oe-form-group">
+                            <label><?php echo olama_exam_translate('Old School Name'); ?></label>
+                            <input type="text" name="old_school">
+                        </div>
+                        <div class="oe-form-group">
+                            <label><?php echo olama_exam_translate('Last Finished Grade'); ?></label>
+                            <input type="text" name="last_finished_grade">
+                        </div>
+                    </div>
+
+                    <div class="oe-form-group">
+                        <label><?php echo olama_exam_translate('Address'); ?></label>
+                        <textarea name="address" rows="2"></textarea>
+                    </div>
+
+                    <div class="oe-form-actions">
+                        <button type="submit" class="oe-btn oe-btn-primary oe-btn-lg" id="oe-start-placement-btn">
+                            🚀 <?php echo olama_exam_translate('Start Test'); ?>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            $('#oe-placement-form').on('submit', function(e) {
+                e.preventDefault();
+                var $btn = $('#oe-start-placement-btn');
+                $btn.prop('disabled', true).text('⏳...');
+
+                var formData = {
+                    action: 'olama_exam_start_placement',
+                    nonce: olamaExam.nonce,
+                    exam_id: $('input[name="exam_id"]').val(),
+                    student_name: $('input[name="student_name"]').val(),
+                    guardian_name: $('input[name="guardian_name"]').val(),
+                    mobile: $('input[name="mobile"]').val(),
+                    old_school: $('input[name="old_school"]').val(),
+                    last_finished_grade: $('input[name="last_finished_grade"]').val(),
+                    address: $('textarea[name="address"]').val()
+                };
+
+                $.post(olamaExam.ajaxUrl, formData, function(res) {
+                    if (res.success) {
+                        window.location.href = window.location.pathname + '?exam_view=take&exam_id=' + res.data.exam_id + '&student_uid=' + res.data.student_uid;
+                    } else {
+                        alert(res.data.message || 'Error');
+                        $btn.prop('disabled', false).text('🚀 ' + '<?php echo olama_exam_translate('Start Test'); ?>');
+                    }
+                });
+            });
+        });
+        </script>
+        
+        <style>
+        .oe-placement-card { background: white; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); padding: 32px; max-width: 600px; margin: 40px auto; }
+        .oe-placement-header { text-align: center; margin-bottom: 32px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
+        .oe-placement-header h2 { color: #1e293b; margin: 0; font-size: 24px; }
+        .oe-placement-header p { color: #64748b; margin: 8px 0 0; }
+        .oe-form-group { margin-bottom: 20px; }
+        .oe-form-group label { display: block; font-weight: 600; color: #334155; margin-bottom: 8px; font-size: 14px; }
+        .oe-form-group input, .oe-form-group textarea { width: 100%; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 15px; transition: border-color 0.2s; }
+        .oe-form-group input:focus { border-color: #6366f1; outline: none; }
+        .oe-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .oe-form-actions { margin-top: 32px; }
+        @media (max-width: 600px) { .oe-form-row { grid-template-columns: 1fr; } .oe-placement-card { padding: 20px; margin: 20px; } }
+        </style>
+        <?php
+        return ob_get_clean();
     }
 }

@@ -81,6 +81,7 @@ class Olama_Exam_DB
             random_difficulty VARCHAR(10) NULL,
             manual_question_ids LONGTEXT NULL,
             show_results TINYINT(1) NOT NULL DEFAULT 0,
+            is_placement TINYINT(1) NOT NULL DEFAULT 0,
             status VARCHAR(15) NOT NULL DEFAULT 'draft',
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -132,11 +133,28 @@ class Olama_Exam_DB
             UNIQUE KEY idx_attempt_question (attempt_id, question_id)
         ) $charset;";
 
+        // ── Table 6: Placement Info (Prospective Students) ─────
+        $table_placement = "{$wpdb->prefix}olama_exam_placement_info";
+        $sql_placement = "CREATE TABLE $table_placement (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            attempt_id BIGINT UNSIGNED NOT NULL,
+            student_name VARCHAR(255) NOT NULL,
+            guardian_name VARCHAR(255) NULL,
+            mobile VARCHAR(50) NULL,
+            address TEXT NULL,
+            old_school VARCHAR(255) NULL,
+            last_finished_grade VARCHAR(100) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_attempt (attempt_id)
+        ) $charset;";
+
         dbDelta($sql_categories);
         dbDelta($sql_questions);
         dbDelta($sql_exams);
         dbDelta($sql_attempts);
         dbDelta($sql_essays);
+        dbDelta($sql_placement);
     }
     
     /**
@@ -186,14 +204,37 @@ class Olama_Exam_DB
         $exams_table = "{$wpdb->prefix}olama_exam_exams";
         $e_cols = $wpdb->get_results("SHOW COLUMNS FROM {$exams_table}");
         $has_random_lesson_id = false;
+        $has_is_placement = false;
         foreach ($e_cols as $col) {
-            if ($col->Field === 'random_lesson_id') {
-                $has_random_lesson_id = true;
-                break;
-            }
+            if ($col->Field === 'random_lesson_id') $has_random_lesson_id = true;
+            if ($col->Field === 'is_placement') $has_is_placement = true;
         }
         if (!$has_random_lesson_id) {
             $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN random_lesson_id BIGINT UNSIGNED NULL AFTER random_unit_id");
+        }
+        if (!$has_is_placement) {
+            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN is_placement TINYINT(1) NOT NULL DEFAULT 0 AFTER show_results");
+        }
+
+        // Create placement info table if missing
+        $table_placement = "{$wpdb->prefix}olama_exam_placement_info";
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_placement'") != $table_placement) {
+            self::create_tables(); 
+        } else {
+            // Check for new columns
+            $p_cols = $wpdb->get_results("SHOW COLUMNS FROM {$table_placement}");
+            $has_mobile = false;
+            $has_last_grade = false;
+            foreach ($p_cols as $pcol) {
+                if ($pcol->Field === 'mobile') $has_mobile = true;
+                if ($pcol->Field === 'last_finished_grade') $has_last_grade = true;
+            }
+            if (!$has_mobile) {
+                $wpdb->query("ALTER TABLE {$table_placement} ADD COLUMN mobile VARCHAR(50) NULL AFTER guardian_name");
+            }
+            if (!$has_last_grade) {
+                $wpdb->query("ALTER TABLE {$table_placement} ADD COLUMN last_finished_grade VARCHAR(100) NULL AFTER old_school");
+            }
         }
     }
 
