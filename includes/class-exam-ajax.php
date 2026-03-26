@@ -808,6 +808,11 @@ class Olama_Exam_Ajax
         if (!empty($_POST['semester_id']))
             $filters['semester_id'] = intval($_POST['semester_id']);
 
+        // Debug logging for production troubleshooting
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Exam Engine List Request: filters=' . print_r($filters, true) . ', user_id=' . get_current_user_id());
+        }
+
         $exams = Olama_Exam_Manager::get_exams($filters, true);
 
         // Compute question_count efficiently without N+1 queries

@@ -54,9 +54,13 @@ class Olama_Exam_Manager
         $params = array();
 
         if (!empty($filters['grade_id'])) {
-            $query .= " AND (s.grade_id = %d OR sub.grade_id = %d)";
-            $params[] = intval($filters['grade_id']);
-            $params[] = intval($filters['grade_id']);
+            // If section_id is provided, the section filter is already specific enough.
+            // We only add grade-level filtering if section_id is not specified.
+            if (empty($filters['section_id'])) {
+                $query .= " AND (s.grade_id = %d OR sub.grade_id = %d)";
+                $params[] = intval($filters['grade_id']);
+                $params[] = intval($filters['grade_id']);
+            }
         }
         if (!empty($filters['section_id'])) {
             $query .= " AND e.section_id = %d";
