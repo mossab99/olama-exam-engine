@@ -105,9 +105,11 @@ function olama_exam_init()
 
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
-    if (version_compare($current_db, OLAMA_EXAM_VERSION, '<')) {
+    if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_2', false)) {
         Olama_Exam_DB::create_tables();
+        Olama_Exam_DB::migrate_student_uid();
         update_option('olama_exam_db_version', OLAMA_EXAM_VERSION);
+        update_option('olama_exam_db_sync_1_1_2', true);
     }
 
     // One-time migrations

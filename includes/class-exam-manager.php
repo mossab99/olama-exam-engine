@@ -129,15 +129,22 @@ class Olama_Exam_Manager
         $table = "{$wpdb->prefix}olama_exam_exams";
         $id = intval($data['id'] ?? 0);
 
+        $start_time = sanitize_text_field($data['start_time'] ?? '');
+        $end_time = sanitize_text_field($data['end_time'] ?? '');
+        
+        // Convert datetime-local (T separator) to MySQL format
+        if ($start_time) $start_time = str_replace('T', ' ', $start_time);
+        if ($end_time) $end_time = str_replace('T', ' ', $end_time);
+
         $fields = array(
             'title' => sanitize_text_field($data['title'] ?? ''),
             'section_id' => intval($data['section_id'] ?? 0),
             'subject_id' => intval($data['subject_id'] ?? 0),
-            'teacher_id' => intval($data['teacher_id'] ?? get_current_user_id()),
+            'teacher_id' => intval($data['teacher_id'] ?? get_current_user_id() ?: 0),
             'academic_year_id' => intval($data['academic_year_id'] ?? 0),
             'semester_id' => intval($data['semester_id'] ?? 0),
-            'start_time' => sanitize_text_field($data['start_time'] ?? ''),
-            'end_time' => sanitize_text_field($data['end_time'] ?? ''),
+            'start_time' => $start_time,
+            'end_time' => $end_time,
             'duration_minutes' => intval($data['duration_minutes'] ?? 60),
             'passing_grade' => intval($data['passing_grade'] ?? 50),
             'max_attempts' => intval($data['max_attempts'] ?? 1),
@@ -177,12 +184,20 @@ class Olama_Exam_Manager
         }
 
         if ($id > 0) {
-            $wpdb->update($table, $fields, array('id' => $id));
+            $result = $wpdb->update($table, $fields, array('id' => $id));
+            if ($result === false) {
+                error_log('Exam Engine Save Error (Update ID ' . $id . '): ' . $wpdb->last_error . ' | Data: ' . json_encode($fields));
+                return new WP_Error('db_error', 'Failed to update exam. ' . $wpdb->last_error);
+            }
             return $id;
         } else {
             $fields['status'] = 'draft';
             $fields['created_at'] = current_time('mysql');
-            $wpdb->insert($table, $fields);
+            $result = $wpdb->insert($table, $fields);
+            if ($result === false) {
+                error_log('Exam Engine Save Error (Insert): ' . $wpdb->last_error . ' | Data: ' . json_encode($fields));
+                return new WP_Error('db_error', 'Failed to create exam. ' . $wpdb->last_error);
+            }
             return $wpdb->insert_id;
         }
     }
