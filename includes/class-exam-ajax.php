@@ -143,7 +143,10 @@ class Olama_Exam_Ajax
     public static function can_manage_exams()
     {
         if (class_exists('Olama_School_Permissions')) {
-            return Olama_School_Permissions::can('olama_create_exams') || Olama_School_Permissions::can('olama_manage_question_bank');
+            return Olama_School_Permissions::can('olama_create_exams') || 
+                   Olama_School_Permissions::can('olama_manage_question_bank') ||
+                   Olama_School_Permissions::can('olama_access_exams_mgmt') ||
+                   Olama_School_Permissions::can('olama_access_supervision');
         }
         return current_user_can('manage_options');
     }
@@ -224,7 +227,8 @@ class Olama_Exam_Ajax
 
     public static function handle_get_subjects_by_grade()
     {
-        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
+        
 
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
@@ -242,7 +246,8 @@ class Olama_Exam_Ajax
 
     public static function handle_get_sections_by_grade()
     {
-        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
+        
 
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
@@ -265,7 +270,8 @@ class Olama_Exam_Ajax
 
     public static function handle_get_units_by_subject()
     {
-        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
+        self::verify_request(array('olama_manage_question_bank', 'olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
+        
 
         global $wpdb;
         $grade_id = intval($_POST['grade_id'] ?? 0);
@@ -713,7 +719,7 @@ class Olama_Exam_Ajax
 
     public static function handle_save_exam()
     {
-        self::verify_request('olama_create_exams');
+        self::verify_request(array('olama_create_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
 
         $result = Olama_Exam_Manager::save_exam($_POST);
 
@@ -776,9 +782,17 @@ class Olama_Exam_Ajax
 
     public static function handle_get_exams()
     {
-        self::verify_request(array('olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams'));
+        self::verify_request(array('olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
 
         $filters = array();
+
+        // Role-based filtering: Teachers only see their own exams, while Admins/Supervisors see all.
+        $is_admin = current_user_can('manage_options');
+        $is_supervisor = class_exists('Olama_School_Permissions') && (Olama_School_Permissions::can('olama_access_supervision') || Olama_School_Permissions::can('olama_access_academic_mgmt'));
+        
+        if (!$is_admin && !$is_supervisor) {
+            $filters['teacher_id'] = get_current_user_id();
+        }
         if (!empty($_POST['grade_id']))
             $filters['grade_id'] = intval($_POST['grade_id']);
         if (!empty($_POST['section_id']))
