@@ -91,6 +91,7 @@ function olama_exam_init()
     }
 
     olama_exam_load_includes();
+    error_log("Olama Exam [CORE]: Init. Role=" . (current_user_can('manage_options') ? 'Admin' : 'Student/Other'));
 
     // Initialize admin
     if (is_admin()) {
@@ -102,6 +103,7 @@ function olama_exam_init()
 
     // Initialize AJAX handlers
     Olama_Exam_Ajax::init();
+    error_log("Olama Exam [CORE]: AJAX Initialized.");
 
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
@@ -118,7 +120,16 @@ function olama_exam_init()
     olama_exam_migrate_student_uid();
     olama_exam_migrate_lesson_id();
 }
-add_action('plugins_loaded', 'olama_exam_init', 20); // Priority 20 = after SIS plugin
+add_action('plugins_loaded', 'olama_exam_init', 1); // Priority 1 = as early as possible
+
+/**
+ * Debug: Monitor all AJAX actions for olama
+ */
+add_action('admin_init', function() {
+    if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action']) && strpos($_REQUEST['action'], 'olama') !== false) {
+        error_log("Olama Exam [MONITOR]: Incoming AJAX Action: " . $_REQUEST['action']);
+    }
+}, 1);
 
 // ── Unit ID Migration ──────────────────────────────────────────
 function olama_exam_migrate_unit_id()
@@ -239,12 +250,20 @@ function olama_exam_enqueue_admin_assets($hook)
 }
 add_action('admin_enqueue_scripts', 'olama_exam_enqueue_admin_assets');
 
-function olama_exam_enqueue_frontend_assets()
+function olama_exam_enqueue_frontend_assets($force = false)
 {
-    // Only load on pages with our shortcode
+    // Only load on pages with our shortcode (unless forced)
     global $post;
-    if (!$post || !has_shortcode($post->post_content, 'olama_exam')) {
+    if (!$force && (!$post || !has_shortcode($post->post_content, 'olama_exam'))) {
         return;
+    }
+
+    if ($force && !did_action('wp_head')) {
+        // We are early enough for standard enqueue
+    } elseif ($force) {
+        // Late enqueue — manually print style tags to ensure they work
+        echo '<link rel="stylesheet" id="olama-exam-student-late" href="' . esc_url(OLAMA_EXAM_URL . 'assets/css/exam-student.css') . '" type="text/css" media="all" />';
+        echo '<link rel="stylesheet" id="olama-exam-fonts-late" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" type="text/css" media="all" />';
     }
 
     wp_enqueue_style(

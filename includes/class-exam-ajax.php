@@ -63,21 +63,25 @@ class Olama_Exam_Ajax
 
         foreach ($actions as $action) {
             $method = str_replace('olama_exam_', 'handle_', $action);
-            add_action("wp_ajax_{$action}", array(__CLASS__, $method));
+            if (method_exists(__CLASS__, $method)) {
+                add_action("wp_ajax_{$action}", array(__CLASS__, $method));
 
-            // Some actions also need nopriv for logged-in students on the frontend
-            $nopriv_actions = array(
-                'olama_exam_start',
-                'olama_exam_autosave',
-                'olama_exam_submit',
-                'olama_exam_resume',
-                'olama_exam_stream_image',
-            );
-            if (in_array($action, $nopriv_actions)) {
-                add_action("wp_ajax_nopriv_{$action}", array(__CLASS__, $method));
+                $nopriv_actions = array(
+                    'olama_exam_start',
+                    'olama_exam_autosave',
+                    'olama_exam_submit',
+                    'olama_exam_resume',
+                    'olama_exam_stream_image',
+                );
+                if (in_array($action, $nopriv_actions)) {
+                    add_action("wp_ajax_nopriv_{$action}", array(__CLASS__, $method));
+                }
+            } else {
+                error_log("Olama Exam [AJAX]: Method $method does not exist for action $action");
             }
         }
         add_action('wp_ajax_nopriv_olama_exam_start_placement', array(__CLASS__, 'handle_start_placement'));
+        error_log("Olama Exam [AJAX]: Handlers Registered. Total: " . count($actions));
     }
 
     /**
@@ -859,7 +863,8 @@ class Olama_Exam_Ajax
         }
 
         $exam = Olama_Exam_Manager::get_exam($exam_id);
-        if (!$exam || !$exam->is_placement || $exam->status !== 'active') {
+        $is_accessible = $exam && in_array($exam->status, array('active', 'published'));
+        if (!$exam || !$exam->is_placement || !$is_accessible) {
             wp_send_json_error(array('message' => 'Invalid or inactive placement test.'));
         }
 
@@ -896,6 +901,8 @@ class Olama_Exam_Ajax
 
     public static function handle_start()
     {
+        ob_start();
+        error_log("Olama Exam [AJAX]: handle_start hit. Exam ID: " . ($_POST['exam_id'] ?? 'N/A') . " Student UID: " . ($_POST['student_uid'] ?? 'N/A'));
         self::verify_request(null, true);
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
@@ -903,31 +910,47 @@ class Olama_Exam_Ajax
         $is_preview = !empty($_POST['is_preview']) && current_user_can('manage_options');
 
         if (empty($student_uid) && !$is_preview) {
+            error_log("Olama Exam [AJAX]: Error - Empty Student UID");
+            ob_clean();
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
         // Security: if not admin, verify student belongs to family (skip for placement)
         $is_placement = self::is_placement_exam($exam_id);
+        error_log("Olama Exam [AJAX]: Is Placement: " . ($is_placement ? 'Yes' : 'No'));
+        
         if (!current_user_can('manage_options') && !$is_placement) {
             global $wpdb;
             $family_id = wp_get_current_user()->user_login;
+            error_log("Olama Exam [AJAX]: Family ID: " . $family_id);
+            
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
                 $student_uid,
                 $family_id
             ));
+            
             if (!$is_member) {
+                error_log("Olama Exam [AJAX]: ERROR - Student $student_uid not found in family $family_id");
+                ob_clean();
                 wp_send_json_error(array('message' => 'Permission denied. Student does not belong to your family.'));
             }
+            error_log("Olama Exam [AJAX]: Student is valid member of family.");
         }
 
         $is_admin_override = self::can_manage_exams();
+        error_log("Olama Exam [AJAX]: Calling Engine::start_exam...");
+        
         $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, $is_preview, $is_admin_override);
 
         if (is_wp_error($result)) {
+            error_log("Olama Exam [AJAX]: Engine returned error: " . $result->get_error_message());
+            ob_clean();
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
+        error_log("Olama Exam [AJAX]: SUCCESS - Sending result to JS.");
+        ob_clean();
         wp_send_json_success($result);
     }
 

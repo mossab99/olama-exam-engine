@@ -6,6 +6,7 @@
     'use strict';
 
     const container = document.getElementById('oe-exam-container');
+    console.log("Olama Exam JS: Container found?", !!container);
     if (!container) return;
 
     const config = {

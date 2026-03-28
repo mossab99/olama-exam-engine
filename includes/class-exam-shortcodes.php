@@ -53,160 +53,206 @@ class Olama_Exam_Shortcodes
                 return $this->render_dashboard();
         }
     }
-
-    /**
-     * Dashboard — list of available and completed exams
-     */
     private function render_dashboard()
     {
+        // Force enqueue assets early to ensure they load even if global detection fails
+        if (function_exists('olama_exam_enqueue_frontend_assets')) {
+            olama_exam_enqueue_frontend_assets(true);
+        }
+
         global $wpdb;
-        $wp_user = wp_get_current_user();
+        $family_id = wp_get_current_user()->user_login;
+        $student_filter = sanitize_text_field($_GET['student_uid'] ?? '');
 
-        // In Olama SIS, the user's login name IS the family_id
-        // Look up all students belonging to this family, then their enrolled sections
-        $family_id = $wp_user->user_login;
-
-        // Get all student IDs for this family
-        $student_ids = $wpdb->get_col($wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}olama_students WHERE family_id = %s",
-            $family_id
-        ));
-
-        // Get active year for enrollment filter
-        $active_year = Olama_School_Academic::get_active_year();
-        $year_id = $active_year ? $active_year->id : 0;
-
-        // Get enrolled section IDs for these students in the current academic year
-        $student_sections = array();
-        if (!empty($student_ids)) {
-            $s_placeholders = implode(',', array_fill(0, count($student_ids), '%d'));
-            $student_sections = $wpdb->get_col($wpdb->prepare(
-                "SELECT DISTINCT section_id FROM {$wpdb->prefix}olama_student_enrollment 
-                 WHERE student_id IN ($s_placeholders) AND academic_year_id = %d AND status = 'active'",
-                ...array_merge($student_ids, array($year_id))
-            ));
-        }
-
-        $active_exams = array();
-        $completed_attempts = array();
-
-        if (!empty($student_sections)) {
-            $placeholders = implode(',', array_fill(0, count($student_sections), '%d'));
-            $active_exams = $wpdb->get_results($wpdb->prepare(
-                "SELECT e.*, sub.subject_name, s.section_name, g.grade_name, st.student_uid, st.student_name
-                 FROM {$wpdb->prefix}olama_exam_exams e
-                 JOIN {$wpdb->prefix}olama_student_enrollment se ON e.section_id = se.section_id
-                 JOIN {$wpdb->prefix}olama_students st ON se.student_id = st.id
-                 LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-                 LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
-                 LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
-                 WHERE st.family_id = %s AND se.academic_year_id = %d AND se.status = 'active' AND e.status = 'active' AND e.section_id IN ($placeholders)
-                 ORDER BY e.start_time ASC",
-            ...array_merge(array($family_id, $year_id), $student_sections)
-            ));
-        }
-
-        // Get completed attempts for all students in this family
-        $completed_attempts = $wpdb->get_results($wpdb->prepare(
-            "SELECT a.*, e.title as exam_title, sub.subject_name, e.show_results, st.student_name
-             FROM {$wpdb->prefix}olama_exam_attempts a
-             JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
-             JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
+        // Get ALL assigned or attempted exams for all students in this family
+        $sql = $wpdb->prepare(
+            "SELECT e.*, st.student_name, st.student_uid, g.grade_name, s.section_name, sub.subject_name, sub.color_code
+             FROM {$wpdb->prefix}olama_exam_exams e
+             JOIN (
+                SELECT st_inner.student_uid, st_inner.student_name, st_inner.family_id, en_inner.section_id, 0 as exam_id
+                FROM {$wpdb->prefix}olama_students st_inner
+                JOIN {$wpdb->prefix}olama_student_enrollment en_inner ON st_inner.student_uid = en_inner.student_uid
+                UNION
+                SELECT st_inner2.student_uid, st_inner2.student_name, st_inner2.family_id, 0 as section_id, a_inner.exam_id
+                FROM {$wpdb->prefix}olama_students st_inner2
+                JOIN {$wpdb->prefix}olama_exam_attempts a_inner ON st_inner2.student_uid = a_inner.student_uid
+             ) st ON (st.family_id = %s AND (st.section_id = e.section_id OR st.exam_id = e.id))
+             LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
+             LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-             WHERE st.family_id = %s AND a.submitted_at IS NOT NULL
-             ORDER BY a.submitted_at DESC LIMIT 20",
+             WHERE 1=1",
             $family_id
-        ));
+        );
+
+        if ($student_filter) {
+            $sql .= $wpdb->prepare(" AND st.student_uid = %s", $student_filter);
+        }
+
+        $sql .= " GROUP BY e.id, st.student_uid ORDER BY e.start_time ASC";
+        $all_exams = $wpdb->get_results($sql);
+
+        // Get completed attempts
+        $completed_attempts_query = $wpdb->prepare(
+            "SELECT a.*, e.title as exam_title, st.student_name, e.show_results
+              FROM {$wpdb->prefix}olama_exam_attempts a
+              JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
+              JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
+              WHERE st.family_id = %s AND a.submitted_at IS NOT NULL",
+            $family_id
+        );
+
+        if ($student_filter) {
+            $completed_attempts_query .= $wpdb->prepare(" AND a.student_uid = %s", $student_filter);
+        }
+
+        $completed_attempts_query .= " ORDER BY a.submitted_at DESC LIMIT 15";
+        $completed_attempts = $wpdb->get_results($completed_attempts_query);
 
         ob_start();
         ?>
-        <div class="oe-container" dir="auto">
-            <div class="oe-dashboard">
-                <h2 class="oe-title"><?php echo olama_exam_translate('My Exams'); ?></h2>
+        <div class="oe-container oe-dashboard-wrap" dir="auto">
+            <header class="oe-dashboard-header">
+                <h2 class="oe-title"><?php echo olama_exam_translate('Student Exams'); ?></h2>
+                <p class="oe-subtitle">
+                    <?php 
+                    if ($student_filter && !empty($all_exams)) {
+                        echo sprintf(olama_exam_translate('Viewing exams for: %s'), esc_html($all_exams[0]->student_name));
+                    } else {
+                        echo sprintf(olama_exam_translate('Total assignments for your children: %d'), count($all_exams));
+                    }
+                    ?>
+                </p>
+            </header>
 
-                <?php if (!empty($active_exams)): ?>
-                    <div class="oe-section">
-                        <h3 class="oe-section-title">📋 <?php echo olama_exam_translate('Available Exams'); ?></h3>
+            <div class="oe-dashboard-content">
+                <section class="oe-section">
+                    <div class="oe-section-header">
+                        <h3 class="oe-section-title">
+                            <span class="oe-icon">📝</span>
+                            <?php echo olama_exam_translate('Assigned Exams'); ?>
+                        </h3>
+                    </div>
+
+                    <?php if (!empty($all_exams)): ?>
                         <div class="oe-exam-grid">
-                            <?php foreach ($active_exams as $exam):
+                            <?php foreach ($all_exams as $exam):
+                                // Check attempts for THIS student
                                 $attempt_count = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts 
-                                 WHERE exam_id = %d AND student_id = %d",
-                                    $exam->id,
-                                    $student_id
+                                    "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts WHERE exam_id = %d AND student_uid = %s",
+                                    $exam->id, $exam->student_uid
                                 ));
                                 $has_unsubmitted = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts 
-                                 WHERE exam_id = %d AND student_id = %d AND submitted_at IS NULL",
-                                    $exam->id,
-                                    $student_id
+                                    "SELECT id FROM {$wpdb->prefix}olama_exam_attempts WHERE exam_id = %d AND student_uid = %s AND submitted_at IS NULL",
+                                    $exam->id, $exam->student_uid
                                 ));
-                                $remaining_attempts = $exam->max_attempts - $attempt_count;
-                                $can_take = $remaining_attempts > 0 || $has_unsubmitted > 0;
-                                $now = current_time('timestamp');
-                                $in_window = ($now >= strtotime($exam->start_time) && $now <= strtotime($exam->end_time));
+
+                                $remaining_attempts = intval($exam->max_attempts) - intval($attempt_count);
+                                $is_active_status = in_array($exam->status, array('active', 'published'));
+                                
+                                $now = current_time('mysql');
+                                $in_window = ($now >= $exam->start_time && $now <= $exam->end_time);
+                                if (!$in_window) {
+                                    $now_ts = current_time('timestamp');
+                                    $in_window = ($now_ts >= strtotime($exam->start_time) && $now_ts <= strtotime($exam->end_time));
+                                }
+
+                                // Logical status class
+                                if (!$is_active_status) {
+                                    $status_class = 'oe-status-inactive';
+                                } elseif ($has_unsubmitted) {
+                                    $status_class = 'oe-status-progress';
+                                } elseif ($in_window && ($remaining_attempts > 0)) {
+                                    $status_class = 'oe-status-active';
+                                } else {
+                                    $status_class = 'oe-status-locked';
+                                }
+                                
+                                // Subject Color fallback
+                                $subject_color = $exam->color_code ?: '#2563eb';
                                 ?>
-                                <div class="oe-exam-card <?php echo !$can_take ? 'oe-disabled' : ''; ?>">
-                                    <div class="oe-exam-card-header">
-                                        <span class="oe-subject-badge"><?php echo esc_html($exam->subject_name ?? ''); ?></span>
-                                        <span class="oe-duration">⏱ <?php echo $exam->duration_minutes; ?>
-                                            <?php echo olama_exam_translate('minutes'); ?></span>
+                                <div class="oe-exam-card <?php echo $status_class; ?>" style="--oe-subject: <?php echo $subject_color; ?>;">
+                                    <div class="oe-card-content">
+                                        <div class="oe-card-top">
+                                            <div class="oe-subject-tag" style="background: <?php echo $subject_color; ?>20; color: <?php echo $subject_color; ?>;"><?php echo esc_html($exam->subject_name ?: olama_exam_translate('General')); ?></div>
+                                            <?php if (!$student_filter): ?>
+                                                <div class="oe-student-tag">👤 <?php echo esc_html($exam->student_name); ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <h4 class="oe-card-title"><?php echo esc_html($exam->title); ?></h4>
+                                        <div class="oe-card-meta">
+                                            <div class="oe-meta-row">⏱ <strong><?php echo olama_exam_translate('Duration:'); ?></strong> <?php echo $exam->duration_minutes; ?> min</div>
+                                            <div class="oe-meta-row">🔢 <strong><?php echo olama_exam_translate('Attempts:'); ?></strong> <?php echo $attempt_count; ?>/<?php echo $exam->max_attempts; ?></div>
+                                            <?php if ($is_active_status): ?>
+                                                <div class="oe-meta-row">📅 <strong><?php echo olama_exam_translate('Ends:'); ?></strong> <?php echo date('d M, Y H:i', strtotime($exam->end_time)); ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="oe-card-details">
+                                            <?php if (!$is_active_status): ?>
+                                                <span class="oe-status-badge">⚠️ <?php echo ucfirst($exam->status); ?></span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
-                                    <h4 class="oe-exam-card-title"><?php echo esc_html($exam->title); ?></h4>
-                                    <div class="oe-exam-card-info" style="font-weight: 600; color: #475569; margin-bottom: 6px;">
-                                        👤 <?php echo esc_html($exam->student_name); ?>
+                                    <div class="oe-card-footer">
+                                        <?php if (!$is_active_status): ?>
+                                            <div class="oe-card-notice oe-notice-info"><?php echo olama_exam_translate('Not open yet'); ?></div>
+                                        <?php elseif ($has_unsubmitted): ?>
+                                            <a href="?exam_view=take&exam_id=<?php echo $exam->id; ?>&student_uid=<?php echo esc_attr($exam->student_uid); ?>" class="oe-btn oe-btn-warning oe-full-width">
+                                                🔄 <?php echo olama_exam_translate('Resume Exam'); ?>
+                                            </a>
+                                        <?php elseif ($in_window && $remaining_attempts > 0): ?>
+                                            <a href="?exam_view=take&exam_id=<?php echo $exam->id; ?>&student_uid=<?php echo esc_attr($exam->student_uid); ?>" class="oe-btn oe-btn-primary oe-full-width">
+                                                🚀 <?php echo olama_exam_translate('Start Exam'); ?>
+                                            </a>
+                                        <?php elseif (!$in_window): ?>
+                                            <div class="oe-card-notice oe-notice-info">⌛ <?php echo olama_exam_translate('Outside time window'); ?></div>
+                                        <?php else: ?>
+                                            <div class="oe-card-notice oe-notice-danger">🚫 <?php echo olama_exam_translate('No attempts left'); ?></div>
+                                        <?php endif; ?>
                                     </div>
-                                    <div class="oe-exam-card-info">
-                                        <span><?php echo esc_html($exam->grade_name ?? ''); ?> —
-                                            <?php echo esc_html($exam->section_name ?? ''); ?></span>
-                                        <span><?php echo olama_exam_translate('Attempts'); ?>:
-                                            <?php echo $attempt_count; ?>/<?php echo $exam->max_attempts; ?></span>
-                                    </div>
-                                    <?php if ($can_take && $in_window): ?>
-                                        <a href="?exam_view=take&exam_id=<?php echo $exam->id; ?>&student_uid=<?php echo esc_attr($exam->student_uid); ?>" class="oe-btn oe-btn-primary">
-                                            <?php echo $has_unsubmitted ? olama_exam_translate('Resume Exam') : olama_exam_translate('Start Exam'); ?>
-                                        </a>
-                                    <?php elseif (!$in_window): ?>
-                                        <div class="oe-exam-card-status"><?php echo olama_exam_translate('Outside time window'); ?></div>
-                                    <?php else: ?>
-                                        <div class="oe-exam-card-status"><?php echo olama_exam_translate('No attempts remaining'); ?></div>
-                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                    </div>
-                <?php else: ?>
-                    <div class="oe-empty"><?php echo olama_exam_translate('No active exams available.'); ?></div>
-                <?php endif; ?>
+                    <?php else: ?>
+                        <div class="oe-empty-state">
+                            <div class="oe-empty-icon">📂</div>
+                            <p><?php echo olama_exam_translate('No exams are currently available for your children.'); ?></p>
+                        </div>
+                    <?php endif; ?>
+                </section>
 
                 <?php if (!empty($completed_attempts)): ?>
-                    <div class="oe-section" style="margin-top:32px;">
-                        <h3 class="oe-section-title">📊 <?php echo olama_exam_translate('Completed Exams'); ?></h3>
-                        <div class="oe-results-list">
-                            <?php foreach ($completed_attempts as $a): ?>
-                                <div class="oe-result-row">
-                                    <div class="oe-result-info">
-                                        <strong><?php echo esc_html($a->exam_title); ?></strong>
-                                        <div style="font-size: 13px; color: #64748b; margin-top: 2px;">👤 <?php echo esc_html($a->student_name); ?></div>
-                                        <span
-                                            class="oe-result-date"><?php echo date('d/m/Y H:i', strtotime($a->submitted_at)); ?></span>
-                                    </div>
-                                    <div class="oe-result-score">
-                                        <span class="oe-score-badge oe-score-<?php echo $a->result; ?>">
-                                            <?php echo $a->percentage; ?>%
-                                            <?php if ($a->result === 'pass'): ?>✅<?php elseif ($a->result === 'fail'): ?>❌<?php else: ?>⏳<?php endif; ?>
-                                        </span>
-                                    </div>
-                                    <?php if ($a->show_results): ?>
-                                        <a href="?exam_view=results&attempt_id=<?php echo $a->id; ?>&student_uid=<?php echo esc_attr($a->student_uid); ?>"
-                                            class="oe-btn oe-btn-outline oe-btn-sm">
-                                            <?php echo olama_exam_translate('View Details'); ?>
-                                        </a>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
+                <section class="oe-section oe-completed-section">
+                    <div class="oe-section-header">
+                        <h3 class="oe-section-title">
+                            <span class="oe-icon">📊</span>
+                            <?php echo olama_exam_translate('Recent Results'); ?>
+                        </h3>
                     </div>
+                    <div class="oe-results-grid">
+                        <?php foreach ($completed_attempts as $a): ?>
+                            <div class="oe-result-card">
+                                <div class="oe-result-header">
+                                    <strong><?php echo esc_html($a->exam_title); ?></strong>
+                                    <span class="oe-result-student"><?php echo esc_html($a->student_name); ?></span>
+                                </div>
+                                <div class="oe-result-body">
+                                    <div class="oe-result-score oe-score-<?php echo $a->result; ?>">
+                                        <?php echo $a->percentage; ?>%
+                                        <span class="oe-score-label"><?php echo strtoupper($a->result); ?></span>
+                                    </div>
+                                    <div class="oe-result-meta">
+                                        <span>📅 <?php echo date('d/m/y', strtotime($a->submitted_at)); ?></span>
+                                        <?php if ($a->show_results): ?>
+                                            <a href="?exam_view=results&attempt_id=<?php echo $a->id; ?>&student_uid=<?php echo esc_attr($a->student_uid); ?>" class="oe-link-action">
+                                                <?php echo olama_exam_translate('View Details'); ?> ➔
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
                 <?php endif; ?>
             </div>
         </div>
@@ -219,6 +265,11 @@ class Olama_Exam_Shortcodes
      */
     private function render_exam_taking($exam_id)
     {
+        // Force enqueue assets here to ensure they load even if global detection fails
+        if (function_exists('olama_exam_enqueue_frontend_assets')) {
+            olama_exam_enqueue_frontend_assets(true);
+        }
+
         if (!$exam_id) {
             return '<div class="oe-error">' . olama_exam_translate('Invalid exam.') . '</div>';
         }

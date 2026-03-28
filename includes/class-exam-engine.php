@@ -24,7 +24,8 @@ class Olama_Exam_Engine
         }
 
         // Check exam is active (unless preview or override)
-        if ($exam->status !== 'active' && !$is_preview && !$is_admin_override) {
+        $is_accessible = in_array($exam->status, array('active', 'published'));
+        if (!$is_accessible && !$is_preview && !$is_admin_override) {
             return new WP_Error('not_active', olama_exam_translate('This exam is not currently active.'));
         }
 

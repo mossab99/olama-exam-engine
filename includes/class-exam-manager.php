@@ -132,9 +132,14 @@ class Olama_Exam_Manager
         $start_time = sanitize_text_field($data['start_time'] ?? '');
         $end_time = sanitize_text_field($data['end_time'] ?? '');
         
-        // Convert datetime-local (T separator) to MySQL format
-        if ($start_time) $start_time = str_replace('T', ' ', $start_time);
-        if ($end_time) $end_time = str_replace('T', ' ', $end_time);
+        if ($start_time) {
+            $st_ts = strtotime($start_time);
+            $start_time = $st_ts ? date('Y-m-d H:i:s', $st_ts) : '';
+        }
+        if ($end_time) {
+            $et_ts = strtotime($end_time);
+            $end_time = $et_ts ? date('Y-m-d H:i:s', $et_ts) : '';
+        }
 
         $fields = array(
             'title' => sanitize_text_field($data['title'] ?? ''),
