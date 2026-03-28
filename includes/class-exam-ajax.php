@@ -81,7 +81,6 @@ class Olama_Exam_Ajax
             }
         }
         add_action('wp_ajax_nopriv_olama_exam_start_placement', array(__CLASS__, 'handle_start_placement'));
-        error_log("Olama Exam [AJAX]: Handlers Registered. Total: " . count($actions));
     }
 
     /**

@@ -91,7 +91,6 @@ function olama_exam_init()
     }
 
     olama_exam_load_includes();
-    error_log("Olama Exam [CORE]: Init. Role=" . (current_user_can('manage_options') ? 'Admin' : 'Student/Other'));
 
     // Initialize admin
     if (is_admin()) {
@@ -103,7 +102,6 @@ function olama_exam_init()
 
     // Initialize AJAX handlers
     Olama_Exam_Ajax::init();
-    error_log("Olama Exam [CORE]: AJAX Initialized.");
 
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
@@ -127,7 +125,7 @@ add_action('init', 'olama_exam_init', 1); // Priority 1 = early init
  */
 add_action('admin_init', function() {
     if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action']) && strpos($_REQUEST['action'], 'olama') !== false) {
-        error_log("Olama Exam [MONITOR]: Incoming AJAX Action: " . $_REQUEST['action']);
+        // Monitor AJAX actions if needed
     }
 }, 1);
 
