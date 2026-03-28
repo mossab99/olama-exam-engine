@@ -120,7 +120,7 @@ function olama_exam_init()
     olama_exam_migrate_student_uid();
     olama_exam_migrate_lesson_id();
 }
-add_action('plugins_loaded', 'olama_exam_init', 1); // Priority 1 = as early as possible
+add_action('init', 'olama_exam_init', 1); // Priority 1 = early init
 
 /**
  * Debug: Monitor all AJAX actions for olama
