@@ -10,6 +10,21 @@ if (!defined('ABSPATH')) {
 class Olama_Exam_DB
 {
     /**
+     * Get all tables managed by this plugin
+     */
+    public static function get_tables()
+    {
+        return array(
+            'olama_exam_question_categories',
+            'olama_exam_questions',
+            'olama_exam_exams',
+            'olama_exam_attempts',
+            'olama_exam_essay_grades',
+            'olama_exam_placement_info'
+        );
+    }
+
+    /**
      * Create all exam engine tables
      */
     public static function create_tables()
