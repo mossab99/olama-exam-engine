@@ -34,7 +34,7 @@ class Olama_Exam_Manager
                     e.start_time, e.end_time, e.duration_minutes, e.passing_grade,
                     e.max_attempts, e.question_mode, e.random_count,
                     e.random_category_id, e.random_unit_id, e.random_lesson_id,
-                    e.random_difficulty, e.show_results, e.is_placement, e.status, e.created_at,
+                    e.random_difficulty, e.show_results, e.is_placement, e.exam_type, e.password, e.status, e.created_at,
                     s.section_name, COALESCE(g.grade_name, g2.grade_name) as grade_name, sub.subject_name,
                     u.display_name as teacher_name";
 
@@ -93,6 +93,14 @@ class Olama_Exam_Manager
         if (!empty($filters['search'])) {
             $query .= " AND e.title LIKE %s";
             $params[] = '%' . $wpdb->esc_like($filters['search']) . '%';
+        }
+        if (!empty($filters['exam_type'])) {
+            if ($filters['exam_type'] === 'exam') {
+                $query .= " AND (e.exam_type = 'exam' OR e.exam_type IS NULL OR e.exam_type = '')";
+            } else {
+                $query .= " AND e.exam_type = %s";
+                $params[] = sanitize_text_field($filters['exam_type']);
+            }
         }
 
         $query .= " ORDER BY e.created_at DESC";
@@ -156,6 +164,8 @@ class Olama_Exam_Manager
             'question_mode' => sanitize_text_field($data['question_mode'] ?? 'manual'),
             'show_results' => intval($data['show_results'] ?? 0),
             'is_placement' => (isset($data['is_placement']) && ($data['is_placement'] === 'on' || $data['is_placement'] == 1)) ? 1 : 0,
+            'exam_type' => sanitize_text_field($data['exam_type'] ?? 'exam'),
+            'password' => sanitize_text_field($data['password'] ?? null),
         );
 
         // Validate required
@@ -441,6 +451,33 @@ class Olama_Exam_Manager
             'questions' => $preview_questions,
             'count' => count($preview_questions),
         );
+    }
+
+    /**
+     * Replicate an exam
+     */
+    public static function replicate_exam($id)
+    {
+        global $wpdb;
+        $table = "{$wpdb->prefix}olama_exam_exams";
+        
+        $exam = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id), ARRAY_A);
+        if (!$exam) {
+            return new WP_Error('not_found', 'Exam not found.');
+        }
+
+        // Prepare for duplication
+        unset($exam['id']);
+        $exam['title'] = $exam['title'] . ' (' . olama_exam_translate('Copy') . ')';
+        $exam['status'] = 'draft';
+        $exam['created_at'] = current_time('mysql');
+
+        $result = $wpdb->insert($table, $exam);
+        if ($result === false) {
+            return new WP_Error('db_error', 'Failed to replicate exam. ' . $wpdb->last_error);
+        }
+
+        return $wpdb->insert_id;
     }
 
     /**

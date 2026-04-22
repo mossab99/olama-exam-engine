@@ -97,6 +97,8 @@ class Olama_Exam_DB
             manual_question_ids LONGTEXT NULL,
             show_results TINYINT(1) NOT NULL DEFAULT 0,
             is_placement TINYINT(1) NOT NULL DEFAULT 0,
+            exam_type VARCHAR(20) NOT NULL DEFAULT 'exam',
+            password VARCHAR(255) NULL,
             status VARCHAR(15) NOT NULL DEFAULT 'draft',
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -105,7 +107,8 @@ class Olama_Exam_DB
             KEY idx_teacher (teacher_id),
             KEY idx_status (status),
             KEY idx_dates (start_time, end_time),
-            KEY idx_academic (academic_year_id, semester_id)
+            KEY idx_academic (academic_year_id, semester_id),
+            KEY idx_type (exam_type)
         ) $charset;";
 
         // ── Table 4: Exam Attempts ─────────────────────────────
@@ -215,20 +218,31 @@ class Olama_Exam_DB
             $wpdb->query("ALTER TABLE {$questions_table} ADD KEY idx_lesson (lesson_id)");
         }
 
-        // Add random_lesson_id to exams table if not exists
+        // Add random_lesson_id, is_placement, exam_type, password to exams table if not exists
         $exams_table = "{$wpdb->prefix}olama_exam_exams";
         $e_cols = $wpdb->get_results("SHOW COLUMNS FROM {$exams_table}");
         $has_random_lesson_id = false;
         $has_is_placement = false;
+        $has_exam_type = false;
+        $has_password = false;
         foreach ($e_cols as $col) {
             if ($col->Field === 'random_lesson_id') $has_random_lesson_id = true;
             if ($col->Field === 'is_placement') $has_is_placement = true;
+            if ($col->Field === 'exam_type') $has_exam_type = true;
+            if ($col->Field === 'password') $has_password = true;
         }
         if (!$has_random_lesson_id) {
             $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN random_lesson_id BIGINT UNSIGNED NULL AFTER random_unit_id");
         }
         if (!$has_is_placement) {
             $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN is_placement TINYINT(1) NOT NULL DEFAULT 0 AFTER show_results");
+        }
+        if (!$has_exam_type) {
+            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN exam_type VARCHAR(20) NOT NULL DEFAULT 'exam' AFTER is_placement");
+            $wpdb->query("ALTER TABLE {$exams_table} ADD KEY idx_type (exam_type)");
+        }
+        if (!$has_password) {
+            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN password VARCHAR(255) NULL AFTER exam_type");
         }
 
         // Create placement info table if missing

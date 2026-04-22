@@ -33,10 +33,11 @@
     // ── Initialize ────────────────────────────────────────────
     init();
 
-    function init() {
+    function init(password = '') {
         ajax('olama_exam_start', { 
             exam_id: config.examId,
-            student_uid: config.studentUid
+            student_uid: config.studentUid,
+            password: password
         }, function (data) {
             if (data.resumed) {
                 state.remainingSeconds = data.remaining_seconds;
@@ -73,10 +74,67 @@
 
             // Observe question cards for fade-in
             setTimeout(observeCards, 100);
-        }, function (msg) {
+        }, function (msg, data) {
+            if (data && data.code === 'PASSWORD_REQUIRED') {
+                showPasswordPrompt();
+                return;
+            }
             document.getElementById('oe-loading').innerHTML =
                 '<p style="color:#dc2626;">❌ ' + escHtml(msg) + '</p>' +
                 '<a href="?exam_view=dashboard" class="oe-btn oe-btn-outline" style="margin-top:16px;">← Back</a>';
+        });
+    }
+
+    function showPasswordPrompt() {
+        document.getElementById('oe-loading').style.display = 'none';
+        
+        const isAr = document.documentElement.lang === 'ar';
+        let html = '<div class="oe-password-overlay">';
+        html += '  <div class="oe-password-card">';
+        html += '    <div class="oe-lock-icon">🔒</div>';
+        html += '    <h3>' + (isAr ? 'كلمة مرور الاختبار' : 'Exam Password') + '</h3>';
+        html += '    <p>' + (isAr ? 'هذا الاختبار محمي بكلمة مرور. يرجى إدخال كلمة المرور للمتابعة.' : 'This exam is password protected. Please enter the password to continue.') + '</p>';
+        html += '    <input type="password" id="oe-password-input" placeholder="' + (isAr ? 'كلمة المرور' : 'Password') + '" autofocus>';
+        html += '    <div id="oe-password-error" style="color:#dc2626; font-size:13px; margin-top:8px; display:none;">❌ ' + (isAr ? 'كلمة مرور غير صحيحة' : 'Incorrect password') + '</div>';
+        html += '    <div class="oe-password-actions">';
+        html += '      <button id="oe-password-btn" class="oe-btn oe-btn-primary">' + (isAr ? 'بدء الاختبار' : 'Start Exam') + '</button>';
+        html += '      <a href="?exam_view=dashboard" class="oe-btn oe-btn-outline">' + (isAr ? 'إلغاء' : 'Cancel') + '</a>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '</div>';
+
+        container.insertAdjacentHTML('beforeend', html);
+
+        const input = document.getElementById('oe-password-input');
+        const btn = document.getElementById('oe-password-btn');
+        const error = document.getElementById('oe-password-error');
+
+        btn.addEventListener('click', function() {
+            const pass = input.value.trim();
+            if (!pass) return;
+            
+            btn.disabled = true;
+            btn.textContent = '⏳...';
+            error.style.display = 'none';
+
+            // Try to init again with password
+            ajax('olama_exam_start', { 
+                exam_id: config.examId,
+                student_uid: config.studentUid,
+                password: pass
+            }, function (data) {
+                document.querySelector('.oe-password-overlay').remove();
+                document.getElementById('oe-loading').style.display = '';
+                init(pass); // Re-run init with confirmed password
+            }, function (msg, data) {
+                btn.disabled = false;
+                btn.textContent = isAr ? 'بدء الاختبار' : 'Start Exam';
+                error.style.display = 'block';
+            });
+        });
+
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') btn.click();
         });
     }
 
@@ -667,7 +725,7 @@
                 if (result.success) {
                     onSuccess(result.data);
                 } else {
-                    (onError || function () { })(result.data ? result.data.message : 'Unknown error');
+                    (onError || function () { })(result.data ? result.data.message : 'Unknown error', result.data);
                 }
             })
             .catch(function (err) {

@@ -23,6 +23,14 @@ $exam      = $edit_id > 0 ? Olama_Exam_Manager::get_exam($edit_id) : null;
 $exam_questions = ($exam && $exam->question_mode === 'manual' && $exam->manual_question_ids) 
     ? json_decode($exam->manual_question_ids, true) : array();
 
+// Detect Quiz Mode
+$is_quiz_mode = (isset($_GET['page']) && $_GET['page'] === 'olama-exam-create-quiz');
+$page_title = $show_form 
+    ? ($exam ? olama_exam_translate($is_quiz_mode ? 'Edit Quiz' : 'Edit Exam') : ($is_quiz_mode ? olama_exam_translate('Create Quiz') : olama_exam_translate('Create Exam')))
+    : ($is_quiz_mode ? olama_exam_translate('Quizzes') : olama_exam_translate('Exams'));
+
+$exam_label = $is_quiz_mode ? olama_exam_translate('Quiz') : olama_exam_translate('Exam');
+
 $status_labels = array(
     'draft'     => array('label' => olama_exam_translate('Draft'),     'class' => 'olama-exam-badge-draft'),
     'published' => array('label' => olama_exam_translate('Published'), 'class' => 'olama-exam-badge-published'),
@@ -39,16 +47,16 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     <!-- Header -->
     <div class="olama-exam-header">
         <div>
-            <h1><?php echo $show_form ? ($exam ? olama_exam_translate('Edit Exam') : olama_exam_translate('Create Exam')) : olama_exam_translate('Exams'); ?></h1>
+            <h1><?php echo $page_title; ?></h1>
         </div>
         <div class="actions">
             <?php if ($show_form): ?>
-                <a href="<?php echo admin_url('admin.php?page=olama-exam-create'); ?>" class="olama-exam-btn olama-exam-btn-outline">
+                <a href="<?php echo admin_url('admin.php?page=' . ($is_quiz_mode ? 'olama-exam-create-quiz' : 'olama-exam-create')); ?>" class="olama-exam-btn olama-exam-btn-outline">
                     ← <?php echo olama_exam_translate('Back to List'); ?>
                 </a>
             <?php else: ?>
-                <button class="olama-exam-btn olama-exam-btn-primary" id="btn-new-exam">
-                    + <?php echo olama_exam_translate('Create Exam'); ?>
+                <button class="olama-exam-btn olama-exam-btn-primary" id="btn-new-exam" data-mode="<?php echo $is_quiz_mode ? 'quiz' : 'exam'; ?>">
+                    + <?php echo $is_quiz_mode ? olama_exam_translate('Create Quiz') : olama_exam_translate('Create Exam'); ?>
                 </button>
             <?php endif; ?>
         </div>
@@ -82,7 +90,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     <div class="olama-exam-card">
         <div class="olama-exam-card-header">
-            <h3><?php echo olama_exam_translate('Exams'); ?> (<span id="exam-count">0</span>)</h3>
+            <h3><?php echo ($is_quiz_mode ? olama_exam_translate('Quizzes') : olama_exam_translate('Exams')); ?> (<span id="exam-count">0</span>)</h3>
         </div>
         <div id="exams-loading" style="text-align:center; padding:40px; color:#64748b;">
             ⏳ <?php echo olama_exam_translate('Loading...'); ?>
@@ -103,7 +111,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             <tbody id="exams-tbody"></tbody>
         </table>
         <div id="exams-empty" style="display:none; text-align:center; padding:40px; color:#64748b;">
-            📝 <?php echo olama_exam_translate('No exams found. Create your first exam!'); ?>
+            📝 <?php echo sprintf(olama_exam_translate('No %s found. Create your first %s!'), strtolower($is_quiz_mode ? olama_exam_translate('Quizzes') : olama_exam_translate('Exams')), strtolower($exam_label)); ?>
         </div>
     </div>
 
@@ -112,12 +120,14 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     <form id="exam-form">
         <input type="hidden" name="id" value="<?php echo $exam ? $exam->id : 0; ?>">
+        <input type="hidden" name="exam_type" value="<?php echo $exam ? $exam->exam_type : ($is_quiz_mode ? 'quiz' : 'exam'); ?>">
 
         <!-- Info Card -->
         <div class="olama-exam-card">
             <div class="olama-exam-card-header" style="justify-content: space-between; display: flex;">
-                <h3>📋 <?php echo olama_exam_translate('Exam Details'); ?></h3>
+                <h3>📋 <?php echo sprintf(olama_exam_translate('%s Details'), $exam_label); ?></h3>
                 <div style="display: flex; gap: 15px; align-items: center;">
+                    <?php if (!$is_quiz_mode): ?>
                     <label class="oe-toggle-option" style="margin: 0;">
                         <span style="font-size: 13px; font-weight: 600; color: #1e293b; margin: 0 10px;"><?php echo olama_exam_translate('Grade Placement Test'); ?></span>
                         <div class="oe-toggle-switch">
@@ -125,6 +135,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                             <label class="oe-toggle-slider" for="is-placement-toggle"></label>
                         </div>
                     </label>
+                    <?php endif; ?>
                     <?php if ($exam): ?>
                         <span class="olama-exam-badge <?php echo $status_labels[$exam->status]['class'] ?? ''; ?>">
                             <?php echo $status_labels[$exam->status]['label'] ?? $exam->status; ?>
@@ -132,10 +143,24 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                     <?php endif; ?>
                 </div>
             </div>
+            
+            <?php if (!$is_quiz_mode): ?>
+            <!-- SIS Exam Info Banner -->
+            <div id="sis-exam-info" style="display:none; background:#f0fdf4; border-bottom:1px solid #dcfce7; padding:12px 20px;">
+                <div style="display:flex; align-items:center; gap:12px; color:#166534; font-size:13px; font-weight:600;">
+                    <span style="font-size:18px;">📅</span>
+                    <div>
+                        <div id="sis-exam-name">...</div>
+                        <div id="sis-exam-dates" style="font-weight:400; font-size:12px; color:#15803d;">...</div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div style="padding:20px;">
                 <!-- Title (auto-generated) -->
                 <div class="olama-exam-form-group">
-                    <label><?php echo olama_exam_translate('Exam Title'); ?></label>
+                    <label><?php echo sprintf(olama_exam_translate('%s Title'), $exam_label); ?></label>
                     <input type="text" name="title" id="exam-title-input" value="<?php echo esc_attr($exam->title ?? ''); ?>" required
                         placeholder="<?php echo olama_exam_translate('Auto-generated after selecting grade, section & subject'); ?>">
                     <small id="exam-title-hint" style="color:#64748b; font-size:12px; display:none;">
@@ -251,6 +276,11 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                             <option value="1" <?php echo ($exam && $exam->show_results == 1) ? 'selected' : ''; ?>>
                                 <?php echo olama_exam_translate('Yes'); ?></option>
                         </select>
+                    </div>
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Password'); ?> (<?php echo olama_exam_translate('Optional'); ?>)</label>
+                        <input type="password" name="password" value="<?php echo esc_attr($exam->password ?? ''); ?>" 
+                            placeholder="<?php echo olama_exam_translate('Leave blank for no password'); ?>" autocomplete="new-password">
                     </div>
                 </div>
             </div>
@@ -440,6 +470,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     var statusLabels = <?php echo json_encode(array_map(function($s){ return $s['label']; }, $status_labels)); ?>;
     var statusClasses = <?php echo json_encode(array_map(function($s){ return $s['class']; }, $status_labels)); ?>;
     var selectedIds = <?php echo json_encode($exam_questions); ?>;
+    var isQuizMode = <?php echo $is_quiz_mode ? 'true' : 'false'; ?>;
 
     // Cached schedule data
     var scheduleInfo = null;
@@ -457,6 +488,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             search: $('#filter-exam-search').val(),
             grade_id: $('#filter-exam-grade').val(),
             section_id: $('#filter-exam-section').val(),
+            exam_type: isQuizMode ? 'quiz' : 'exam',
         };
 
         $('#exams-loading').show();
@@ -493,11 +525,12 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                     '<td>' +
                         '<div class="oe-action-buttons">' +
                             '<div class="oe-action-group main">' +
-                                '<a href="?page=olama-exam-create&edit=' + e.id + '" ' +
+                                '<a href="?page=' + (isQuizMode ? 'olama-exam-create-quiz' : 'olama-exam-create') + '&edit=' + e.id + '" ' +
                                     'class="olama-exam-btn olama-exam-btn-primary olama-exam-btn-sm" title="<?php echo olama_exam_translate("Edit"); ?>">✏️</a>' +
                                 '<a href="?page=olama-exam-student-preview&id=' + e.id + '" ' +
                                     'class="olama-exam-btn olama-exam-btn-student olama-exam-btn-sm" title="<?php echo olama_exam_translate("Student Preview"); ?>">👨‍🎓</a>' +
                                 '<button type="button" class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-copy-link" data-id="' + e.id + '" title="<?php echo olama_exam_translate("Copy Public Link"); ?>">🔗</button>' +
+                                '<button type="button" class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-replicate" data-id="' + e.id + '" title="<?php echo olama_exam_translate("Replicate"); ?>">👯</button>' +
                             '</div>' +
                             '<div class="oe-action-group secondary">' +
                                 '<a href="?page=olama-exam-preview&id=' + e.id + '" ' +
@@ -598,7 +631,25 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // New Exam button → redirect to form
     $('#btn-new-exam').on('click', function() {
-        window.location = '?page=olama-exam-create&edit=0';
+        var mode = $(this).data('mode') || 'exam';
+        var page = mode === 'quiz' ? 'olama-exam-create-quiz' : 'olama-exam-create';
+        window.location = '?page=' + page + '&edit=0';
+    });
+
+    // Replicate exam
+    $(document).on('click', '.btn-replicate', function() {
+        if (!confirm('<?php echo olama_exam_translate("Replicate this exam?"); ?>')) return;
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('⏳');
+        $.post(olamaExam.ajaxUrl, {
+            action: 'olama_exam_replicate_exam',
+            nonce: olamaExam.nonce,
+            id: $btn.data('id'),
+        }, function(res) {
+            ExamAdmin.toast(res.data.message, res.success ? 'success' : 'error');
+            if (res.success) loadExams();
+            else $btn.prop('disabled', false).text('👯');
+        });
     });
 
     // Status change
@@ -717,7 +768,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             subject_id: subjectId,
             is_placement: isPlacement ? 1 : 0,
         }, function(res) {
-            if (!res.success) {
+            if (!res.success || isQuizMode) {
                 scheduleInfo = null;
                 materialUnits = [];
                 $('#sis-exam-info').hide();
@@ -735,13 +786,13 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
             // Feature #1: Auto-generate title (only for new exams)
             var isNew = $('input[name="id"]').val() == '0';
-            if (isNew && res.data.auto_title) {
+            if (isNew && !isQuizMode && res.data.auto_title) {
                 $('#exam-title-input').val(res.data.auto_title);
                 $('#exam-title-hint').show();
             }
 
             // Feature #2: Default dates from exam schedule
-            if (isNew && res.data.exam_date) {
+            if (isNew && !isQuizMode && res.data.exam_date) {
                 var d = res.data.exam_date; // format: YYYY-MM-DD
                 $('#exam-start-time').val(d + 'T00:00');
                 $('#exam-end-time').val(d + 'T23:59');
@@ -810,9 +861,41 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     // Feature #4: Override checkbox
     $('#q-show-all-units').on('change', populateUnitDropdowns);
 
+    function generateQuizTitle() {
+        var grade = $('#exam-grade-select option:selected').text().trim();
+        var section = $('#exam-section-select option:selected').text().trim();
+        var subject = $('#exam-subject-select option:selected').text().trim();
+        var isNew = $('input[name="id"]').val() == '0';
+
+        if (isNew && $('#exam-grade-select').val() && $('#exam-grade-select').val() != '0' && 
+            $('#exam-section-select').val() && $('#exam-section-select').val() != '0' && 
+            $('#exam-subject-select').val() && $('#exam-subject-select').val() != '0') {
+            
+            var baseTitle = grade + ' - ' + section + ' - ' + subject + ' - ' + '<?php echo olama_exam_translate("Quiz"); ?>';
+            
+            $.post(olamaExam.ajaxUrl, {
+                action: 'olama_exam_get_quiz_next_sequence',
+                nonce: olamaExam.nonce,
+                grade_id: $('#exam-grade-select').val(),
+                section_id: $('#exam-section-select').val(),
+                subject_id: $('#exam-subject-select').val()
+            }, function(res) {
+                if (res.success) {
+                    $('#exam-title-input').val(baseTitle + ' ' + res.data.sequence);
+                }
+            });
+        }
+    }
+
     // Trigger schedule fetch when section or subject changes
-    $('#exam-section-select').on('change', fetchScheduleInfo);
-    $('#exam-subject-select').on('change', fetchScheduleInfo);
+    $('#exam-section-select').on('change', function() {
+        if (isQuizMode) generateQuizTitle();
+        fetchScheduleInfo();
+    });
+    $('#exam-subject-select').on('change', function() {
+        if (isQuizMode) generateQuizTitle();
+        fetchScheduleInfo();
+    });
 
     // Auto-trigger grade cascade on edit
     <?php if ($exam && isset($exam->grade_id) && $exam->grade_id > 0): ?>
@@ -1032,7 +1115,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 ExamAdmin.toast(res.data.message);
                 var gradeId = $('#exam-grade-select').val();
                 var sectionId = $('#exam-section-select').val();
-                var url = '?page=olama-exam-create';
+                var url = '?page=' + (isQuizMode ? 'olama-exam-create-quiz' : 'olama-exam-create');
                 if (gradeId && gradeId != '0') url += '&filter_grade=' + gradeId;
                 if (sectionId && sectionId != '0') url += '&filter_section=' + sectionId;
                 window.location = url;

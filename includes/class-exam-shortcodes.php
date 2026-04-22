@@ -173,12 +173,20 @@ class Olama_Exam_Shortcodes
                                 <div class="oe-exam-card <?php echo $status_class; ?>" style="--oe-subject: <?php echo $subject_color; ?>;">
                                     <div class="oe-card-content">
                                         <div class="oe-card-top">
-                                            <div class="oe-subject-tag" style="background: <?php echo $subject_color; ?>20; color: <?php echo $subject_color; ?>;"><?php echo esc_html($exam->subject_name ?: olama_exam_translate('General')); ?></div>
+                                            <div style="display:flex; gap:6px; align-items:center;">
+                                                <div class="oe-subject-tag" style="background: <?php echo $subject_color; ?>20; color: <?php echo $subject_color; ?>;"><?php echo esc_html($exam->subject_name ?: olama_exam_translate('General')); ?></div>
+                                                <?php if ($exam->exam_type === 'quiz'): ?>
+                                                    <span class="oe-status-badge" style="background:#fef3c7; color:#d97706;"><?php echo olama_exam_translate('Quiz'); ?></span>
+                                                <?php endif; ?>
+                                            </div>
                                             <?php if (!$student_filter): ?>
                                                 <div class="oe-student-tag">👤 <?php echo esc_html($exam->student_name); ?></div>
                                             <?php endif; ?>
                                         </div>
-                                        <h4 class="oe-card-title"><?php echo esc_html($exam->title); ?></h4>
+                                        <h4 class="oe-card-title">
+                                            <?php echo esc_html($exam->title); ?>
+                                            <?php if (!empty($exam->password)): ?> 🔒<?php endif; ?>
+                                        </h4>
                                         <div class="oe-card-meta">
                                             <div class="oe-meta-row">⏱ <strong><?php echo olama_exam_translate('Duration:'); ?></strong> <?php echo $exam->duration_minutes; ?> min</div>
                                             <div class="oe-meta-row">🔢 <strong><?php echo olama_exam_translate('Attempts:'); ?></strong> <?php echo $attempt_count; ?>/<?php echo $exam->max_attempts; ?></div>

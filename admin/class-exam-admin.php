@@ -83,6 +83,16 @@ class Olama_Exam_Admin
             array($this, 'render_exam_create')
         );
 
+        // Submenu: Create Quiz
+        add_submenu_page(
+            'olama-exam',
+            olama_exam_translate('Create Quiz'),
+            olama_exam_translate('Create Quiz'),
+            $this->get_capability('olama_create_exams'),
+            'olama-exam-create-quiz',
+            array($this, 'render_exam_create')
+        );
+
         // Submenu: Results
         add_submenu_page(
             'olama-exam',

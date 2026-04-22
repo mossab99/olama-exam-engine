@@ -42,9 +42,12 @@ wp_enqueue_script('olama-exam-engine', OLAMA_EXAM_URL . 'assets/js/exam-engine.j
     }
 </style>
 
+<?php 
+$exit_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+?>
 <div class="preview-mode-bar">
     <span>🛡️ <?php echo olama_exam_translate('Student Preview Mode (Simulation)'); ?></span>
-    <a href="?page=olama-exam-create" class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" style="color:white; border-color:white;">
+    <a href="?page=<?php echo $exit_page; ?>" class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" style="color:white; border-color:white;">
         <?php echo olama_exam_translate('Exit Preview'); ?>
     </a>
 </div>

@@ -95,12 +95,15 @@ wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=I
             <span class="preview-badge">👁️ <?php echo olama_exam_translate('Teacher Preview'); ?></span>
             <h2><?php echo esc_html($exam->title); ?></h2>
         </div>
+        <?php 
+        $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+        ?>
         <div class="preview-actions">
-            <a href="?page=olama-exam-create" class="olama-exam-btn olama-exam-btn-outline">
+            <a href="?page=<?php echo $list_page; ?>" class="olama-exam-btn olama-exam-btn-outline">
                 ← <?php echo olama_exam_translate('Back to List'); ?>
             </a>
-            <a href="?page=olama-exam-create&edit=<?php echo $exam->id; ?>" class="olama-exam-btn olama-exam-btn-primary">
-                ✏️ <?php echo olama_exam_translate('Edit Exam'); ?>
+            <a href="?page=<?php echo $list_page; ?>&edit=<?php echo $exam->id; ?>" class="olama-exam-btn olama-exam-btn-primary">
+                ✏️ <?php echo sprintf(olama_exam_translate('Edit %s'), ($exam->exam_type === 'quiz' ? olama_exam_translate('Quiz') : olama_exam_translate('Exam'))); ?>
             </a>
         </div>
     </div>

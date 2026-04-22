@@ -44,6 +44,8 @@ class Olama_Exam_Ajax
             'olama_exam_update_status',
             'olama_exam_preview',
             'olama_exam_get_exams',
+            'olama_exam_replicate_exam',
+            'olama_exam_get_quiz_next_sequence',
 
             // ── Student Exam Engine (Phase 4) ──
             'olama_exam_start',
@@ -810,6 +812,8 @@ class Olama_Exam_Ajax
             $filters['academic_year_id'] = intval($_POST['academic_year_id']);
         if (!empty($_POST['semester_id']))
             $filters['semester_id'] = intval($_POST['semester_id']);
+        if (!empty($_POST['exam_type']))
+            $filters['exam_type'] = sanitize_text_field($_POST['exam_type']);
 
         // Debug logging for production troubleshooting
         if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -837,6 +841,57 @@ class Olama_Exam_Ajax
         }
 
         wp_send_json_success($exams);
+    }
+
+    public static function handle_get_quiz_next_sequence()
+    {
+        self::verify_request('olama_create_exams');
+
+        $grade_id = intval($_POST['grade_id']);
+        $section_id = intval($_POST['section_id']);
+        $subject_id = intval($_POST['subject_id']);
+
+        global $wpdb;
+        $table = "{$wpdb->prefix}olama_exam_exams";
+
+        // Count existing quizzes for this grade/section/subject
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table 
+             WHERE grade_id = %d AND section_id = %d AND subject_id = %d AND exam_type = 'quiz'",
+            $grade_id, $section_id, $subject_id
+        ));
+
+        // Wait, exams might not have a grade_id column directly if it's derived from section or subject.
+        // Let's check the schema.
+        // In get_exams, it says: e.section_id, e.subject_id.
+        // s.grade_id = g.id, sub.grade_id = g2.id.
+        
+        // Correct query joining with sections
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table e
+             JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
+             WHERE s.grade_id = %d AND e.section_id = %d AND e.subject_id = %d AND e.exam_type = 'quiz'",
+            $grade_id, $section_id, $subject_id
+        ));
+
+        wp_send_json_success(array('sequence' => intval($count) + 1));
+    }
+
+    public static function handle_replicate_exam()
+    {
+        self::verify_request('olama_create_exams');
+
+        $id = intval($_POST['id'] ?? 0);
+        $result = Olama_Exam_Manager::replicate_exam($id);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array(
+            'message' => olama_exam_translate('Exam replicated as draft.'),
+            'id' => $result,
+        ));
     }
 
     /**
@@ -938,6 +993,30 @@ class Olama_Exam_Ajax
         }
 
         $is_admin_override = self::can_manage_exams();
+
+        // Password validation (skip if admin override or preview)
+        $exam = Olama_Exam_Manager::get_exam($exam_id);
+        if ($exam && !empty($exam->password) && !$is_admin_override && !$is_preview) {
+            $provided_password = sanitize_text_field($_POST['password'] ?? '');
+            if ($provided_password !== $exam->password) {
+                // Check if they already have an active attempt (allow resume without re-entering password)
+                global $wpdb;
+                $existing = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}olama_exam_attempts 
+                     WHERE exam_id = %d AND student_uid = %s AND submitted_at IS NULL",
+                    $exam_id, $student_uid
+                ));
+                
+                if (!$existing) {
+                    ob_clean();
+                    wp_send_json_error(array(
+                        'code' => 'PASSWORD_REQUIRED',
+                        'message' => olama_exam_translate('This exam requires a password.')
+                    ));
+                }
+            }
+        }
+
         error_log("Olama Exam [AJAX]: Calling Engine::start_exam...");
         
         $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, $is_preview, $is_admin_override);
