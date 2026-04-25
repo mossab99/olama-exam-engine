@@ -119,7 +119,7 @@ function olama_exam_init()
     olama_exam_migrate_lesson_id();
     olama_exam_sync_db_columns();
 }
-add_action('init', 'olama_exam_init', 1); // Priority 1 = early init
+add_action('init', 'olama_exam_init', 10); // Standard priority
 
 /**
  * Debug: Monitor all AJAX actions for olama
@@ -320,6 +320,10 @@ add_action('wp_enqueue_scripts', 'olama_exam_enqueue_frontend_assets');
 // ── Translation Helper ─────────────────────────────────────────
 function olama_exam_translate($text)
 {
+    if (!did_action('init') && !did_action('plugins_loaded')) {
+        return $text;
+    }
+
     static $translations = null;
     if ($translations === null) {
         $file = OLAMA_EXAM_PATH . 'languages/olama-exam-engine-ar.php';

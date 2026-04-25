@@ -805,15 +805,15 @@ class Olama_Exam_Ajax
         if (!empty($_POST['subject_id']))
             $filters['subject_id'] = intval($_POST['subject_id']);
         if (!empty($_POST['status']))
-            $filters['status'] = sanitize_text_field($_POST['status']);
+            $filters['status'] = sanitize_text_field($_POST['status'] ?? '');
         if (!empty($_POST['search']))
-            $filters['search'] = sanitize_text_field($_POST['search']);
+            $filters['search'] = sanitize_text_field($_POST['search'] ?? '');
         if (!empty($_POST['academic_year_id']))
-            $filters['academic_year_id'] = intval($_POST['academic_year_id']);
+            $filters['academic_year_id'] = intval($_POST['academic_year_id'] ?? 0);
         if (!empty($_POST['semester_id']))
-            $filters['semester_id'] = intval($_POST['semester_id']);
+            $filters['semester_id'] = intval($_POST['semester_id'] ?? 0);
         if (!empty($_POST['exam_type']))
-            $filters['exam_type'] = sanitize_text_field($_POST['exam_type']);
+            $filters['exam_type'] = sanitize_text_field($_POST['exam_type'] ?? '');
 
         /*
         if (defined('WP_DEBUG') && WP_DEBUG) {

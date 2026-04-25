@@ -165,7 +165,7 @@ class Olama_Exam_Manager
             'show_results' => intval($data['show_results'] ?? 0),
             'is_placement' => (isset($data['is_placement']) && ($data['is_placement'] === 'on' || $data['is_placement'] == 1)) ? 1 : 0,
             'exam_type' => sanitize_text_field($data['exam_type'] ?? 'exam'),
-            'password' => sanitize_text_field($data['password'] ?? null),
+            'password' => sanitize_text_field($data['password'] ?? ''),
         );
 
         // Validate required
