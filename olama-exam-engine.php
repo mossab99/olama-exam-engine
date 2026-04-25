@@ -105,11 +105,11 @@ function olama_exam_init()
 
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
-    if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_2', false)) {
+    if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_3', false)) {
         Olama_Exam_DB::create_tables();
         Olama_Exam_DB::migrate_student_uid();
         update_option('olama_exam_db_version', OLAMA_EXAM_VERSION);
-        update_option('olama_exam_db_sync_1_1_2', true);
+        update_option('olama_exam_db_sync_1_1_3', true);
     }
 
     // One-time migrations
@@ -117,6 +117,7 @@ function olama_exam_init()
     olama_exam_migrate_preview_support();
     olama_exam_migrate_student_uid();
     olama_exam_migrate_lesson_id();
+    olama_exam_sync_db_columns();
 }
 add_action('init', 'olama_exam_init', 1); // Priority 1 = early init
 
@@ -201,6 +202,20 @@ function olama_exam_migrate_lesson_id()
     Olama_Exam_DB::migrate_student_uid(); // this now also migrates lesson_id
 
     update_option('olama_exam_lesson_id_migrated', true);
+}
+
+/**
+ * Migration: Sync DB columns to ensure none are missing (like exam_type)
+ */
+function olama_exam_sync_db_columns()
+{
+    if (get_option('olama_exam_db_synced_v113', false)) {
+        return;
+    }
+
+    Olama_Exam_DB::migrate_student_uid();
+
+    update_option('olama_exam_db_synced_v113', true);
 }
 
 // ── Enqueue Assets ─────────────────────────────────────────────

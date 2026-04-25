@@ -1190,9 +1190,11 @@ class Olama_Exam_Ajax
 
         global $wpdb;
         $attempts = $wpdb->get_results($wpdb->prepare(
-            "SELECT a.*, u.display_name as student_name
+            "SELECT a.*, COALESCE(s.student_name, u.display_name, pi.student_name, a.student_uid) as student_name
              FROM {$wpdb->prefix}olama_exam_attempts a
-             LEFT JOIN {$wpdb->users} u ON a.student_id = u.ID
+             LEFT JOIN {$wpdb->prefix}olama_students s ON a.student_uid = s.student_uid
+             LEFT JOIN {$wpdb->users} u ON a.student_uid = u.user_login
+             LEFT JOIN {$wpdb->prefix}olama_exam_placement_info pi ON a.id = pi.attempt_id
              WHERE a.exam_id = %d AND a.submitted_at IS NOT NULL
              ORDER BY a.percentage DESC",
             $exam_id
@@ -1214,9 +1216,11 @@ class Olama_Exam_Ajax
         }
 
         $attempts = $wpdb->get_results($wpdb->prepare(
-            "SELECT a.*, u.display_name as student_name
+            "SELECT a.*, COALESCE(s.student_name, u.display_name, pi.student_name, a.student_uid) as student_name
              FROM {$wpdb->prefix}olama_exam_attempts a
-             LEFT JOIN {$wpdb->users} u ON a.student_id = u.ID
+             LEFT JOIN {$wpdb->prefix}olama_students s ON a.student_uid = s.student_uid
+             LEFT JOIN {$wpdb->users} u ON a.student_uid = u.user_login
+             LEFT JOIN {$wpdb->prefix}olama_exam_placement_info pi ON a.id = pi.attempt_id
              WHERE a.exam_id = %d AND a.submitted_at IS NOT NULL
              ORDER BY a.percentage DESC",
             $exam_id
@@ -1235,7 +1239,7 @@ class Olama_Exam_Ajax
 
         foreach ($attempts as $a) {
             $rows[] = implode(',', array(
-                '"' . str_replace('"', '""', $a->student_name ?? 'ID: ' . $a->student_id) . '"',
+                '"' . str_replace('"', '""', $a->student_name ?? 'UID: ' . $a->student_uid) . '"',
                 $a->score ?? 0,
                 $a->max_score ?? 0,
                 ($a->percentage ?? 0) . '%',

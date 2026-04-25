@@ -178,14 +178,15 @@ class Olama_Exam_DB
     /**
      * Migration: Update student_id to student_uid (VARCHAR) in attempts table.
      * Migration: Add lesson_id to questions table if not exists.
+     * Migration: Add missing columns to exams table.
      */
     public static function migrate_student_uid()
     {
         global $wpdb;
-        $table = "{$wpdb->prefix}olama_exam_attempts";
+        $table_attempts = "{$wpdb->prefix}olama_exam_attempts";
         
-        // Wait, wpdb->get_results returns objects. We need to check if student_id exists.
-        $cols = $wpdb->get_results("SHOW COLUMNS FROM {$table}");
+        // 1. Migrate student_id to student_uid in attempts table
+        $cols = $wpdb->get_results("SHOW COLUMNS FROM {$table_attempts}");
         $has_student_id = false;
         $has_student_uid = false;
         
@@ -195,17 +196,16 @@ class Olama_Exam_DB
         }
 
         if ($has_student_id && !$has_student_uid) {
-            // Because dbDelta is finicky with DROP INDEX and CHANGE COLUMN, run raw queries
-            $wpdb->query("ALTER TABLE {$table} DROP INDEX idx_student");
-            $wpdb->query("ALTER TABLE {$table} DROP INDEX idx_exam_student");
-            $wpdb->query("ALTER TABLE {$table} CHANGE student_id student_uid VARCHAR(100) NOT NULL");
-            $wpdb->query("ALTER TABLE {$table} ADD KEY idx_student (student_uid)");
-            $wpdb->query("ALTER TABLE {$table} ADD KEY idx_exam_student (exam_id, student_uid)");
+            $wpdb->query("ALTER TABLE {$table_attempts} DROP INDEX idx_student");
+            $wpdb->query("ALTER TABLE {$table_attempts} DROP INDEX idx_exam_student");
+            $wpdb->query("ALTER TABLE {$table_attempts} CHANGE student_id student_uid VARCHAR(100) NOT NULL");
+            $wpdb->query("ALTER TABLE {$table_attempts} ADD KEY idx_student (student_uid)");
+            $wpdb->query("ALTER TABLE {$table_attempts} ADD KEY idx_exam_student (exam_id, student_uid)");
         }
 
-        // Add lesson_id to exam_questions if not exists
-        $questions_table = "{$wpdb->prefix}olama_exam_questions";
-        $q_cols = $wpdb->get_results("SHOW COLUMNS FROM {$questions_table}");
+        // 2. Add lesson_id to questions table if not exists
+        $table_questions = "{$wpdb->prefix}olama_exam_questions";
+        $q_cols = $wpdb->get_results("SHOW COLUMNS FROM {$table_questions}");
         $has_lesson_id = false;
         foreach ($q_cols as $col) {
             if ($col->Field === 'lesson_id') {
@@ -214,55 +214,59 @@ class Olama_Exam_DB
             }
         }
         if (!$has_lesson_id) {
-            $wpdb->query("ALTER TABLE {$questions_table} ADD COLUMN lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER unit_id");
-            $wpdb->query("ALTER TABLE {$questions_table} ADD KEY idx_lesson (lesson_id)");
+            // Check if unit_id exists before using AFTER
+            $has_unit_id = false;
+            foreach ($q_cols as $col) { if ($col->Field === 'unit_id') $has_unit_id = true; }
+            $after = $has_unit_id ? "AFTER unit_id" : "";
+            $wpdb->query("ALTER TABLE {$table_questions} ADD COLUMN lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0 $after");
+            $wpdb->query("ALTER TABLE {$table_questions} ADD KEY idx_lesson (lesson_id)");
         }
 
-        // Add random_lesson_id, is_placement, exam_type, password to exams table if not exists
-        $exams_table = "{$wpdb->prefix}olama_exam_exams";
-        $e_cols = $wpdb->get_results("SHOW COLUMNS FROM {$exams_table}");
-        $has_random_lesson_id = false;
-        $has_is_placement = false;
-        $has_exam_type = false;
-        $has_password = false;
-        foreach ($e_cols as $col) {
-            if ($col->Field === 'random_lesson_id') $has_random_lesson_id = true;
-            if ($col->Field === 'is_placement') $has_is_placement = true;
-            if ($col->Field === 'exam_type') $has_exam_type = true;
-            if ($col->Field === 'password') $has_password = true;
+        // 3. Add missing columns to exams table
+        $table_exams = "{$wpdb->prefix}olama_exam_exams";
+        $e_cols = $wpdb->get_results("SHOW COLUMNS FROM {$table_exams}");
+        $columns = array_column($e_cols, 'Field');
+
+        if (!in_array('random_lesson_id', $columns)) {
+            $after = in_array('random_unit_id', $columns) ? "AFTER random_unit_id" : "";
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN random_lesson_id BIGINT UNSIGNED NULL $after");
         }
-        if (!$has_random_lesson_id) {
-            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN random_lesson_id BIGINT UNSIGNED NULL AFTER random_unit_id");
-        }
-        if (!$has_is_placement) {
-            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN is_placement TINYINT(1) NOT NULL DEFAULT 0 AFTER show_results");
-        }
-        if (!$has_exam_type) {
-            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN exam_type VARCHAR(20) NOT NULL DEFAULT 'exam' AFTER is_placement");
-            $wpdb->query("ALTER TABLE {$exams_table} ADD KEY idx_type (exam_type)");
-        }
-        if (!$has_password) {
-            $wpdb->query("ALTER TABLE {$exams_table} ADD COLUMN password VARCHAR(255) NULL AFTER exam_type");
+        
+        if (!in_array('show_results', $columns)) {
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN show_results TINYINT(1) NOT NULL DEFAULT 0 AFTER manual_question_ids");
         }
 
-        // Create placement info table if missing
+        if (!in_array('is_placement', $columns)) {
+            $after = in_array('show_results', $columns) ? "AFTER show_results" : "";
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN is_placement TINYINT(1) NOT NULL DEFAULT 0 $after");
+        }
+
+        if (!in_array('exam_type', $columns)) {
+            $after = in_array('is_placement', $columns) ? "AFTER is_placement" : (in_array('show_results', $columns) ? "AFTER show_results" : "");
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN exam_type VARCHAR(20) NOT NULL DEFAULT 'exam' $after");
+            $wpdb->query("ALTER TABLE {$table_exams} ADD KEY idx_type (exam_type)");
+        }
+
+        if (!in_array('password', $columns)) {
+            $after = in_array('exam_type', $columns) ? "AFTER exam_type" : "";
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN password VARCHAR(255) NULL $after");
+        }
+
+        // 4. Create/Update placement info table
         $table_placement = "{$wpdb->prefix}olama_exam_placement_info";
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_placement'") != $table_placement) {
             self::create_tables(); 
         } else {
-            // Check for new columns
             $p_cols = $wpdb->get_results("SHOW COLUMNS FROM {$table_placement}");
-            $has_mobile = false;
-            $has_last_grade = false;
-            foreach ($p_cols as $pcol) {
-                if ($pcol->Field === 'mobile') $has_mobile = true;
-                if ($pcol->Field === 'last_finished_grade') $has_last_grade = true;
+            $p_columns = array_column($p_cols, 'Field');
+            
+            if (!in_array('mobile', $p_columns)) {
+                $after = in_array('guardian_name', $p_columns) ? "AFTER guardian_name" : "";
+                $wpdb->query("ALTER TABLE {$table_placement} ADD COLUMN mobile VARCHAR(50) NULL $after");
             }
-            if (!$has_mobile) {
-                $wpdb->query("ALTER TABLE {$table_placement} ADD COLUMN mobile VARCHAR(50) NULL AFTER guardian_name");
-            }
-            if (!$has_last_grade) {
-                $wpdb->query("ALTER TABLE {$table_placement} ADD COLUMN last_finished_grade VARCHAR(100) NULL AFTER old_school");
+            if (!in_array('last_finished_grade', $p_columns)) {
+                $after = in_array('old_school', $p_columns) ? "AFTER old_school" : "";
+                $wpdb->query("ALTER TABLE {$table_placement} ADD COLUMN last_finished_grade VARCHAR(100) NULL $after");
             }
         }
     }
