@@ -41,7 +41,8 @@ function olama_exam_load_includes()
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-question-images.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-questions.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-gift-parser.php';
-    require_once OLAMA_EXAM_PATH . 'includes/class-exam-csv-parser.php';
+    require_once OLAMA_EXAM_PATH . 'includes/class-exam-db.php';
+    require_once OLAMA_EXAM_PATH . 'includes/class-exam-logger.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-manager.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-engine.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-grader.php';
@@ -118,6 +119,9 @@ function olama_exam_init()
     olama_exam_migrate_student_uid();
     olama_exam_migrate_lesson_id();
     olama_exam_sync_db_columns();
+
+    // Suppress system noise (WPvivid, etc.)
+    Olama_Exam_Logger::suppress_noise();
 }
 add_action('init', 'olama_exam_init', 10); // Standard priority
 
@@ -327,7 +331,11 @@ function olama_exam_translate($text)
     static $translations = null;
     if ($translations === null) {
         $file = OLAMA_EXAM_PATH . 'languages/olama-exam-engine-ar.php';
-        $translations = file_exists($file) ? include $file : array();
+        if (file_exists($file)) {
+            $translations = include $file;
+        } else {
+            $translations = array();
+        }
     }
 
     $locale = get_locale();
@@ -335,4 +343,14 @@ function olama_exam_translate($text)
         return $translations[$text];
     }
     return $text;
+}
+
+/**
+ * Global logging helper
+ */
+function olama_exam_log($message)
+{
+    if (class_exists('Olama_Exam_Logger')) {
+        Olama_Exam_Logger::log($message);
+    }
 }

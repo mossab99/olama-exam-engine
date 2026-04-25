@@ -201,7 +201,7 @@ class Olama_Exam_Manager
         if ($id > 0) {
             $result = $wpdb->update($table, $fields, array('id' => $id));
             if ($result === false) {
-                error_log('Exam Engine Save Error (Update ID ' . $id . '): ' . $wpdb->last_error . ' | Data: ' . json_encode($fields));
+                olama_exam_log('Exam Engine Save Error (Update ID ' . $id . '): ' . $wpdb->last_error . ' | Data: ' . json_encode($fields));
                 return new WP_Error('db_error', 'Failed to update exam. ' . $wpdb->last_error);
             }
             return $id;
@@ -210,7 +210,7 @@ class Olama_Exam_Manager
             $fields['created_at'] = current_time('mysql');
             $result = $wpdb->insert($table, $fields);
             if ($result === false) {
-                error_log('Exam Engine Save Error (Insert): ' . $wpdb->last_error . ' | Data: ' . json_encode($fields));
+                olama_exam_log('Exam Engine Save Error (Insert): ' . $wpdb->last_error . ' | Data: ' . json_encode($fields));
                 return new WP_Error('db_error', 'Failed to create exam. ' . $wpdb->last_error);
             }
             return $wpdb->insert_id;
