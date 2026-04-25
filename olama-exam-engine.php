@@ -125,7 +125,7 @@ add_action('init', 'olama_exam_init', 1); // Priority 1 = early init
  * Debug: Monitor all AJAX actions for olama
  */
 add_action('admin_init', function() {
-    if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action']) && strpos($_REQUEST['action'], 'olama') !== false) {
+    if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action']) && strpos((string)$_REQUEST['action'], 'olama') !== false) {
         // Monitor AJAX actions if needed
     }
 }, 1);
@@ -327,7 +327,7 @@ function olama_exam_translate($text)
     }
 
     $locale = get_locale();
-    if (strpos($locale, 'ar') === 0 && isset($translations[$text])) {
+    if ($locale && strpos((string)$locale, 'ar') === 0 && isset($translations[$text])) {
         return $translations[$text];
     }
     return $text;

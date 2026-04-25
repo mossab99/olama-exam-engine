@@ -815,10 +815,11 @@ class Olama_Exam_Ajax
         if (!empty($_POST['exam_type']))
             $filters['exam_type'] = sanitize_text_field($_POST['exam_type']);
 
-        // Debug logging for production troubleshooting
+        /*
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('Exam Engine List Request: filters=' . print_r($filters, true) . ', user_id=' . get_current_user_id());
         }
+        */
 
         $exams = Olama_Exam_Manager::get_exams($filters, true);
 
@@ -956,7 +957,7 @@ class Olama_Exam_Ajax
     public static function handle_start()
     {
         ob_start();
-        error_log("Olama Exam [AJAX]: handle_start hit. Exam ID: " . ($_POST['exam_id'] ?? 'N/A') . " Student UID: " . ($_POST['student_uid'] ?? 'N/A'));
+        // error_log("Olama Exam [AJAX]: handle_start hit. Exam ID: " . ($_POST['exam_id'] ?? 'N/A') . " Student UID: " . ($_POST['student_uid'] ?? 'N/A'));
         self::verify_request(null, true);
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
@@ -971,7 +972,7 @@ class Olama_Exam_Ajax
 
         // Security: if not admin, verify student belongs to family (skip for placement)
         $is_placement = self::is_placement_exam($exam_id);
-        error_log("Olama Exam [AJAX]: Is Placement: " . ($is_placement ? 'Yes' : 'No'));
+        // error_log("Olama Exam [AJAX]: Is Placement: " . ($is_placement ? 'Yes' : 'No'));
         
         if (!current_user_can('manage_options') && !$is_placement) {
             global $wpdb;
@@ -989,7 +990,7 @@ class Olama_Exam_Ajax
                 ob_clean();
                 wp_send_json_error(array('message' => 'Permission denied. Student does not belong to your family.'));
             }
-            error_log("Olama Exam [AJAX]: Student is valid member of family.");
+            // error_log("Olama Exam [AJAX]: Student is valid member of family.");
         }
 
         $is_admin_override = self::can_manage_exams();
@@ -1017,7 +1018,7 @@ class Olama_Exam_Ajax
             }
         }
 
-        error_log("Olama Exam [AJAX]: Calling Engine::start_exam...");
+        // error_log("Olama Exam [AJAX]: Calling Engine::start_exam...");
         
         $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, $is_preview, $is_admin_override);
 
@@ -1027,7 +1028,7 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
-        error_log("Olama Exam [AJAX]: SUCCESS - Sending result to JS.");
+        // error_log("Olama Exam [AJAX]: SUCCESS - Sending result to JS.");
         ob_clean();
         wp_send_json_success($result);
     }
@@ -1064,7 +1065,7 @@ class Olama_Exam_Ajax
         }
 
         // DEBUG: Log received autosave
-        error_log("Olama Exam Debug: Autosave hit. Attempt: " . $attempt_id . " Answers: " . $answers_json);
+        // error_log("Olama Exam Debug: Autosave hit. Attempt: " . $attempt_id . " Answers: " . $answers_json);
 
         $result = Olama_Exam_Engine::autosave($attempt_id, $answers_json);
 
@@ -1106,7 +1107,7 @@ class Olama_Exam_Ajax
             }
         }
 
-        error_log("Olama Exam Debug: Submit hit. Attempt: " . $attempt_id . " Student: " . $student_uid);
+        // error_log("Olama Exam Debug: Submit hit. Attempt: " . $attempt_id . " Student: " . $student_uid);
 
         $result = Olama_Exam_Engine::submit($attempt_id);
 
