@@ -95,6 +95,7 @@ class Olama_Exam_DB
             random_lesson_id BIGINT UNSIGNED NULL,
             random_difficulty VARCHAR(10) NULL,
             manual_question_ids LONGTEXT NULL,
+            question_limit INT UNSIGNED NULL,
             show_results TINYINT(1) NOT NULL DEFAULT 0,
             is_placement TINYINT(1) NOT NULL DEFAULT 0,
             exam_type VARCHAR(20) NOT NULL DEFAULT 'exam',
@@ -232,6 +233,10 @@ class Olama_Exam_DB
             $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN random_lesson_id BIGINT UNSIGNED NULL $after");
         }
         
+        if (!in_array('question_limit', $columns)) {
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN question_limit INT UNSIGNED NULL AFTER manual_question_ids");
+        }
+
         if (!in_array('show_results', $columns)) {
             $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN show_results TINYINT(1) NOT NULL DEFAULT 0 AFTER manual_question_ids");
         }

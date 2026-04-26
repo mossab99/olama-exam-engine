@@ -34,7 +34,7 @@ class Olama_Exam_Manager
                     e.start_time, e.end_time, e.duration_minutes, e.passing_grade,
                     e.max_attempts, e.question_mode, e.random_count,
                     e.random_category_id, e.random_unit_id, e.random_lesson_id,
-                    e.random_difficulty, e.show_results, e.is_placement, e.exam_type, e.password, e.status, e.created_at,
+                    e.random_difficulty, e.manual_question_ids, e.question_limit, e.show_results, e.is_placement, e.exam_type, e.password, e.status, e.created_at,
                     s.section_name, COALESCE(g.grade_name, g2.grade_name) as grade_name, sub.subject_name,
                     u.display_name as teacher_name";
 
@@ -166,6 +166,7 @@ class Olama_Exam_Manager
             'is_placement' => (isset($data['is_placement']) && ($data['is_placement'] === 'on' || $data['is_placement'] == 1)) ? 1 : 0,
             'exam_type' => sanitize_text_field($data['exam_type'] ?? 'exam'),
             'password' => sanitize_text_field($data['password'] ?? ''),
+            'question_limit' => !empty($data['question_limit']) ? intval($data['question_limit']) : null,
         );
 
         // Validate required
@@ -364,7 +365,7 @@ class Olama_Exam_Manager
         }
 
         // Step 2: Random sample in PHP (fast, no temp table)
-        $count = intval($exam->random_count ?? count($all_ids));
+        $count = !empty($exam->random_count) ? intval($exam->random_count) : (!empty($exam->question_limit) ? intval($exam->question_limit) : count($all_ids));
         if ($count >= count($all_ids)) {
             $selected_ids = $all_ids;
             shuffle($selected_ids);

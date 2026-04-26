@@ -282,6 +282,11 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                         <input type="password" name="password" value="<?php echo esc_attr($exam->password ?? ''); ?>" 
                             placeholder="<?php echo olama_exam_translate('Leave blank for no password'); ?>" autocomplete="new-password">
                     </div>
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Question Limit'); ?> (<?php echo olama_exam_translate('Optional'); ?>)</label>
+                        <input type="number" name="question_limit" id="exam-question-limit" value="<?php echo esc_attr($exam->question_limit ?? ''); ?>" 
+                            min="1" placeholder="<?php echo olama_exam_translate('No limit'); ?>">
+                    </div>
                 </div>
             </div>
         </div>
@@ -1018,6 +1023,13 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             }
         }
         if (alreadySelected) return;
+
+        var limit = parseInt($('#exam-question-limit').val());
+        if (limit > 0 && selectedIds.length >= limit) {
+            ExamAdmin.toast('<?php echo olama_exam_translate("Question limit reached."); ?>', 'error');
+            return;
+        }
+
         selectedIds.push(id);
         updateSelectedUI();
         // Disable in available list
