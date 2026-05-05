@@ -118,21 +118,13 @@ function olama_exam_init()
     olama_exam_migrate_preview_support();
     olama_exam_migrate_student_uid();
     olama_exam_migrate_lesson_id();
+    olama_exam_migrate_student_uid(); // ensure it's synced
     olama_exam_sync_db_columns();
 
     // Suppress system noise (WPvivid, etc.)
     Olama_Exam_Logger::suppress_noise();
 }
 add_action('init', 'olama_exam_init', 10); // Standard priority
-
-/**
- * Debug: Monitor all AJAX actions for olama
- */
-add_action('admin_init', function() {
-    if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action']) && strpos((string)$_REQUEST['action'], 'olama') !== false) {
-        // Monitor AJAX actions if needed
-    }
-}, 1);
 
 // ── Unit ID Migration ──────────────────────────────────────────
 function olama_exam_migrate_unit_id()
@@ -346,11 +338,15 @@ function olama_exam_translate($text)
 }
 
 /**
- * Global logging helper
+ * Global logging helper with level support
  */
-function olama_exam_log($message)
-{
-    if (class_exists('Olama_Exam_Logger')) {
-        Olama_Exam_Logger::log($message);
+function olama_exam_log( $message, $level = 'error' ) {
+    if ( class_exists( 'Olama_Exam_Logger' ) ) {
+        switch ( $level ) {
+            case 'warning': Olama_Exam_Logger::warning( $message ); break;
+            case 'info':    Olama_Exam_Logger::info( $message );    break;
+            case 'debug':   Olama_Exam_Logger::debug( $message );   break;
+            default:        Olama_Exam_Logger::log( $message );     break;
+        }
     }
 }

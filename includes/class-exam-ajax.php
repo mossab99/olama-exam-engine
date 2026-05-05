@@ -983,7 +983,7 @@ class Olama_Exam_Ajax
         $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
 
         if (empty($student_uid) && !$is_preview) {
-            olama_exam_log("Olama Exam [AJAX]: Error - Empty Student UID");
+            olama_exam_log("Olama Exam [AJAX]: Error - Empty Student UID", 'info');
             ob_clean();
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
@@ -995,7 +995,7 @@ class Olama_Exam_Ajax
         if (!self::can_manage_exams() && !$is_placement) {
             global $wpdb;
             $family_id = wp_get_current_user()->user_login;
-            olama_exam_log("Olama Exam [AJAX]: Family ID: " . $family_id);
+            olama_exam_log("Olama Exam [AJAX]: Family ID: " . $family_id, 'info');
             
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
