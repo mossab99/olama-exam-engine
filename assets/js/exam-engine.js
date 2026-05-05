@@ -592,7 +592,8 @@
         const isArabic = document.documentElement.lang === 'ar';
 
         // Bug Fix: If show_results is false, show restricted message
-        if (parseInt(data.show_results) === 0) {
+        // We check for falsy value or explicit 0, and also check if percentage is missing
+        if (!data.show_results || parseInt(data.show_results) === 0 || typeof data.percentage === 'undefined') {
             let html = '<div class="oe-score-summary" style="text-align:center; padding: 60px 20px;">';
             html += '  <div style="font-size: 64px; margin-bottom: 20px;">✅</div>';
             html += '  <h2 style="color: var(--oe-primary); margin-bottom: 12px;">' + (isArabic ? 'تم تسليم الاختبار بنجاح' : 'Exam Submitted Successfully') + '</h2>';

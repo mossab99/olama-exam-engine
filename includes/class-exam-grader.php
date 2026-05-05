@@ -101,7 +101,7 @@ class Olama_Exam_Grader
             array('id' => $attempt_id)
         );
 
-        return array(
+        $response = array(
             'attempt_id' => $attempt_id,
             'score' => $total_score,
             'max_score' => $max_score,
@@ -113,6 +113,22 @@ class Olama_Exam_Grader
             'show_results' => $exam ? intval($exam->show_results) : 0,
             'show_correct_answers' => $exam ? intval($exam->show_correct_answers) : 0,
         );
+
+        // Debug log for production investigation
+        error_log("Olama Exam Debug: Grade Attempt " . $attempt_id . " - show_results DB value: " . ($exam ? $exam->show_results : 'no exam') . " - Final Response show_results: " . $response['show_results']);
+
+        // Security: If show_results is false, strip sensitive result data from the response
+        if (intval($response['show_results']) === 0) {
+            error_log("Olama Exam Debug: Hiding results for attempt " . $attempt_id);
+            return array(
+                'attempt_id'   => $attempt_id,
+                'show_results' => 0,
+                'result'       => 'pending', // Hide actual pass/fail
+                'message'      => 'Submitted'
+            );
+        }
+
+        return $response;
     }
 
     /**

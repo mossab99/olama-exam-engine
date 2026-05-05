@@ -107,6 +107,11 @@ class Olama_Exam_Shortcodes
 
         $completed_attempts_query .= " ORDER BY a.submitted_at DESC LIMIT 15";
         $completed_attempts = $wpdb->get_results($completed_attempts_query);
+        if (!empty($completed_attempts)) {
+            foreach ($completed_attempts as $a) {
+                error_log("Olama Exam Debug: Dashboard Attempt " . $a->id . " - show_results: " . $a->show_results);
+            }
+        }
 
         ob_start();
         ?>
@@ -387,6 +392,8 @@ class Olama_Exam_Shortcodes
         if (!$attempt) {
             return '<div class="oe-error">' . olama_exam_translate('Results not found or permission denied.') . '</div>';
         }
+
+        error_log("Olama Exam Debug: Render Results Attempt " . $attempt_id . " - show_results: " . ($attempt ? $attempt->show_results : 'null'));
 
         if (intval($attempt->show_results) === 0) {
             return '<div class="oe-container"><div class="oe-message">' .
