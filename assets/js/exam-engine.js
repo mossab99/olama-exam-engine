@@ -648,7 +648,8 @@
             html += '  <h2 style="color: var(--oe-primary); margin-bottom: 12px;">' + (isArabic ? 'تم تسليم الاختبار بنجاح' : 'Exam Submitted Successfully') + '</h2>';
             html += '  <p style="color: #64748b; font-size: 16px;">' + (isArabic ? 'شكراً لك! لقد تم استلام إجاباتك بنجاح. سيتم الإعلان عن النتائج لاحقاً.' : 'Thank you! Your answers have been received. Results will be announced later.') + '</p>';
             html += '  <div style="margin-top: 40px;">';
-            html += '    <a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
+            const finalUid = config.studentUid || new URLSearchParams(window.location.search).get('student_uid') || '';
+            html += '    <a href="?exam_view=dashboard&student_uid=' + finalUid + '" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
             html += '  </div>';
             html += '</div>';
             resultsEl.innerHTML = html;
@@ -736,7 +737,8 @@
         }
 
         html += '<div style="text-align:center; margin-top:40px;">';
-        html += '<a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
+        const finalUid2 = config.studentUid || new URLSearchParams(window.location.search).get('student_uid') || '';
+        html += '<a href="?exam_view=dashboard&student_uid=' + finalUid2 + '" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
         html += '</div>';
 
         resultsEl.innerHTML = html;

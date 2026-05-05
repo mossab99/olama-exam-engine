@@ -64,6 +64,16 @@ class Olama_Exam_Shortcodes
         $family_id = wp_get_current_user()->user_login;
         $student_filter = sanitize_text_field($_GET['student_uid'] ?? '');
 
+        // Smart Fallback: If no filter provided, and current user is a student, auto-filter to them
+        if (empty($student_filter)) {
+            $current_user_login = wp_get_current_user()->user_login;
+            $is_student_uid = $wpdb->get_var($wpdb->prepare("SELECT student_uid FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $current_user_login));
+            if ($is_student_uid) {
+                $student_filter = $is_student_uid;
+            }
+        }
+
+
         // Get ALL assigned or attempted exams for all students in this family
         $sql = $wpdb->prepare(
             "SELECT e.*, st.student_name, st.student_uid, g.grade_name, s.section_name, sub.subject_name, sub.color_code
@@ -345,6 +355,13 @@ class Olama_Exam_Shortcodes
 
             <!-- Results Container (shown after submit) -->
             <div id="oe-results" class="oe-results" style="display:none;"></div>
+
+            <!-- Strict Overlay Cleanup for Dashboard -->
+            <script>
+                if (document.querySelector('.oe-dashboard-wrap')) {
+                    document.querySelectorAll('.oe-modal-overlay, .oe-password-overlay').forEach(function(el) { el.style.display = 'none'; });
+                }
+            </script>
         </div>
 
         <!-- Confirmation Modal -->
