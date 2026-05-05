@@ -113,6 +113,52 @@
     font-size: 15px;
 }
 
+/* Student Selector Pills */
+.oe-student-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--oe-border);
+}
+
+.oe-student-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f1f5f9;
+    color: var(--oe-text);
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.oe-student-pill:hover {
+    background: #e2e8f0;
+    border-color: var(--oe-primary);
+    color: var(--oe-primary);
+}
+
+.oe-student-pill.oe-pill-active {
+    background: var(--oe-primary);
+    color: #fff;
+    border-color: var(--oe-primary);
+}
+
+.oe-pill-grade {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.8;
+    background: rgba(255,255,255,0.25);
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
 .oe-section-header {
     display: flex;
     align-items: center;
@@ -263,8 +309,8 @@
 .oe-status-progress { border-top: 4px solid var(--oe-warning); }
 .oe-status-active { border-top: 4px solid var(--oe-primary); }
 .oe-status-locked { border-top: 4px solid #cbd5e1; }
-.oe-status-inactive { border-top: 4px solid #94a3b8; background: #fafafa; opacity: 0.8; }
-.oe-status-inactive .oe-card-title { color: #64748b; }
+.oe-status-inactive { border-top: 4px solid #94a3b8; background: #f8fafc; }
+.oe-status-inactive .oe-card-title { color: #94a3b8; }
 .oe-status-inactive .oe-subject-tag { background: #f1f5f9; color: #94a3b8; }
 
 .oe-status-badge {

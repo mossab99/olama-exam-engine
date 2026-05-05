@@ -53,6 +53,7 @@ class Olama_Exam_Shortcodes
                 return $this->render_dashboard();
         }
     }
+
     private function render_dashboard()
     {
         // Force enqueue assets early to ensure they load even if global detection fails
@@ -64,15 +65,29 @@ class Olama_Exam_Shortcodes
         $family_id = wp_get_current_user()->user_login;
         $student_filter = sanitize_text_field($_GET['student_uid'] ?? '');
 
-        // Smart Fallback: If no filter provided, and current user is a student, auto-filter to them
+        // Smart Fallback: if logged-in user IS a student UID, auto-filter to them
         if (empty($student_filter)) {
-            $current_user_login = wp_get_current_user()->user_login;
-            $is_student_uid = $wpdb->get_var($wpdb->prepare("SELECT student_uid FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $current_user_login));
+            $is_student_uid = $wpdb->get_var($wpdb->prepare(
+                "SELECT student_uid FROM {$wpdb->prefix}olama_students WHERE student_uid = %s",
+                $family_id
+            ));
             if ($is_student_uid) {
                 $student_filter = $is_student_uid;
             }
         }
 
+        // Fetch all students in this family for the selector bar
+        $family_students = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.student_uid, s.student_name, g.grade_name, sec.section_name
+             FROM {$wpdb->prefix}olama_students s
+             LEFT JOIN {$wpdb->prefix}olama_student_enrollment e ON s.student_uid = e.student_uid
+             LEFT JOIN {$wpdb->prefix}olama_sections sec ON e.section_id = sec.id
+             LEFT JOIN {$wpdb->prefix}olama_grades g ON sec.grade_id = g.id
+             WHERE s.family_id = %s
+             GROUP BY s.student_uid
+             ORDER BY s.student_name ASC",
+            $family_id
+        ));
 
         // Get ALL assigned or attempted exams for all students in this family
         $sql = $wpdb->prepare(
@@ -117,11 +132,6 @@ class Olama_Exam_Shortcodes
 
         $completed_attempts_query .= " ORDER BY a.submitted_at DESC LIMIT 15";
         $completed_attempts = $wpdb->get_results($completed_attempts_query);
-        if (!empty($completed_attempts)) {
-            foreach ($completed_attempts as $a) {
-                error_log("Olama Exam Debug: Dashboard Attempt " . $a->id . " - show_results: " . $a->show_results);
-            }
-        }
 
         ob_start();
         ?>
@@ -129,20 +139,42 @@ class Olama_Exam_Shortcodes
             <header class="oe-dashboard-header">
                 <h2 class="oe-title"><?php echo olama_exam_translate('Student Exams'); ?></h2>
                 <p class="oe-subtitle">
-                    <?php 
+                    <?php
                     if ($student_filter && !empty($all_exams)) {
                         echo sprintf(olama_exam_translate('Viewing exams for: %s'), esc_html($all_exams[0]->student_name));
+                    } elseif ($student_filter) {
+                        echo olama_exam_translate('No exams found for this student.');
                     } else {
                         echo sprintf(olama_exam_translate('Total assignments for your children: %d'), count($all_exams));
                     }
                     ?>
                 </p>
+
+                <?php if (!empty($family_students)): ?>
+                <div class="oe-student-selector">
+                    <?php if ($student_filter): ?>
+                        <a href="?exam_view=dashboard" class="oe-student-pill <?php echo !$student_filter ? 'oe-pill-active' : ''; ?>">
+                            👨‍👩‍👧 <?php echo olama_exam_translate('All Students'); ?>
+                        </a>
+                    <?php endif; ?>
+                    <?php foreach ($family_students as $fs): ?>
+                        <a href="?exam_view=dashboard&student_uid=<?php echo esc_attr($fs->student_uid); ?>"
+                           class="oe-student-pill <?php echo $student_filter === $fs->student_uid ? 'oe-pill-active' : ''; ?>">
+                            👤 <?php echo esc_html($fs->student_name); ?>
+                            <?php if ($fs->grade_name): ?>
+                                <span class="oe-pill-grade"><?php echo esc_html($fs->grade_name); ?></span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
             </header>
 
             <div class="oe-dashboard-content">
                 <section class="oe-section">
                     <div class="oe-section-header">
                         <h3 class="oe-section-title">
+
                             <span class="oe-icon">📝</span>
                             <?php echo olama_exam_translate('Assigned Exams'); ?>
                         </h3>
