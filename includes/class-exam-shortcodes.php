@@ -409,7 +409,7 @@ class Olama_Exam_Shortcodes
             <div class="oe-results-page">
                 <!-- Score Summary -->
                 <div class="oe-score-summary">
-                    <a href="?exam_view=dashboard" class="oe-back-link">← <?php echo olama_exam_translate('Back'); ?></a>
+                    <a href="?exam_view=dashboard&student_uid=<?php echo esc_attr($student_uid); ?>" class="oe-back-link">← <?php echo olama_exam_translate('Back'); ?></a>
                     <h2><?php echo esc_html($attempt->exam_title); ?></h2>
                     <div class="oe-score-circle oe-score-<?php echo $attempt->result; ?>">
                         <span class="oe-score-number" style="font-size: 28px;"><?php echo $attempt->score; ?> / <?php echo $attempt->max_score; ?></span>

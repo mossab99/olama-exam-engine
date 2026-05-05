@@ -81,7 +81,7 @@
             }
             document.getElementById('oe-loading').innerHTML =
                 '<p style="color:#dc2626;">❌ ' + escHtml(msg) + '</p>' +
-                '<a href="?exam_view=dashboard" class="oe-btn oe-btn-outline" style="margin-top:16px;">← Back</a>';
+                '<a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-outline" style="margin-top:16px;">← Back</a>';
         });
     }
 
@@ -98,7 +98,7 @@
         html += '    <div id="oe-password-error" style="color:#dc2626; font-size:13px; margin-top:8px; display:none;">❌ ' + (isAr ? 'كلمة مرور غير صحيحة' : 'Incorrect password') + '</div>';
         html += '    <div class="oe-password-actions">';
         html += '      <button id="oe-password-btn" class="oe-btn oe-btn-primary">' + (isAr ? 'بدء الاختبار' : 'Start Exam') + '</button>';
-        html += '      <a href="?exam_view=dashboard" class="oe-btn oe-btn-outline">' + (isAr ? 'إلغاء' : 'Cancel') + '</a>';
+        html += '      <a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-outline">' + (isAr ? 'إلغاء' : 'Cancel') + '</a>';
         html += '    </div>';
         html += '  </div>';
         html += '</div>';
@@ -648,7 +648,7 @@
             html += '  <h2 style="color: var(--oe-primary); margin-bottom: 12px;">' + (isArabic ? 'تم تسليم الاختبار بنجاح' : 'Exam Submitted Successfully') + '</h2>';
             html += '  <p style="color: #64748b; font-size: 16px;">' + (isArabic ? 'شكراً لك! لقد تم استلام إجاباتك بنجاح. سيتم الإعلان عن النتائج لاحقاً.' : 'Thank you! Your answers have been received. Results will be announced later.') + '</p>';
             html += '  <div style="margin-top: 40px;">';
-            html += '    <a href="?exam_view=dashboard" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
+            html += '    <a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
             html += '  </div>';
             html += '</div>';
             resultsEl.innerHTML = html;
@@ -736,7 +736,7 @@
         }
 
         html += '<div style="text-align:center; margin-top:40px;">';
-        html += '<a href="?exam_view=dashboard" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
+        html += '<a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
         html += '</div>';
 
         resultsEl.innerHTML = html;
