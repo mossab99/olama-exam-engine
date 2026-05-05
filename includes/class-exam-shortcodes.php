@@ -243,20 +243,28 @@ class Olama_Exam_Shortcodes
                                     <strong><?php echo esc_html($a->exam_title); ?></strong>
                                     <span class="oe-result-student"><?php echo esc_html($a->student_name); ?></span>
                                 </div>
-                                <div class="oe-result-body">
-                                    <div class="oe-result-score oe-score-<?php echo $a->result; ?>">
-                                        <?php echo $a->percentage; ?>%
-                                        <span class="oe-score-label"><?php echo strtoupper($a->result); ?></span>
-                                    </div>
-                                    <div class="oe-result-meta">
-                                        <span>📅 <?php echo date('d/m/y', strtotime($a->submitted_at)); ?></span>
-                                        <?php if ($a->show_results): ?>
-                                            <a href="?exam_view=results&attempt_id=<?php echo $a->id; ?>&student_uid=<?php echo esc_attr($a->student_uid); ?>" class="oe-link-action">
-                                                <?php echo olama_exam_translate('View Details'); ?> ➔
-                                            </a>
+                                        <?php if (intval($a->show_results) !== 0): ?>
+                                            <div class="oe-result-score oe-score-<?php echo $a->result; ?>">
+                                                <?php echo $a->percentage; ?>%
+                                                <span class="oe-score-label"><?php echo strtoupper($a->result); ?></span>
+                                            </div>
+                                            <div class="oe-result-meta">
+                                                <span>📅 <?php echo date('d/m/y', strtotime($a->submitted_at)); ?></span>
+                                                <a href="?exam_view=results&attempt_id=<?php echo $a->id; ?>&student_uid=<?php echo esc_attr($a->student_uid); ?>" class="oe-link-action">
+                                                    <?php echo olama_exam_translate('View Details'); ?> ➔
+                                                </a>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="oe-result-score oe-score-pending">
+                                                <span class="oe-score-label"><?php echo olama_exam_translate('SUBMITTED'); ?></span>
+                                            </div>
+                                            <div class="oe-result-meta">
+                                                <span>📅 <?php echo date('d/m/y', strtotime($a->submitted_at)); ?></span>
+                                                <span class="oe-link-action" style="opacity:0.6; cursor:not-allowed;">
+                                                    <?php echo olama_exam_translate('Results Hidden'); ?>
+                                                </span>
+                                            </div>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -380,7 +388,7 @@ class Olama_Exam_Shortcodes
             return '<div class="oe-error">' . olama_exam_translate('Results not found or permission denied.') . '</div>';
         }
 
-        if (!$attempt->show_results) {
+        if (intval($attempt->show_results) === 0) {
             return '<div class="oe-container"><div class="oe-message">' .
                 olama_exam_translate('Results are not available for this exam.') . '</div></div>';
         }

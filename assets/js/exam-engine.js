@@ -592,7 +592,7 @@
         const isArabic = document.documentElement.lang === 'ar';
 
         // Bug Fix: If show_results is false, show restricted message
-        if (!data.show_results) {
+        if (parseInt(data.show_results) === 0) {
             let html = '<div class="oe-score-summary" style="text-align:center; padding: 60px 20px;">';
             html += '  <div style="font-size: 64px; margin-bottom: 20px;">✅</div>';
             html += '  <h2 style="color: var(--oe-primary); margin-bottom: 12px;">' + (isArabic ? 'تم تسليم الاختبار بنجاح' : 'Exam Submitted Successfully') + '</h2>';
@@ -626,7 +626,6 @@
         html += '    <circle class="oe-result-progress-circle" id="oe-result-circle" cx="100" cy="100" r="' + radius + '"></circle>';
         html += '  </svg>';
         html += '  <div class="oe-score-content">';
-        // Feature: Swap score and percentage
         html += '    <span class="oe-score-number" style="font-size: 28px;">' + data.score + ' / ' + data.max_score + '</span>';
         html += '    <span class="oe-score-text" style="font-size: 20px; font-weight: 600; color: var(--oe-primary);">' + data.percentage + '%</span>';
         html += '  </div>';
@@ -636,14 +635,11 @@
 
         // Stats Grid
         html += '<div class="oe-stats-grid">';
-        
-        // Total Questions
         html += '  <div class="oe-stat-card">';
         html += '    <span class="oe-stat-val">' + state.totalQuestions + '</span>';
         html += '    <span class="oe-stat-label">' + (isArabic ? 'إجمالي الأسئلة' : 'Total') + '</span>';
         html += '  </div>';
 
-        // Correct
         let correctCount = 0;
         if (data.details) {
             correctCount = data.details.filter(function(d) { return d.status === 'correct'; }).length;
@@ -653,14 +649,12 @@
         html += '    <span class="oe-stat-label">' + (isArabic ? 'صحيحة' : 'Correct') + '</span>';
         html += '  </div>';
 
-        // Result Color indicator card
         html += '  <div class="oe-stat-card">';
         html += '    <span class="oe-stat-val">' + data.percentage + '%</span>';
         html += '    <span class="oe-stat-label">' + (isArabic ? 'النسبة' : 'Grade') + '</span>';
         html += '  </div>';
-
-        html += '</div>'; // close stats-grid
-        html += '</div>'; // close score-summary
+        html += '</div>'; 
+        html += '</div>';
 
         // Feature: Show answers if show_results AND show_correct_answers are true
         if (data.details) {
@@ -674,9 +668,8 @@
                 html += '    <span class="oe-review-num">' + (isArabic ? 'سؤال ' : 'Question ') + (i + 1) + '</span>';
                 html += '    <span class="oe-review-status">' + statusIcon + '</span>';
                 html += '  </div>';
-                html += '  <div class="oe-review-question">' + escHtml(d.text) + '</div>';
+                html += '  <div class="oe-review-question">' + d.text + '</div>';
                 
-                // Show Correct Answer if enabled
                 if (data.show_correct_answers && d.correct_answer) {
                     html += '  <div class="oe-review-correct-box" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">';
                     html += '    <strong style="color: #166534; font-size: 13px;">' + (isArabic ? 'الإجابة الصحيحة:' : 'Correct Answer:') + '</strong>';
@@ -685,7 +678,7 @@
                 }
 
                 if (d.explanation) {
-                    html += '  <div class="oe-review-explanation">📖 ' + escHtml(d.explanation) + '</div>';
+                    html += '  <div class="oe-review-explanation">📖 ' + d.explanation + '</div>';
                 }
                 html += '</div>';
             });
@@ -696,38 +689,31 @@
         html += '<a href="?exam_view=dashboard" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
         html += '</div>';
 
-        // Helper to format correct answer display
+        resultsEl.innerHTML = html;
+
         function formatCorrectAnswer(d) {
             if (!d.correct_answer) return '';
-            
-            // d.correct_answer is the 'correct' part of snapshot data
             switch (d.type) {
                 case 'mcq':
-                    return escHtml(d.correct_answer.correct_text || '');
+                    return d.correct_answer.correct_text || '';
                 case 'tf':
                     const val = d.correct_answer.correct;
-                    if (isArabic) return val === true || val === 'true' ? 'صح' : 'خطأ';
-                    return val === true || val === 'true' ? 'True' : 'False';
+                    if (isArabic) return (val === true || val === 'true') ? 'صح' : 'خطأ';
+                    return (val === true || val === 'true') ? 'True' : 'False';
                 case 'short':
                 case 'fill_blank':
                     const answers = d.correct_answer.answers || [];
                     return Array.isArray(answers) ? answers.join(' | ') : answers;
                 case 'matching':
                     if (!d.correct_answer.pairs) return '';
-                    return d.correct_answer.pairs.map(p => escHtml(p.left + ' → ' + p.right)).join('<br>');
+                    return d.correct_answer.pairs.map(p => p.left + ' → ' + p.right).join('<br>');
                 case 'ordering':
                     const items = d.correct_answer.correct_order || [];
-                    return items.map((it, idx) => (idx + 1) + '. ' + escHtml(it)).join(' → ');
+                    return items.map((it, idx) => (idx + 1) + '. ' + it).join(' → ');
                 default:
                     return '';
             }
         }
-
-        html += '<div style="text-align:center; margin-top:40px;">';
-        html += '<a href="?page=olama-exam-create" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
-        html += '</div>';
-
-        resultsEl.innerHTML = html;
 
         // Animate the circle
         setTimeout(function() {
