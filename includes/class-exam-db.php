@@ -97,6 +97,7 @@ class Olama_Exam_DB
             manual_question_ids LONGTEXT NULL,
             question_limit INT UNSIGNED NULL,
             show_results TINYINT(1) NOT NULL DEFAULT 0,
+            show_correct_answers TINYINT(1) NOT NULL DEFAULT 0,
             is_placement TINYINT(1) NOT NULL DEFAULT 0,
             exam_type VARCHAR(20) NOT NULL DEFAULT 'exam',
             password VARCHAR(255) NULL,
@@ -239,6 +240,11 @@ class Olama_Exam_DB
 
         if (!in_array('show_results', $columns)) {
             $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN show_results TINYINT(1) NOT NULL DEFAULT 0 AFTER manual_question_ids");
+        }
+
+        if (!in_array('show_correct_answers', $columns)) {
+            $after = in_array('show_results', $columns) ? "AFTER show_results" : "AFTER manual_question_ids";
+            $wpdb->query("ALTER TABLE {$table_exams} ADD COLUMN show_correct_answers TINYINT(1) NOT NULL DEFAULT 0 $after");
         }
 
         if (!in_array('is_placement', $columns)) {

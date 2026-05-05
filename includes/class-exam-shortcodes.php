@@ -368,7 +368,7 @@ class Olama_Exam_Shortcodes
         }
 
         $attempt = $wpdb->get_row($wpdb->prepare(
-            "SELECT a.*, e.title as exam_title, e.show_results, e.passing_grade, sub.subject_name
+            "SELECT a.*, e.title as exam_title, e.show_results, e.show_correct_answers, e.passing_grade, sub.subject_name
              FROM {$wpdb->prefix}olama_exam_attempts a
              JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
@@ -397,8 +397,8 @@ class Olama_Exam_Shortcodes
                     <a href="?exam_view=dashboard" class="oe-back-link">← <?php echo olama_exam_translate('Back'); ?></a>
                     <h2><?php echo esc_html($attempt->exam_title); ?></h2>
                     <div class="oe-score-circle oe-score-<?php echo $attempt->result; ?>">
-                        <span class="oe-score-number"><?php echo $attempt->percentage; ?>%</span>
-                        <span class="oe-score-text"><?php echo $attempt->score; ?> / <?php echo $attempt->max_score; ?></span>
+                        <span class="oe-score-number" style="font-size: 28px;"><?php echo $attempt->score; ?> / <?php echo $attempt->max_score; ?></span>
+                        <span class="oe-score-text" style="font-size: 20px; font-weight: 600; color: var(--oe-primary);"><?php echo $attempt->percentage; ?>%</span>
                     </div>
                     <div class="oe-result-label oe-result-<?php echo $attempt->result; ?>">
                         <?php
@@ -445,12 +445,29 @@ class Olama_Exam_Shortcodes
                                 </span>
                             </div>
                             <div class="oe-review-question"><?php echo wp_kses_post($q['question_text']); ?></div>
+                            
                             <?php if ($student_answer !== null && $student_answer !== ''): ?>
                                 <div class="oe-review-answer">
                                     <strong><?php echo olama_exam_translate('Your answer'); ?>:</strong>
-                                    <?php echo esc_html(is_array($student_answer) ? implode(', ', $student_answer) : $student_answer); ?>
+                                    <?php 
+                                    if (is_array($student_answer)) {
+                                        echo esc_html(implode(', ', array_filter($student_answer))); 
+                                    } else {
+                                        echo esc_html($student_answer);
+                                    }
+                                    ?>
                                 </div>
                             <?php endif; ?>
+
+                            <?php if ($attempt->show_correct_answers && !empty($correct)): ?>
+                                <div class="oe-review-correct-box" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">
+                                    <strong style="color: #166534; font-size: 13px;"><?php echo olama_exam_translate('Correct Answer:'); ?></strong>
+                                    <div style="margin-top: 4px; color: #15803d; font-weight: 500;">
+                                        <?php echo self::format_correct_answer_php($type, $correct); ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
                             <?php if (!empty($q['explanation'])): ?>
                                 <div class="oe-review-explanation">📖 <?php echo wp_kses_post($q['explanation']); ?></div>
                             <?php endif; ?>
@@ -468,19 +485,9 @@ class Olama_Exam_Shortcodes
      */
     private static function check_answer($type, $answer, $correct)
     {
-        switch ($type) {
-            case 'mcq':
-                return intval($answer) === intval($correct['correct'] ?? -1);
-            case 'tf':
-                return filter_var($answer, FILTER_VALIDATE_BOOLEAN) === filter_var($correct['correct'] ?? true, FILTER_VALIDATE_BOOLEAN);
-            case 'short':
-                $accepted = $correct['answers'] ?? array();
-                return in_array(mb_strtolower(trim($answer)), array_map(function ($a) {
-                    return mb_strtolower(trim($a));
-                }, (array) $accepted));
-            default:
-                return false;
-        }
+        if ($answer === null || $answer === '') return false;
+        $earned = Olama_Exam_Grader::grade_question($type, $answer, $correct, 1);
+        return $earned >= 1;
     }
 
     /**
@@ -597,5 +604,37 @@ class Olama_Exam_Shortcodes
         </style>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Helper to format correct answer for PHP display
+     */
+    private static function format_correct_answer_php($type, $correct)
+    {
+        if (empty($correct)) return '';
+
+        switch ($type) {
+            case 'mcq':
+                return esc_html($correct['correct_text'] ?? '');
+            case 'tf':
+                $val = $correct['correct'] ?? true;
+                return (filter_var($val, FILTER_VALIDATE_BOOLEAN)) ? olama_exam_translate('True') : olama_exam_translate('False');
+            case 'short':
+            case 'fill_blank':
+                $ans = $correct['answers'] ?? array();
+                return esc_html(is_array($ans) ? implode(' | ', $ans) : $ans);
+            case 'matching':
+                if (empty($correct['pairs'])) return '';
+                $lines = array();
+                foreach ($correct['pairs'] as $p) {
+                    $lines[] = esc_html($p['left'] . ' → ' . $p['right']);
+                }
+                return implode('<br>', $lines);
+            case 'ordering':
+                $items = $correct['correct_order'] ?? array();
+                return esc_html(implode(' → ', $items));
+            default:
+                return '';
+        }
     }
 }

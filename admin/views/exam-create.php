@@ -278,6 +278,15 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                         </select>
                     </div>
                     <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Show Correct Answers'); ?></label>
+                        <select name="show_correct_answers">
+                            <option value="0" <?php echo ($exam && $exam->show_correct_answers == 0) ? 'selected' : ''; ?>>
+                                <?php echo olama_exam_translate('No'); ?></option>
+                            <option value="1" <?php echo ($exam && $exam->show_correct_answers == 1) ? 'selected' : ''; ?>>
+                                <?php echo olama_exam_translate('Yes'); ?></option>
+                        </select>
+                    </div>
+                    <div class="olama-exam-form-group">
                         <label><?php echo olama_exam_translate('Password'); ?> (<?php echo olama_exam_translate('Optional'); ?>)</label>
                         <input type="password" name="password" value="<?php echo esc_attr($exam->password ?? ''); ?>" 
                             placeholder="<?php echo olama_exam_translate('Leave blank for no password'); ?>" autocomplete="new-password">

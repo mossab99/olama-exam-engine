@@ -119,6 +119,11 @@ class Olama_Exam_Ajax
         }
 
         if ($capabilities) {
+            // Global Supervisor/Admin Bypass
+            if (self::can_supervise_exams()) {
+                return;
+            }
+
             $caps = is_array($capabilities) ? $capabilities : array($capabilities);
             $has_cap = false;
 
@@ -143,6 +148,18 @@ class Olama_Exam_Ajax
     }
 
     /**
+     * Helper to check if user has supervisor/admin access
+     */
+    public static function can_supervise_exams()
+    {
+        if (class_exists('Olama_School_Permissions')) {
+            return Olama_School_Permissions::can('olama_access_supervision') || 
+                   Olama_School_Permissions::can('olama_access_academic_mgmt');
+        }
+        return current_user_can('manage_options');
+    }
+
+    /**
      * Helper to check if the current user is an admin or teacher managing exams
      */
     public static function can_manage_exams()
@@ -151,7 +168,7 @@ class Olama_Exam_Ajax
             return Olama_School_Permissions::can('olama_create_exams') || 
                    Olama_School_Permissions::can('olama_manage_question_bank') ||
                    Olama_School_Permissions::can('olama_access_exams_mgmt') ||
-                   Olama_School_Permissions::can('olama_access_supervision');
+                   self::can_supervise_exams();
         }
         return current_user_can('manage_options');
     }
@@ -791,12 +808,25 @@ class Olama_Exam_Ajax
 
         $filters = array();
 
-        // Role-based filtering: Teachers only see their own exams, while Admins/Supervisors see all.
-        $is_admin = current_user_can('manage_options');
-        $is_supervisor = class_exists('Olama_School_Permissions') && (Olama_School_Permissions::can('olama_access_supervision') || Olama_School_Permissions::can('olama_access_academic_mgmt'));
+        // Role-based filtering: Teachers only see their assigned subjects, while Admins/Supervisors see all.
+        $is_supervisor = self::can_supervise_exams();
         
-        if (!$is_admin && !$is_supervisor) {
-            $filters['teacher_id'] = get_current_user_id();
+        if (!$is_supervisor) {
+            if (class_exists('Olama_School_Teacher')) {
+                $teacher_id = get_current_user_id();
+                // Get all assignments for this teacher
+                $assignments = Olama_School_Teacher::get_all_assignments($teacher_id);
+                if (!empty($assignments)) {
+                    $subject_ids = array_unique(wp_list_pluck($assignments, 'subject_id'));
+                    $filters['subject_id'] = $subject_ids;
+                } else {
+                    // No assignments = no exams visible
+                    $filters['subject_id'] = array(-1); 
+                }
+            } else {
+                // Fallback to old behavior: only show exams created by this teacher
+                $filters['teacher_id'] = get_current_user_id();
+            }
         }
         if (!empty($_POST['grade_id']))
             $filters['grade_id'] = intval($_POST['grade_id']);
@@ -962,7 +992,7 @@ class Olama_Exam_Ajax
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
-        $is_preview = !empty($_POST['is_preview']) && current_user_can('manage_options');
+        $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
 
         if (empty($student_uid) && !$is_preview) {
             olama_exam_log("Olama Exam [AJAX]: Error - Empty Student UID");
@@ -974,7 +1004,7 @@ class Olama_Exam_Ajax
         $is_placement = self::is_placement_exam($exam_id);
         // error_log("Olama Exam [AJAX]: Is Placement: " . ($is_placement ? 'Yes' : 'No'));
         
-        if (!current_user_can('manage_options') && !$is_placement) {
+        if (!self::can_manage_exams() && !$is_placement) {
             global $wpdb;
             $family_id = wp_get_current_user()->user_login;
             olama_exam_log("Olama Exam [AJAX]: Family ID: " . $family_id);
@@ -1041,7 +1071,7 @@ class Olama_Exam_Ajax
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
         $answers_json = wp_unslash($_POST['answers_json'] ?? '{}');
 
-        $is_preview = !empty($_POST['is_preview']) && current_user_can('manage_options');
+        $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
 
         if (empty($student_uid) && !$is_preview) {
             wp_send_json_error(array('message' => 'Student ID is required.'));
@@ -1052,7 +1082,7 @@ class Olama_Exam_Ajax
         $exam_id = $wpdb->get_var($wpdb->prepare("SELECT exam_id FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
         $is_placement = self::is_placement_exam($exam_id);
         
-        if (!current_user_can('manage_options') && !$is_placement) {
+        if (!self::can_manage_exams() && !$is_placement) {
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
@@ -1084,7 +1114,7 @@ class Olama_Exam_Ajax
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
 
-        $is_preview = !empty($_POST['is_preview']) && current_user_can('manage_options');
+        $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
 
         if (empty($student_uid) && !$is_preview) {
             wp_send_json_error(array('message' => 'Student ID is required.'));
@@ -1095,7 +1125,7 @@ class Olama_Exam_Ajax
         $exam_id = $wpdb->get_var($wpdb->prepare("SELECT exam_id FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
         $is_placement = self::is_placement_exam($exam_id);
 
-        if (!current_user_can('manage_options') && !$is_placement) {
+        if (!self::can_manage_exams() && !$is_placement) {
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",

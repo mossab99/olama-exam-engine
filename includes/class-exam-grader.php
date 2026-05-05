@@ -111,6 +111,7 @@ class Olama_Exam_Grader
             'has_essay' => $has_essay,
             'details' => $results,
             'show_results' => $exam ? intval($exam->show_results) : 0,
+            'show_correct_answers' => $exam ? intval($exam->show_correct_answers) : 0,
         );
     }
 

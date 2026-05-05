@@ -67,8 +67,15 @@ class Olama_Exam_Manager
             $params[] = intval($filters['section_id']);
         }
         if (!empty($filters['subject_id'])) {
-            $query .= " AND e.subject_id = %d";
-            $params[] = intval($filters['subject_id']);
+            if (is_array($filters['subject_id'])) {
+                $ids = array_map('intval', $filters['subject_id']);
+                $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+                $query .= " AND e.subject_id IN ($placeholders)";
+                foreach ($ids as $id) $params[] = $id;
+            } else {
+                $query .= " AND e.subject_id = %d";
+                $params[] = intval($filters['subject_id']);
+            }
         }
         if (!empty($filters['teacher_id'])) {
             $query .= " AND e.teacher_id = %d";
@@ -163,6 +170,7 @@ class Olama_Exam_Manager
             'max_attempts' => intval($data['max_attempts'] ?? 1),
             'question_mode' => sanitize_text_field($data['question_mode'] ?? 'manual'),
             'show_results' => intval($data['show_results'] ?? 0),
+            'show_correct_answers' => intval($data['show_correct_answers'] ?? 0),
             'is_placement' => (isset($data['is_placement']) && ($data['is_placement'] === 'on' || $data['is_placement'] == 1)) ? 1 : 0,
             'exam_type' => sanitize_text_field($data['exam_type'] ?? 'exam'),
             'password' => sanitize_text_field($data['password'] ?? ''),

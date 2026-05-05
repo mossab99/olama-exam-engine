@@ -590,6 +590,22 @@
         resultsEl.style.display = '';
 
         const isArabic = document.documentElement.lang === 'ar';
+
+        // Bug Fix: If show_results is false, show restricted message
+        if (!data.show_results) {
+            let html = '<div class="oe-score-summary" style="text-align:center; padding: 60px 20px;">';
+            html += '  <div style="font-size: 64px; margin-bottom: 20px;">✅</div>';
+            html += '  <h2 style="color: var(--oe-primary); margin-bottom: 12px;">' + (isArabic ? 'تم تسليم الاختبار بنجاح' : 'Exam Submitted Successfully') + '</h2>';
+            html += '  <p style="color: #64748b; font-size: 16px;">' + (isArabic ? 'شكراً لك! لقد تم استلام إجاباتك بنجاح. سيتم الإعلان عن النتائج لاحقاً.' : 'Thank you! Your answers have been received. Results will be announced later.') + '</p>';
+            html += '  <div style="margin-top: 40px;">';
+            html += '    <a href="?exam_view=dashboard" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
+            html += '  </div>';
+            html += '</div>';
+            resultsEl.innerHTML = html;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
         const resultLabels = {
             'pass': isArabic ? 'ناجح ✅' : 'PASS ✅',
             'fail': isArabic ? 'راسب ❌' : 'FAIL ❌',
@@ -610,8 +626,9 @@
         html += '    <circle class="oe-result-progress-circle" id="oe-result-circle" cx="100" cy="100" r="' + radius + '"></circle>';
         html += '  </svg>';
         html += '  <div class="oe-score-content">';
-        html += '    <span class="oe-score-number">' + data.percentage + '%</span>';
-        html += '    <span class="oe-score-text">' + data.score + ' / ' + data.max_score + '</span>';
+        // Feature: Swap score and percentage
+        html += '    <span class="oe-score-number" style="font-size: 28px;">' + data.score + ' / ' + data.max_score + '</span>';
+        html += '    <span class="oe-score-text" style="font-size: 20px; font-weight: 600; color: var(--oe-primary);">' + data.percentage + '%</span>';
         html += '  </div>';
         html += '</div>';
 
@@ -645,7 +662,8 @@
         html += '</div>'; // close stats-grid
         html += '</div>'; // close score-summary
 
-        if (data.show_results && data.details) {
+        // Feature: Show answers if show_results AND show_correct_answers are true
+        if (data.details) {
             html += '<div class="oe-answer-review">';
             data.details.forEach(function (d, i) {
                 const cardClass = d.status === 'correct' ? 'oe-correct' : (d.status === 'pending' ? 'oe-pending' : 'oe-incorrect');
@@ -657,12 +675,52 @@
                 html += '    <span class="oe-review-status">' + statusIcon + '</span>';
                 html += '  </div>';
                 html += '  <div class="oe-review-question">' + escHtml(d.text) + '</div>';
+                
+                // Show Correct Answer if enabled
+                if (data.show_correct_answers && d.correct_answer) {
+                    html += '  <div class="oe-review-correct-box" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">';
+                    html += '    <strong style="color: #166534; font-size: 13px;">' + (isArabic ? 'الإجابة الصحيحة:' : 'Correct Answer:') + '</strong>';
+                    html += '    <div style="margin-top: 4px; color: #15803d; font-weight: 500;">' + formatCorrectAnswer(d) + '</div>';
+                    html += '  </div>';
+                }
+
                 if (d.explanation) {
                     html += '  <div class="oe-review-explanation">📖 ' + escHtml(d.explanation) + '</div>';
                 }
                 html += '</div>';
             });
             html += '</div>';
+        }
+
+        html += '<div style="text-align:center; margin-top:40px;">';
+        html += '<a href="?exam_view=dashboard" class="oe-btn oe-btn-primary oe-btn-lg">← ' + (isArabic ? 'العودة للوحة التحكم' : 'Back to Dashboard') + '</a>';
+        html += '</div>';
+
+        // Helper to format correct answer display
+        function formatCorrectAnswer(d) {
+            if (!d.correct_answer) return '';
+            
+            // d.correct_answer is the 'correct' part of snapshot data
+            switch (d.type) {
+                case 'mcq':
+                    return escHtml(d.correct_answer.correct_text || '');
+                case 'tf':
+                    const val = d.correct_answer.correct;
+                    if (isArabic) return val === true || val === 'true' ? 'صح' : 'خطأ';
+                    return val === true || val === 'true' ? 'True' : 'False';
+                case 'short':
+                case 'fill_blank':
+                    const answers = d.correct_answer.answers || [];
+                    return Array.isArray(answers) ? answers.join(' | ') : answers;
+                case 'matching':
+                    if (!d.correct_answer.pairs) return '';
+                    return d.correct_answer.pairs.map(p => escHtml(p.left + ' → ' + p.right)).join('<br>');
+                case 'ordering':
+                    const items = d.correct_answer.correct_order || [];
+                    return items.map((it, idx) => (idx + 1) + '. ' + escHtml(it)).join(' → ');
+                default:
+                    return '';
+            }
         }
 
         html += '<div style="text-align:center; margin-top:40px;">';
