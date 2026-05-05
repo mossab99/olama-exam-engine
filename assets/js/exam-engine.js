@@ -591,9 +591,18 @@
 
         const isArabic = document.documentElement.lang === 'ar';
 
-        // Bug Fix: If show_results is false, show restricted message
-        // We check for falsy value or explicit 0, and also check if percentage is missing
-        if (!data.show_results || parseInt(data.show_results) === 0 || typeof data.percentage === 'undefined') {
+        // Determine if results should be shown.
+        // Three independent conditions that all must be met to display results:
+        // 1. show_results flag must be explicitly truthy (not 0, "0", false, null, undefined)
+        // 2. percentage must exist and be a valid number
+        // 3. score and max_score must exist
+        var showResultsFlag = data && parseInt(data.show_results, 10) === 1;
+        var hasValidScore = data &&
+            typeof data.percentage !== 'undefined' && data.percentage !== null &&
+            typeof data.score !== 'undefined' && data.score !== null &&
+            typeof data.max_score !== 'undefined' && data.max_score !== null;
+
+        if (!showResultsFlag || !hasValidScore) {
             let html = '<div class="oe-score-summary" style="text-align:center; padding: 60px 20px;">';
             html += '  <div style="font-size: 64px; margin-bottom: 20px;">✅</div>';
             html += '  <h2 style="color: var(--oe-primary); margin-bottom: 12px;">' + (isArabic ? 'تم تسليم الاختبار بنجاح' : 'Exam Submitted Successfully') + '</h2>';

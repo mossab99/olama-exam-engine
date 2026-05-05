@@ -45,7 +45,6 @@ class Olama_Exam_Ajax
             'olama_exam_preview',
             'olama_exam_get_exams',
             'olama_exam_replicate_exam',
-            'olama_exam_get_quiz_next_sequence',
 
             // ── Student Exam Engine (Phase 4) ──
             'olama_exam_start',
@@ -380,6 +379,7 @@ class Olama_Exam_Ajax
         $subject_id = intval($_POST['subject_id'] ?? 0);
         $section_id = intval($_POST['section_id'] ?? 0);
         $is_placement = intval($_POST['is_placement'] ?? 0);
+        $exam_type  = sanitize_text_field($_POST['exam_type'] ?? 'exam');
 
         if ($grade_id <= 0 || $subject_id <= 0) {
             wp_send_json_error('Missing grade or subject');
@@ -394,7 +394,7 @@ class Olama_Exam_Ajax
         }
 
         $semester_exam = null;
-        if (!$is_placement) {
+        if (!$is_placement && $exam_type === 'exam') {
             $semester_exam = $wpdb->get_row($wpdb->prepare(
                 "SELECT * FROM {$wpdb->prefix}olama_semester_exams
                  WHERE semester_id = %d AND (grade_id = %d OR grade_id IS NULL) AND is_active = 1
@@ -405,7 +405,7 @@ class Olama_Exam_Ajax
             ));
         }
 
-        if (!$semester_exam && !$is_placement) {
+        if (!$semester_exam && !$is_placement && $exam_type === 'exam') {
             wp_send_json_error('No active exam schedule found');
         }
 
@@ -434,16 +434,36 @@ class Olama_Exam_Ajax
         }
 
         // Build auto-title
-        $title_parts = array_filter([
-            $is_placement ? olama_exam_translate('Placement Test') : '',
-            $active_year->year_name,
-            $active_semester->semester_name,
-            ($semester_exam && !$is_placement) ? $semester_exam->exam_name : '',
-            $grade_name,
-            ($section_name && !$is_placement) ? $section_name : '',
-            $subject_name,
-        ]);
-        $auto_title = implode(' - ', $title_parts);
+        if ($exam_type === 'quiz') {
+            // Count existing quizzes for this section/subject in this semester
+            $count = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_exams 
+                 WHERE section_id = %d AND subject_id = %d AND exam_type = 'quiz' AND semester_id = %d",
+                $section_id, $subject_id, $active_semester->id
+            ));
+            $sequence = intval($count) + 1;
+
+            $title_parts = array_filter([
+                $active_year->year_name,
+                $active_semester->semester_name,
+                $grade_name,
+                $section_name,
+                $subject_name,
+                olama_exam_translate('Quiz') . ' ' . $sequence,
+            ]);
+            $auto_title = implode(' - ', $title_parts);
+        } else {
+            $title_parts = array_filter([
+                $is_placement ? olama_exam_translate('Placement Test') : '',
+                $active_year->year_name,
+                $active_semester->semester_name,
+                ($semester_exam && !$is_placement) ? $semester_exam->exam_name : '',
+                $grade_name,
+                ($section_name && !$is_placement) ? $section_name : '',
+                $subject_name,
+            ]);
+            $auto_title = implode(' - ', $title_parts);
+        }
 
         // Extract unit IDs from exam_material_json
         $material_unit_ids = [];
@@ -495,6 +515,7 @@ class Olama_Exam_Ajax
             'sis_exam_id'       => $sis_exam ? $sis_exam->id : null,
         ]);
     }
+
 
     public static function handle_stream_image()
     {
@@ -874,39 +895,6 @@ class Olama_Exam_Ajax
         wp_send_json_success($exams);
     }
 
-    public static function handle_get_quiz_next_sequence()
-    {
-        self::verify_request('olama_create_exams');
-
-        $grade_id = intval($_POST['grade_id']);
-        $section_id = intval($_POST['section_id']);
-        $subject_id = intval($_POST['subject_id']);
-
-        global $wpdb;
-        $table = "{$wpdb->prefix}olama_exam_exams";
-
-        // Count existing quizzes for this grade/section/subject
-        $count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $table 
-             WHERE grade_id = %d AND section_id = %d AND subject_id = %d AND exam_type = 'quiz'",
-            $grade_id, $section_id, $subject_id
-        ));
-
-        // Wait, exams might not have a grade_id column directly if it's derived from section or subject.
-        // Let's check the schema.
-        // In get_exams, it says: e.section_id, e.subject_id.
-        // s.grade_id = g.id, sub.grade_id = g2.id.
-        
-        // Correct query joining with sections
-        $count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $table e
-             JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
-             WHERE s.grade_id = %d AND e.section_id = %d AND e.subject_id = %d AND e.exam_type = 'quiz'",
-            $grade_id, $section_id, $subject_id
-        ));
-
-        wp_send_json_success(array('sequence' => intval($count) + 1));
-    }
 
     public static function handle_replicate_exam()
     {

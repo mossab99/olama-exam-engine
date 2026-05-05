@@ -117,16 +117,19 @@ class Olama_Exam_Grader
         // Debug log for production investigation
         error_log("Olama Exam Debug: Grade Attempt " . $attempt_id . " - show_results DB value: " . ($exam ? $exam->show_results : 'no exam') . " - Final Response show_results: " . $response['show_results']);
 
-        // Security: If show_results is false, strip sensitive result data from the response
-        if (intval($response['show_results']) === 0) {
-            error_log("Olama Exam Debug: Hiding results for attempt " . $attempt_id);
+        // Security: If show_results is not explicitly 1, strip sensitive result data from the response
+        if (intval($response['show_results']) !== 1) {
+            error_log("Olama Exam Debug: Hiding results for attempt " . $attempt_id . " (show_results=" . $response['show_results'] . ")");
             return array(
                 'attempt_id'   => $attempt_id,
                 'show_results' => 0,
-                'result'       => 'pending', // Hide actual pass/fail
+                'result'       => 'submitted',
                 'message'      => 'Submitted'
             );
         }
+
+        // Ensure show_results is an explicit integer 1
+        $response['show_results'] = 1;
 
         return $response;
     }

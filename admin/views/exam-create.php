@@ -164,7 +164,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                     <input type="text" name="title" id="exam-title-input" value="<?php echo esc_attr($exam->title ?? ''); ?>" required
                         placeholder="<?php echo olama_exam_translate('Auto-generated after selecting grade, section & subject'); ?>">
                     <small id="exam-title-hint" style="color:#64748b; font-size:12px; display:none;">
-                        💡 <?php echo olama_exam_translate('Title auto-generated from exam schedule. You can edit it.'); ?>
+                        💡 <?php echo olama_exam_translate('Title auto-generated. You can edit it.'); ?>
                     </small>
                 </div>
 
@@ -781,8 +781,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             section_id: sectionId || 0,
             subject_id: subjectId,
             is_placement: isPlacement ? 1 : 0,
+            exam_type: isQuizMode ? 'quiz' : 'exam',
         }, function(res) {
-            if (!res.success || isQuizMode) {
+            if (!res.success) {
                 scheduleInfo = null;
                 materialUnits = [];
                 $('#sis-exam-info').hide();
@@ -798,9 +799,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 $('#q-show-all-units').prop('checked', true).trigger('change');
             }
 
-            // Feature #1: Auto-generate title (only for new exams)
+            // Feature #1: Auto-generate title (only for new exams/quizzes)
             var isNew = $('input[name="id"]').val() == '0';
-            if (isNew && !isQuizMode && res.data.auto_title) {
+            if (isNew && res.data.auto_title) {
                 $('#exam-title-input').val(res.data.auto_title);
                 $('#exam-title-hint').show();
             }
@@ -875,41 +876,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     // Feature #4: Override checkbox
     $('#q-show-all-units').on('change', populateUnitDropdowns);
 
-    function generateQuizTitle() {
-        var grade = $('#exam-grade-select option:selected').text().trim();
-        var section = $('#exam-section-select option:selected').text().trim();
-        var subject = $('#exam-subject-select option:selected').text().trim();
-        var isNew = $('input[name="id"]').val() == '0';
-
-        if (isNew && $('#exam-grade-select').val() && $('#exam-grade-select').val() != '0' && 
-            $('#exam-section-select').val() && $('#exam-section-select').val() != '0' && 
-            $('#exam-subject-select').val() && $('#exam-subject-select').val() != '0') {
-            
-            var baseTitle = grade + ' - ' + section + ' - ' + subject + ' - ' + '<?php echo olama_exam_translate("Quiz"); ?>';
-            
-            $.post(olamaExam.ajaxUrl, {
-                action: 'olama_exam_get_quiz_next_sequence',
-                nonce: olamaExam.nonce,
-                grade_id: $('#exam-grade-select').val(),
-                section_id: $('#exam-section-select').val(),
-                subject_id: $('#exam-subject-select').val()
-            }, function(res) {
-                if (res.success) {
-                    $('#exam-title-input').val(baseTitle + ' ' + res.data.sequence);
-                }
-            });
-        }
-    }
-
     // Trigger schedule fetch when section or subject changes
-    $('#exam-section-select').on('change', function() {
-        if (isQuizMode) generateQuizTitle();
-        fetchScheduleInfo();
-    });
-    $('#exam-subject-select').on('change', function() {
-        if (isQuizMode) generateQuizTitle();
-        fetchScheduleInfo();
-    });
+    $('#exam-section-select').on('change', fetchScheduleInfo);
+    $('#exam-subject-select').on('change', fetchScheduleInfo);
 
     // Auto-trigger grade cascade on edit
     <?php if ($exam && isset($exam->grade_id) && $exam->grade_id > 0): ?>
