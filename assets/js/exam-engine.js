@@ -480,32 +480,67 @@
     }
 
     // ── Autosave ──────────────────────────────────────────────
+    var autosaveRetryCount = 0;
+    var MAX_AUTOSAVE_RETRIES = 3;
+    var autosaveRetryTimer = null;
+
     function startAutosave() {
-        state.autosaveInterval = setInterval(doAutosave, 60000); // every 60s
+        state.autosaveInterval = setInterval(function() {
+            // Reset retry count on scheduled (non-retry) saves
+            autosaveRetryCount = 0;
+            doAutosave();
+        }, 90000); // every 90s
     }
 
     function doAutosave() {
         if (state.submitted) return;
+        // Cancel any pending retry timer before starting a new request
+        if (autosaveRetryTimer) {
+            clearTimeout(autosaveRetryTimer);
+            autosaveRetryTimer = null;
+        }
 
-        const statusEl = document.getElementById('oe-autosave-status');
-        statusEl.className = 'oe-autosave-status oe-saving';
-        statusEl.textContent = '💾 ' + (document.documentElement.lang === 'ar' ? 'جاري الحفظ...' : 'Saving...');
+        var statusEl = document.getElementById('oe-autosave-status');
+        if (statusEl) {
+            statusEl.className = 'oe-autosave-status oe-saving';
+            statusEl.textContent = '💾 ' + (document.documentElement.lang === 'ar' ? 'جاري الحفظ...' : 'Saving...');
+        }
 
         ajax('olama_exam_autosave', {
             attempt_id: state.attemptId,
             student_uid: config.studentUid,
             answers_json: JSON.stringify(state.answers),
         }, function () {
-            statusEl.className = 'oe-autosave-status oe-saved';
-            statusEl.textContent = '💾 ' + (document.documentElement.lang === 'ar' ? 'تم الحفظ' : 'Saved just now');
-            setTimeout(function () {
-                statusEl.textContent = '';
-                statusEl.className = 'oe-autosave-status';
-            }, 5000);
+            autosaveRetryCount = 0; // reset on success
+            if (statusEl) {
+                statusEl.className = 'oe-autosave-status oe-saved';
+                statusEl.textContent = '💾 ' + (document.documentElement.lang === 'ar' ? 'تم الحفظ' : 'Saved just now');
+                setTimeout(function () {
+                    statusEl.textContent = '';
+                    statusEl.className = 'oe-autosave-status';
+                }, 5000);
+            }
         }, function () {
-            statusEl.className = 'oe-autosave-status oe-failed';
-            statusEl.textContent = '⚠️ ' + (document.documentElement.lang === 'ar' ? 'فشل الحفظ، جاري إعادة المحاولة...' : 'Save failed, retrying...');
-            setTimeout(doAutosave, 10000);
+            autosaveRetryCount++;
+            if (autosaveRetryCount <= MAX_AUTOSAVE_RETRIES) {
+                // Exponential backoff: 15s, 30s, 60s
+                var delay = Math.min(15000 * autosaveRetryCount, 60000);
+                if (statusEl) {
+                    statusEl.className = 'oe-autosave-status oe-failed';
+                    statusEl.textContent = '⚠️ ' + (document.documentElement.lang === 'ar' ? 'فشل الحفظ، سيتم إعادة المحاولة...' : 'Save failed, will retry...');
+                }
+                autosaveRetryTimer = setTimeout(doAutosave, delay);
+            } else {
+                // Stop retrying after max attempts
+                if (statusEl) {
+                    statusEl.className = 'oe-autosave-status oe-failed';
+                    statusEl.textContent = '⚠️ ' + (document.documentElement.lang === 'ar' ? 'تعذر الحفظ. إجاباتك محفوظة محلياً.' : 'Could not save. Your answers are stored locally.');
+                }
+                // Store answers in localStorage as fallback
+                try {
+                    localStorage.setItem('oe_answers_' + state.attemptId, JSON.stringify(state.answers));
+                } catch(e) {}
+            }
         });
     }
 
@@ -541,6 +576,11 @@
 
         clearInterval(state.timerInterval);
         clearInterval(state.autosaveInterval);
+        // Cancel any pending autosave retry
+        if (autosaveRetryTimer) {
+            clearTimeout(autosaveRetryTimer);
+            autosaveRetryTimer = null;
+        }
 
         console.log("Olama Exam JS: Calling autosave before submit with answers:", state.answers);
 
@@ -764,17 +804,29 @@
             data.is_preview = 1;
         }
 
-        const formData = new FormData();
+        // Use URLSearchParams for plain form encoding (more WAF-friendly than FormData)
+        var params = new URLSearchParams();
         Object.keys(data).forEach(function (key) {
-            formData.append(key, typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key]);
+            var val = data[key];
+            if (typeof val === 'object' && val !== null) {
+                params.append(key, JSON.stringify(val));
+            } else {
+                params.append(key, val);
+            }
         });
 
         fetch(config.ajaxUrl, {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: params.toString(),
             credentials: 'same-origin',
         })
-            .then(function (response) { return response.json(); })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                return response.json();
+            })
             .then(function (result) {
                 if (result.success) {
                     onSuccess(result.data);
