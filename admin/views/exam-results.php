@@ -36,16 +36,37 @@ $exam_query = "SELECT e.id, e.title, sub.subject_name, s.section_name, e.is_plac
                LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
                LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
                WHERE 1=1";
+$exam_query_params = array();
 
-if ($selected_year_id) $exam_query .= $wpdb->prepare(" AND e.academic_year_id = %d", $selected_year_id);
-if ($selected_semester_id) $exam_query .= $wpdb->prepare(" AND e.semester_id = %d", $selected_semester_id);
+if ($selected_year_id) {
+    $exam_query .= $wpdb->prepare(" AND e.academic_year_id = %d", $selected_year_id);
+}
+if ($selected_semester_id) {
+    $exam_query .= $wpdb->prepare(" AND e.semester_id = %d", $selected_semester_id);
+}
 
 if ($selected_section_id) {
     $exam_query .= $wpdb->prepare(" AND e.section_id = %d", $selected_section_id);
-} else {
-    // If no section, maybe show placement tests?
-    // User might want to see placement tests specifically if they are not associated with a section
 }
+
+// ── Teacher Subject Filter ──────────────────────────────────────────────────
+// Non-supervisor teachers only see exams for subjects they are assigned to.
+if (!Olama_Exam_Ajax::can_supervise_exams() && class_exists('Olama_School_Teacher')) {
+    $teacher_id     = get_current_user_id();
+    $active_year    = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_active_year() : null;
+    $active_year_id = $active_year ? intval($active_year->id) : 0;
+
+    $teacher_assignments = Olama_School_Teacher::get_all_assignments($teacher_id, $active_year_id);
+    if (!empty($teacher_assignments)) {
+        $teacher_subject_ids = array_unique(wp_list_pluck($teacher_assignments, 'subject_id'));
+        $teacher_subject_ids = array_map('intval', $teacher_subject_ids);
+        $placeholders = implode(',', array_fill(0, count($teacher_subject_ids), '%d'));
+        $exam_query .= $wpdb->prepare(" AND e.subject_id IN ($placeholders)", ...$teacher_subject_ids);
+    } else {
+        $exam_query .= " AND 1=0"; // No assignments → no exams
+    }
+}
+// ── End Teacher Subject Filter ─────────────────────────────────────────────
 
 $exam_query .= " ORDER BY e.created_at DESC";
 $exams = $wpdb->get_results($exam_query);

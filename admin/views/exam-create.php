@@ -23,6 +23,18 @@ $exam      = $edit_id > 0 ? Olama_Exam_Manager::get_exam($edit_id) : null;
 $exam_questions = ($exam && $exam->question_mode === 'manual' && $exam->manual_question_ids) 
     ? json_decode($exam->manual_question_ids, true) : array();
 
+// ── Teacher Access Guard ────────────────────────────────────────────────────
+// When a teacher opens the edit form for an existing exam, verify they are
+// assigned to that exam's subject+section. Supervisors/Admins always pass.
+if ($show_form && $edit_id > 0 && $exam) {
+    if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
+        $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+        wp_redirect(admin_url('admin.php?page=' . $list_page . '&access_denied=1'));
+        exit;
+    }
+}
+// ── End Access Guard ─────────────────────────────────────────────────────────
+
 // Detect Quiz Mode
 $is_quiz_mode = (isset($_GET['page']) && $_GET['page'] === 'olama-exam-create-quiz');
 $page_title = $show_form 
@@ -64,6 +76,15 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     <?php if (!$show_form): ?>
     <!-- ═══════════════════ EXAM LIST VIEW ═══════════════════ -->
+
+    <?php
+    // Show access-denied notice if redirected from a denied exam
+    if (!empty($_GET['access_denied'])): ?>
+    <div class="notice notice-error" style="margin:10px 0;">
+        <p><strong>⛔ <?php echo olama_exam_translate('Access Denied'); ?>:</strong>
+        <?php echo olama_exam_translate('You are not assigned to that exam\'s subject or section.'); ?></p>
+    </div>
+    <?php endif; ?>
 
     <!-- Filters -->
     <div class="olama-exam-filters">

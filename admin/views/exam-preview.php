@@ -15,6 +15,15 @@ if (!$exam) {
     wp_die(olama_exam_translate('Exam not found.'));
 }
 
+// ── Teacher Access Guard ────────────────────────────────────────────────────
+// Prevent teachers from previewing exams outside their subject/section assignment.
+if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
+    $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+    wp_redirect(admin_url('admin.php?page=' . $list_page . '&access_denied=1'));
+    exit;
+}
+// ── End Access Guard ─────────────────────────────────────────────────────────
+
 // Fetch questions (resolving random if needed)
 $questions = Olama_Exam_Manager::get_exam_questions($exam_id);
 

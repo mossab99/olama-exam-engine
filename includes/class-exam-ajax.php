@@ -152,8 +152,10 @@ class Olama_Exam_Ajax
     public static function can_supervise_exams()
     {
         if (class_exists('Olama_School_Permissions')) {
+            // ONLY administrators and explicit supervisors should bypass all restrictions.
+            // olama_access_academic_mgmt is often given to teachers and should NOT bypass exam restrictions.
             return Olama_School_Permissions::can('olama_access_supervision') || 
-                   Olama_School_Permissions::can('olama_access_academic_mgmt');
+                   current_user_can('administrator');
         }
         return current_user_can('manage_options');
     }
@@ -170,6 +172,105 @@ class Olama_Exam_Ajax
                    self::can_supervise_exams();
         }
         return current_user_can('manage_options');
+    }
+
+    /**
+     * Check if the current teacher is allowed to access a specific exam.
+     *
+     * Supervisors and admins always pass.
+     * For teachers: the exam's (subject_id + section_id) combination must exist
+     * in their olama_teacher_assignments row for the active academic year.
+     * If the exam has no section (e.g. placement test), only the subject is checked.
+     *
+     * @param int|object $exam  Exam ID or exam object.
+     * @return bool  True = access allowed, false = denied.
+     */
+    public static function can_teacher_access_exam($exam)
+    {
+        // Supervisors & admins always have full access
+        if (self::can_supervise_exams()) {
+            return true;
+        }
+
+        // Load exam if only ID given
+        if (is_numeric($exam)) {
+            $exam = Olama_Exam_Manager::get_exam(intval($exam));
+        }
+
+        if (!$exam) {
+            return false; // Exam doesn't exist — deny
+        }
+
+        // If the Olama School plugin with teacher assignments is not available,
+        // fall back to allowing any logged-in exam manager.
+        if (!class_exists('Olama_School_Teacher')) {
+            return self::can_manage_exams();
+        }
+
+        $teacher_id = get_current_user_id();
+
+        // Get active academic year
+        $active_year = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_active_year() : null;
+        $academic_year_id = $active_year ? intval($active_year->id) : 0;
+
+        global $wpdb;
+
+        $subject_id = intval($exam->subject_id ?? 0);
+        $section_id = intval($exam->section_id ?? 0);
+
+        if ($subject_id <= 0) {
+            // No subject set — allow (edge-case / placement test without subject)
+            // error_log("Olama Exam [Access Check]: ALLOWED - No subject ID on exam.");
+            return true;
+        }
+
+        if ($section_id > 0) {
+            // Strict check: teacher must be assigned to THIS subject in THIS section
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}olama_teacher_assignments
+                 WHERE teacher_id = %d
+                   AND subject_id = %d
+                   AND section_id = %d
+                   AND academic_year_id = %d
+                 LIMIT 1",
+                $teacher_id,
+                $subject_id,
+                $section_id,
+                $academic_year_id
+            ));
+        } else {
+            // No section (e.g. placement test) — check subject only
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}olama_teacher_assignments
+                 WHERE teacher_id = %d
+                   AND subject_id = %d
+                   AND academic_year_id = %d
+                 LIMIT 1",
+                $teacher_id,
+                $subject_id,
+                $academic_year_id
+            ));
+        }
+
+        $allowed = !empty($exists);
+        
+        return $allowed;
+    }
+
+    /**
+     * Deny access with a JSON error if the current teacher is not allowed to touch this exam.
+     * Call this after verifying the user has basic exam management permissions.
+     *
+     * @param int|object $exam  Exam ID or exam object.
+     */
+    private static function abort_if_no_exam_access($exam)
+    {
+        if (!self::can_teacher_access_exam($exam)) {
+            wp_send_json_error(array(
+                'message' => olama_exam_translate('Access denied. You are not assigned to this subject or section.'),
+                'code'    => 'EXAM_ACCESS_DENIED',
+            ), 403);
+        }
     }
 
     // ── Category Handlers ──────────────────────────────────────
@@ -764,6 +865,21 @@ class Olama_Exam_Ajax
     {
         self::verify_request(array('olama_create_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
 
+        // For updates, verify the teacher is allowed to edit this exam.
+        // For new exams, verify the teacher is assigned to the selected subject+section.
+        $edit_id = intval($_POST['id'] ?? 0);
+        if ($edit_id > 0) {
+            // Editing existing exam — check against stored exam record
+            self::abort_if_no_exam_access($edit_id);
+        } else {
+            // Creating new exam — check against the submitted subject_id + section_id
+            $check_obj = (object) array(
+                'subject_id' => intval($_POST['subject_id'] ?? 0),
+                'section_id' => intval($_POST['section_id'] ?? 0),
+            );
+            self::abort_if_no_exam_access($check_obj);
+        }
+
         $result = Olama_Exam_Manager::save_exam($_POST);
 
         if (is_wp_error($result)) {
@@ -781,6 +897,8 @@ class Olama_Exam_Ajax
         self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
+        self::abort_if_no_exam_access($id);
+
         $result = Olama_Exam_Manager::delete_exam($id);
 
         if (is_wp_error($result)) {
@@ -795,6 +913,8 @@ class Olama_Exam_Ajax
         self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
+        self::abort_if_no_exam_access($id);
+
         $status = sanitize_text_field($_POST['status'] ?? '');
 
         $result = Olama_Exam_Manager::update_status($id, $status);
@@ -814,6 +934,8 @@ class Olama_Exam_Ajax
         self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
+        self::abort_if_no_exam_access($id);
+
         $result = Olama_Exam_Manager::preview_exam($id);
 
         if (is_wp_error($result)) {
@@ -831,30 +953,51 @@ class Olama_Exam_Ajax
 
         // Role-based filtering: Teachers only see their assigned subjects, while Admins/Supervisors see all.
         $is_supervisor = self::can_supervise_exams();
+        $teacher_allowed_subjects = null;
         
         if (!$is_supervisor) {
             if (class_exists('Olama_School_Teacher')) {
                 $teacher_id = get_current_user_id();
+                $active_year = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_active_year() : null;
+                $active_year_id = $active_year ? intval($active_year->id) : 0;
+
                 // Get all assignments for this teacher
-                $assignments = Olama_School_Teacher::get_all_assignments($teacher_id);
+                $assignments = Olama_School_Teacher::get_all_assignments($teacher_id, $active_year_id);
                 if (!empty($assignments)) {
-                    $subject_ids = array_unique(wp_list_pluck($assignments, 'subject_id'));
-                    $filters['subject_id'] = $subject_ids;
+                    $teacher_allowed_subjects = array_unique(wp_list_pluck($assignments, 'subject_id'));
+                    $filters['subject_id'] = $teacher_allowed_subjects;
                 } else {
                     // No assignments = no exams visible
                     $filters['subject_id'] = array(-1); 
+                    $teacher_allowed_subjects = array(-1);
                 }
             } else {
                 // Fallback to old behavior: only show exams created by this teacher
                 $filters['teacher_id'] = get_current_user_id();
             }
         }
+
         if (!empty($_POST['grade_id']))
             $filters['grade_id'] = intval($_POST['grade_id']);
+        
         if (!empty($_POST['section_id']))
             $filters['section_id'] = intval($_POST['section_id']);
-        if (!empty($_POST['subject_id']))
-            $filters['subject_id'] = intval($_POST['subject_id']);
+
+        if (!empty($_POST['subject_id'])) {
+            $requested_subject_id = intval($_POST['subject_id']);
+            // Security: If teacher, ensure requested subject is one they are assigned to
+            if ($teacher_allowed_subjects !== null) {
+                if (in_array($requested_subject_id, $teacher_allowed_subjects)) {
+                    $filters['subject_id'] = $requested_subject_id;
+                } else {
+                    // Requested subject not allowed — stick to all allowed subjects or set to nothing
+                    $filters['subject_id'] = array(-1); 
+                }
+            } else {
+                $filters['subject_id'] = $requested_subject_id;
+            }
+        }
+
         if (!empty($_POST['status']))
             $filters['status'] = sanitize_text_field($_POST['status'] ?? '');
         if (!empty($_POST['search']))
@@ -866,12 +1009,6 @@ class Olama_Exam_Ajax
         if (!empty($_POST['exam_type']))
             $filters['exam_type'] = sanitize_text_field($_POST['exam_type'] ?? '');
 
-        /*
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Exam Engine List Request: filters=' . print_r($filters, true) . ', user_id=' . get_current_user_id());
-        }
-        */
-
         $exams = Olama_Exam_Manager::get_exams($filters, true);
 
         // Compute question_count efficiently without N+1 queries
@@ -881,7 +1018,6 @@ class Olama_Exam_Ajax
                 $exam->question_count = intval($exam->random_count ?? 0);
             } else {
                 // For manual mode, count the IDs from the JSON stored in DB
-                // We need a lightweight fetch of just manual_question_ids
                 global $wpdb;
                 $ids_json = $wpdb->get_var($wpdb->prepare(
                     "SELECT manual_question_ids FROM {$wpdb->prefix}olama_exam_exams WHERE id = %d",
@@ -901,6 +1037,8 @@ class Olama_Exam_Ajax
         self::verify_request('olama_create_exams');
 
         $id = intval($_POST['id'] ?? 0);
+        self::abort_if_no_exam_access($id);
+
         $result = Olama_Exam_Manager::replicate_exam($id);
 
         if (is_wp_error($result)) {

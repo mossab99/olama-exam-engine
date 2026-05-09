@@ -15,6 +15,15 @@ if (!$exam) {
     wp_die(olama_exam_translate('Exam not found.'));
 }
 
+// ── Teacher Access Guard ────────────────────────────────────────────────────
+// Prevent teachers from simulating exams outside their subject/section assignment.
+if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
+    $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+    wp_redirect(admin_url('admin.php?page=' . $list_page . '&access_denied=1'));
+    exit;
+}
+// ── End Access Guard ─────────────────────────────────────────────────────────
+
 // Enqueue styles
 wp_enqueue_style('olama-exam-student', OLAMA_EXAM_URL . 'assets/css/exam-student.css', array(), OLAMA_EXAM_VERSION);
 wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap', array(), null);

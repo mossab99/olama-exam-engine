@@ -1,0 +1,12 @@
+User: الهام اللحام (ID: 10810)
+Roles: teacher
+olama_access_supervision: NO
+olama_access_academic_mgmt: YES
+manage_options: NO
+can_supervise_exams(): YES
+Active Year ID: 1
+Assignments Count: 4
+- Grade: 14, Section: 57, Subject: 29
+- Grade: 14, Section: 58, Subject: 29
+- Grade: 17, Section: 67, Subject: 56
+- Grade: 17, Section: 68, Subject: 56
