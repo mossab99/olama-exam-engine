@@ -237,10 +237,24 @@ class Olama_Exam_Shortcodes
                                             <?php if (!empty($exam->password)): ?> 🔒<?php endif; ?>
                                         </h4>
                                         <div class="oe-card-meta">
-                                            <div class="oe-meta-row">⏱ <strong><?php echo olama_exam_translate('Duration:'); ?></strong> <?php echo $exam->duration_minutes; ?> min</div>
-                                            <div class="oe-meta-row">🔢 <strong><?php echo olama_exam_translate('Attempts:'); ?></strong> <?php echo $attempt_count; ?>/<?php echo $exam->max_attempts; ?></div>
+                                            <div class="oe-meta-row">
+                                                <span>⏱</span>
+                                                <strong><?php echo olama_exam_translate('Duration:'); ?></strong>
+                                                <span dir="ltr"><?php echo $exam->duration_minutes; ?> min</span>
+                                            </div>
+                                            <div class="oe-meta-row">
+                                                <span>🔢</span>
+                                                <strong><?php echo olama_exam_translate('Attempts:'); ?></strong>
+                                                <span dir="ltr"><?php echo $attempt_count; ?>/<?php echo $exam->max_attempts; ?></span>
+                                            </div>
                                             <?php if ($is_active_status): ?>
-                                                <div class="oe-meta-row">📅 <strong><?php echo olama_exam_translate('Ends:'); ?></strong> <?php echo date('d M, Y H:i', strtotime($exam->end_time)); ?></div>
+                                                <div class="oe-meta-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span>📅</span>
+                                                        <strong><?php echo olama_exam_translate('Ends:'); ?></strong>
+                                                    </div>
+                                                    <div dir="ltr" style="padding-inline-start: 28px; font-weight: 500; color: var(--oe-text);"><?php echo date('d M, Y H:i', strtotime($exam->end_time)); ?></div>
+                                                </div>
                                             <?php endif; ?>
                                         </div>
                                         <div class="oe-card-details">
