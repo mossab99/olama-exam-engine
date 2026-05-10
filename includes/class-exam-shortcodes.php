@@ -90,8 +90,12 @@ class Olama_Exam_Shortcodes
         ));
 
         // Get ALL assigned or attempted exams for all students in this family
+        // Filter out finished (expired or no attempts) and inactive exams
+        $now = current_time('mysql');
         $sql = $wpdb->prepare(
-            "SELECT e.*, st.student_name, st.student_uid, g.grade_name, s.section_name, sub.subject_name, sub.color_code
+            "SELECT e.*, st.student_name, st.student_uid, g.grade_name, s.section_name, sub.subject_name, sub.color_code,
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts a2 WHERE a2.exam_id = e.id AND a2.student_uid = st.student_uid) as attempt_count,
+                    (SELECT id FROM {$wpdb->prefix}olama_exam_attempts a3 WHERE a3.exam_id = e.id AND a3.student_uid = st.student_uid AND a3.submitted_at IS NULL LIMIT 1) as unsubmitted_id
              FROM {$wpdb->prefix}olama_exam_exams e
              JOIN (
                 SELECT st_inner.student_uid, st_inner.student_name, st_inner.family_id, en_inner.section_id, 0 as exam_id
@@ -105,15 +109,19 @@ class Olama_Exam_Shortcodes
              LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
              LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-             WHERE 1=1",
-            $family_id
+             WHERE e.status IN ('active', 'published')
+               AND e.end_time >= %s",
+            $family_id,
+            $now
         );
 
         if ($student_filter) {
             $sql .= $wpdb->prepare(" AND st.student_uid = %s", $student_filter);
         }
 
-        $sql .= " GROUP BY e.id, st.student_uid ORDER BY e.start_time ASC";
+        $sql .= " GROUP BY e.id, st.student_uid 
+                 HAVING (e.max_attempts > attempt_count OR unsubmitted_id IS NOT NULL) 
+                 ORDER BY e.start_time ASC";
         $all_exams = $wpdb->get_results($sql);
 
         // Get completed attempts
@@ -183,15 +191,9 @@ class Olama_Exam_Shortcodes
                     <?php if (!empty($all_exams)): ?>
                         <div class="oe-exam-grid">
                             <?php foreach ($all_exams as $exam):
-                                // Check attempts for THIS student
-                                $attempt_count = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_attempts WHERE exam_id = %d AND student_uid = %s",
-                                    $exam->id, $exam->student_uid
-                                ));
-                                $has_unsubmitted = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT id FROM {$wpdb->prefix}olama_exam_attempts WHERE exam_id = %d AND student_uid = %s AND submitted_at IS NULL",
-                                    $exam->id, $exam->student_uid
-                                ));
+                                // Use pre-fetched attempt data
+                                $attempt_count = intval($exam->attempt_count);
+                                $has_unsubmitted = !empty($exam->unsubmitted_id);
 
                                 $remaining_attempts = intval($exam->max_attempts) - intval($attempt_count);
                                 $is_active_status = in_array($exam->status, array('active', 'published'));
