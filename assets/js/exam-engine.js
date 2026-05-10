@@ -20,6 +20,7 @@
     const state = {
         attemptId: null,
         answers: {},
+        flags: {},          // tracks which questions are flagged for review
         questions: [],
         totalQuestions: 0,
         durationMinutes: 0,
@@ -50,8 +51,19 @@
             state.startedAt = data.started_at;
             
             // Force answers to be an object map, ignoring PHP sparse arrays
-            state.answers = (typeof data.answers === 'object' && !Array.isArray(data.answers)) ? data.answers : Object.assign({}, data.answers);
+            const rawAnswers = (typeof data.answers === 'object' && !Array.isArray(data.answers)) ? data.answers : Object.assign({}, data.answers);
+            
+            // Restore flags if persisted in answers
+            if (rawAnswers.__flags) {
+                state.flags = rawAnswers.__flags;
+                delete rawAnswers.__flags;
+            } else {
+                state.flags = {};
+            }
+            state.answers = rawAnswers;
+            
             console.log("Olama Exam JS: Init state answers", state.answers);
+            console.log("Olama Exam JS: Init state flags", state.flags);
 
             if (!data.resumed) {
                 state.remainingSeconds = data.duration_minutes * 60;
@@ -63,6 +75,7 @@
             document.getElementById('oe-total-count').textContent = state.totalQuestions;
 
             renderQuestions();
+            renderNavigation();
             updateProgress();
             startTimer();
             startAutosave();
@@ -70,6 +83,7 @@
             document.getElementById('oe-loading').style.display = 'none';
             document.getElementById('oe-header').style.display = '';
             document.getElementById('oe-questions').style.display = '';
+            document.getElementById('oe-navigation').style.display = '';
             document.getElementById('oe-footer').style.display = '';
 
             // Observe question cards for fade-in
@@ -151,7 +165,10 @@
             html += '<div class="oe-question-card ' + answeredClass + '" data-qid="' + qId + '" id="q-' + qId + '">';
             html += '  <div class="oe-q-header">';
             html += '    <span class="oe-q-number">' + (idx + 1) + '</span>';
-            html += '    <span class="oe-q-status" id="status-' + qId + '">' + (isAnswered ? '✅' : '⬜') + '</span>';
+            html += '    <div class="oe-q-header-right">';
+            html += '      <button type="button" class="oe-flag-btn" id="flag-' + qId + '" data-qid="' + qId + '" title="' + (document.documentElement.lang === 'ar' ? 'علّم للمراجعة' : 'Flag for review') + '">🚩</button>';
+            html += '      <span class="oe-q-status" id="status-' + qId + '">' + (isAnswered ? '✅' : '⬜') + '</span>';
+            html += '    </div>';
             html += '  </div>';
 
             // Question image
@@ -170,6 +187,60 @@
 
         wrap.innerHTML = html;
         bindAnswerEvents();
+    }
+
+    function renderNavigation() {
+        const grid = document.getElementById('oe-nav-grid');
+        if (!grid) return;
+
+        let html = '';
+        state.questions.forEach(function (q, idx) {
+            const qId = q.question_id;
+            const isAnswered = state.answers[qId] !== undefined && state.answers[qId] !== null && state.answers[qId] !== '';
+            const isFlagged = !!state.flags[qId];
+            let btnClass = 'oe-nav-btn';
+            if (isFlagged)  btnClass += ' oe-nav-flagged';
+            else if (isAnswered) btnClass += ' oe-nav-answered';
+
+            html += '<button type="button" class="' + btnClass + '" id="nav-q-' + qId + '" data-qid="' + qId + '">';
+            html += (idx + 1);
+            html += '</button>';
+        });
+
+        grid.innerHTML = html;
+
+        // Bind clicks
+        grid.querySelectorAll('.oe-nav-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const qId = this.dataset.qid;
+                const el = document.getElementById('q-' + qId);
+                if (el) {
+                    const headerOffset = 150; // Account for sticky header
+                    const elementPosition = el.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                    
+                    // Optional: highlight the card temporarily
+                    el.classList.add('oe-highlight');
+                    setTimeout(() => el.classList.remove('oe-highlight'), 2000);
+                }
+            });
+        });
+
+        // Finish link scroll
+        const finishScroll = document.getElementById('oe-finish-scroll');
+        if (finishScroll) {
+            finishScroll.addEventListener('click', function() {
+                const footer = document.getElementById('oe-footer');
+                if (footer) {
+                    footer.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        }
     }
 
     function renderAnswerArea(q, qId) {
@@ -388,6 +459,14 @@
             });
         });
 
+        // Flag buttons
+        document.querySelectorAll('.oe-flag-btn').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleFlag(this.dataset.qid);
+            });
+        });
+
         // Submit button
         document.getElementById('oe-submit-btn').addEventListener('click', confirmSubmit);
 
@@ -412,6 +491,43 @@
         setAnswer(qId, vals);
     }
 
+    // ── Flag / Review Marking ─────────────────────────────────
+    function toggleFlag(qId) {
+        state.flags[qId] = !state.flags[qId];
+        const isFlagged = state.flags[qId];
+
+        // Update the question card border
+        const card = document.getElementById('q-' + qId);
+        if (card) {
+            card.classList.toggle('oe-flagged', isFlagged);
+        }
+
+        // Update the flag button appearance
+        const flagBtn = document.getElementById('flag-' + qId);
+        if (flagBtn) {
+            flagBtn.classList.toggle('oe-flag-active', isFlagged);
+            flagBtn.title = isFlagged
+                ? (document.documentElement.lang === 'ar' ? 'إلغاء التعليم' : 'Remove flag')
+                : (document.documentElement.lang === 'ar' ? 'علّم للمراجعة' : 'Flag for review');
+        }
+
+        // Update the nav button — flagged takes priority over answered
+        const navBtn = document.getElementById('nav-q-' + qId);
+        if (navBtn) {
+            if (isFlagged) {
+                navBtn.classList.add('oe-nav-flagged');
+                navBtn.classList.remove('oe-nav-answered');
+            } else {
+                navBtn.classList.remove('oe-nav-flagged');
+                // Restore answered state if applicable
+                const a = state.answers[qId];
+                const hasAnswer = a !== undefined && a !== null && a !== '' &&
+                    !(Array.isArray(a) && a.every(function (v) { return v === ''; }));
+                if (hasAnswer) navBtn.classList.add('oe-nav-answered');
+            }
+        }
+    }
+
     // ── Answer Tracking ───────────────────────────────────────
     function setAnswer(qId, value) {
         state.answers[qId] = value;
@@ -420,15 +536,22 @@
         // Update card visual
         const card = document.getElementById('q-' + qId);
         const statusEl = document.getElementById('status-' + qId);
+        const navBtn = document.getElementById('nav-q-' + qId);
+
         if (card) {
             const hasAnswer = value !== null && value !== '' && value !== undefined &&
                 !(Array.isArray(value) && value.every(function (v) { return v === ''; }));
+            
+            const isFlagged = !!state.flags[qId];
+
             if (hasAnswer) {
                 card.classList.add('oe-answered');
                 if (statusEl) statusEl.textContent = '✅';
+                if (navBtn && !isFlagged) navBtn.classList.add('oe-nav-answered');
             } else {
                 card.classList.remove('oe-answered');
                 if (statusEl) statusEl.textContent = '⬜';
+                if (navBtn) navBtn.classList.remove('oe-nav-answered');
             }
         }
     }
@@ -585,10 +708,14 @@
         console.log("Olama Exam JS: Calling autosave before submit with answers:", state.answers);
 
         // Save answers first, then submit
+        // Persist flags alongside answers
+        const payload = Object.assign({}, state.answers);
+        payload.__flags = state.flags;
+
         ajax('olama_exam_autosave', {
             attempt_id: state.attemptId,
             student_uid: config.studentUid,
-            answers_json: JSON.stringify(state.answers),
+            answers_json: JSON.stringify(payload),
         }, function () {
             console.log("Olama Exam JS: Autosave successful before submit");
             doSubmit();
@@ -625,6 +752,53 @@
         document.getElementById('oe-header').style.display = 'none';
         document.getElementById('oe-questions').style.display = 'none';
         document.getElementById('oe-footer').style.display = 'none';
+
+        // Keep navigation visible but refresh it for result mode
+        const navGrid = document.getElementById('oe-nav-grid');
+        if (navGrid) {
+            let navHtml = '';
+            // If data.details exists, use it to show correct/incorrect colors in nav
+            const detailsMap = {};
+            if (data.details) {
+                data.details.forEach((d, i) => {
+                    detailsMap[i] = d.status; // status is 'correct', 'incorrect', or 'pending'
+                });
+            }
+
+            state.questions.forEach(function (q, idx) {
+                const qId = q.question_id;
+                const isFlagged = !!state.flags[qId];
+                let btnClass = 'oe-nav-btn';
+                
+                if (data.details) {
+                    // Result mode colors
+                    const status = detailsMap[idx];
+                    if (status === 'correct') btnClass += ' oe-nav-correct';
+                    else if (status === 'incorrect') btnClass += ' oe-nav-incorrect';
+                    else if (status === 'pending') btnClass += ' oe-nav-pending';
+                }
+
+                if (isFlagged) btnClass += ' oe-nav-flagged-mini'; // Small indicator for flag in result mode
+
+                navHtml += '<button type="button" class="' + btnClass + '" id="nav-rev-q-' + qId + '" data-qid="' + qId + '" data-idx="' + idx + '">';
+                navHtml += (idx + 1);
+                navHtml += '</button>';
+            });
+            navGrid.innerHTML = navHtml;
+
+            // Re-bind clicks for review cards
+            navGrid.querySelectorAll('.oe-nav-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const idx = this.dataset.idx;
+                    const cards = document.querySelectorAll('.oe-review-card');
+                    if (cards[idx]) {
+                        cards[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        cards[idx].classList.add('oe-highlight');
+                        setTimeout(() => cards[idx].classList.remove('oe-highlight'), 2000);
+                    }
+                });
+            });
+        }
 
         const resultsEl = document.getElementById('oe-results');
         resultsEl.style.display = '';
@@ -716,7 +890,13 @@
 
                 html += '<div class="oe-review-card ' + cardClass + '">';
                 html += '  <div class="oe-review-header">';
-                html += '    <span class="oe-review-num">' + (isArabic ? 'سؤال ' : 'Question ') + (i + 1) + '</span>';
+                html += '    <div style="display:flex; align-items:center; gap:8px;">';
+                html += '      <span class="oe-review-num">' + (isArabic ? 'سؤال ' : 'Question ') + (i + 1) + '</span>';
+                const qId = state.questions[i].question_id;
+                if (state.flags[qId]) {
+                    html += '  <span class="oe-flag-mini" title="' + (isArabic ? 'تم تعليم هذا السؤال' : 'Flagged for review') + '">🚩</span>';
+                }
+                html += '    </div>';
                 html += '    <span class="oe-review-status">' + statusIcon + '</span>';
                 html += '  </div>';
                 html += '  <div class="oe-review-question">' + d.text + '</div>';

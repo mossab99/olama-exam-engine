@@ -374,15 +374,37 @@ class Olama_Exam_Shortcodes
                 </div>
             </div>
 
-            <!-- Questions Container -->
-            <div id="oe-questions" class="oe-questions" style="display:none;"></div>
+            <!-- Main Layout with Sidebar -->
+            <div class="oe-main-layout">
+                <div class="oe-content-side">
+                    <!-- Questions Container -->
+                    <div id="oe-questions" class="oe-questions" style="display:none;"></div>
 
-            <!-- Submit Footer -->
-            <div id="oe-footer" class="oe-footer" style="display:none;">
-                <div class="oe-autosave-status" id="oe-autosave-status"></div>
-                <button type="button" class="oe-btn oe-btn-primary oe-btn-lg" id="oe-submit-btn">
-                    ✅ <?php echo olama_exam_translate('Submit Exam'); ?>
-                </button>
+                    <!-- Submit Footer (Inside content for better flow) -->
+                    <div id="oe-footer" class="oe-footer" style="display:none;">
+                        <div class="oe-autosave-status" id="oe-autosave-status"></div>
+                        <button type="button" class="oe-btn oe-btn-primary oe-btn-lg" id="oe-submit-btn">
+                            ✅ <?php echo olama_exam_translate('Submit Exam'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Sidebar -->
+                <aside id="oe-navigation" class="oe-navigation" style="display:none;">
+                    <div class="oe-nav-card">
+                        <div class="oe-nav-header">
+                            <h3><?php echo olama_exam_translate('Quiz navigation'); ?></h3>
+                        </div>
+                        <div id="oe-nav-grid" class="oe-nav-grid">
+                            <!-- JS will populate this -->
+                        </div>
+                        <div class="oe-nav-footer">
+                            <a href="javascript:void(0)" id="oe-finish-scroll" class="oe-finish-link">
+                                <?php echo olama_exam_translate('Finish attempt...'); ?>
+                            </a>
+                        </div>
+                    </div>
+                </aside>
             </div>
 
             <!-- Results Container (shown after submit) -->

@@ -138,40 +138,95 @@ wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=I
         </div>
     </div>
 
-    <div class="oe-questions">
-        <?php foreach ($questions as $idx => $q): 
-            $answers = json_decode($q->answers_json, true) ?: array();
-            ?>
-            <div class="oe-question-card oe-visible" id="q-<?php echo $q->id; ?>">
-                <div class="oe-q-header">
-                    <span class="oe-q-number"><?php echo $idx + 1; ?></span>
-                    <a href="?page=olama-exam&edit_question=<?php echo $q->id; ?>&grade_id=<?php echo $exam->grade_id; ?>&subject_id=<?php echo $exam->subject_id; ?>" 
-                       class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" 
-                       style="font-size: 11px; padding: 4px 8px;">
-                       ✏️ <?php echo olama_exam_translate('Edit Question'); ?>
-                    </a>
-                </div>
+    <!-- Main Layout with Sidebar -->
+    <div class="oe-main-layout">
+        <div class="oe-content-side">
+            <div class="oe-questions">
+                <?php foreach ($questions as $idx => $q): 
+                    $answers = json_decode($q->answers_json, true) ?: array();
+                    ?>
+                    <div class="oe-question-card oe-visible" id="q-<?php echo $q->id; ?>">
+                        <div class="oe-q-header">
+                            <span class="oe-q-number"><?php echo $idx + 1; ?></span>
+                            <div class="oe-q-header-right">
+                                <button type="button" class="oe-flag-btn" title="<?php echo olama_exam_translate('Flag for review'); ?>">🚩</button>
+                                <a href="?page=olama-exam&edit_question=<?php echo $q->id; ?>&grade_id=<?php echo $exam->grade_id; ?>&subject_id=<?php echo $exam->subject_id; ?>" 
+                                   class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" 
+                                   style="font-size: 11px; padding: 4px 8px;">
+                                   ✏️ <?php echo olama_exam_translate('Edit Question'); ?>
+                                </a>
+                            </div>
+                        </div>
 
-                <?php if ($q->image_filename): ?>
-                    <img class="oe-q-image" src="<?php echo admin_url('admin-ajax.php'); ?>?action=olama_exam_stream_image&file=<?php echo urlencode($q->image_filename); ?>&nonce=<?php echo wp_create_nonce('olama_exam_nonce'); ?>" alt="">
-                <?php endif; ?>
+                        <?php if ($q->image_filename): ?>
+                            <img class="oe-q-image" src="<?php echo admin_url('admin-ajax.php'); ?>?action=olama_exam_stream_image&file=<?php echo urlencode($q->image_filename); ?>&nonce=<?php echo wp_create_nonce('olama_exam_nonce'); ?>" alt="">
+                        <?php endif; ?>
 
-                <div class="oe-q-text"><?php echo wp_kses_post($q->question_text); ?></div>
+                        <div class="oe-q-text"><?php echo wp_kses_post($q->question_text); ?></div>
 
-                <div class="preview-answer-area">
-                    <?php render_preview_answer_area($q, $answers); ?>
-                </div>
+                        <div class="preview-answer-area">
+                            <?php render_preview_answer_area($q, $answers); ?>
+                        </div>
 
-                <?php if (!empty($q->explanation)): ?>
-                    <div class="oe-review-explanation" style="display: block; margin-top: 20px;">
-                        📖 <strong><?php echo olama_exam_translate('Explanation'); ?>:</strong><br>
-                        <?php echo wp_kses_post($q->explanation); ?>
+                        <?php if (!empty($q->explanation)): ?>
+                            <div class="oe-review-explanation" style="display: block; margin-top: 20px;">
+                                📖 <strong><?php echo olama_exam_translate('Explanation'); ?>:</strong><br>
+                                <?php echo wp_kses_post($q->explanation); ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                <?php endif; ?>
+                <?php endforeach; ?>
             </div>
-        <?php endforeach; ?>
+        </div>
+
+        <!-- Static Navigation Sidebar for Teacher Preview -->
+        <aside class="oe-navigation">
+            <div class="oe-nav-card">
+                <div class="oe-nav-header">
+                    <h3><?php echo olama_exam_translate('Quiz navigation'); ?></h3>
+                </div>
+                <div class="oe-nav-grid">
+                    <?php foreach ($questions as $idx => $q): ?>
+                        <button type="button" class="oe-nav-btn oe-preview-nav-btn" data-qid="<?php echo $q->id; ?>">
+                            <?php echo $idx + 1; ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+                <div class="oe-nav-footer">
+                    <span style="font-size: 12px; color: #64748b; font-style: italic;">
+                        <?php echo olama_exam_translate('Teacher Preview Mode'); ?>
+                    </span>
+                </div>
+            </div>
+        </aside>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Smooth scroll for static preview navigation
+    document.querySelectorAll('.oe-preview-nav-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const qId = this.dataset.qid;
+            const el = document.getElementById('q-' + qId);
+            if (el) {
+                const headerOffset = 110;
+                const elementPosition = el.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+                
+                // Visual highlight
+                el.classList.add('oe-highlight');
+                setTimeout(() => el.classList.remove('oe-highlight'), 2000);
+            }
+        });
+    });
+});
+</script>
 
 <?php
 function render_preview_answer_area($q, $answers) {
