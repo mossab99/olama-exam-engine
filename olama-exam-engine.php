@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // ── Constants ──────────────────────────────────────────────────
-define('OLAMA_EXAM_VERSION', '1.1.4');
+define('OLAMA_EXAM_VERSION', '1.1.5');
 define('OLAMA_EXAM_PATH', plugin_dir_path(__FILE__));
 define('OLAMA_EXAM_URL', plugin_dir_url(__FILE__));
 define('OLAMA_EXAM_BASENAME', plugin_basename(__FILE__));
@@ -270,8 +270,8 @@ function olama_exam_enqueue_frontend_assets($force = false)
     if ($force && !did_action('wp_head')) {
         // We are early enough for standard enqueue
     } elseif ($force) {
-        // Late enqueue — manually print style tags to ensure they work
-        echo '<link rel="stylesheet" id="olama-exam-student-late" href="' . esc_url(OLAMA_EXAM_URL . 'assets/css/exam-student.css') . '" type="text/css" media="all" />';
+        // Late enqueue — manually print style tags to ensure they work with versioning for cache busting
+        echo '<link rel="stylesheet" id="olama-exam-student-late" href="' . esc_url(OLAMA_EXAM_URL . 'assets/css/exam-student.css?ver=' . OLAMA_EXAM_VERSION) . '" type="text/css" media="all" />';
         echo '<link rel="stylesheet" id="olama-exam-fonts-late" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" type="text/css" media="all" />';
     }
 
