@@ -1118,7 +1118,7 @@ class Olama_Exam_Ajax
 
         $exam_id = intval($_POST['exam_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
-        $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
+        $is_preview = !empty($_POST['is_preview']) && (self::can_manage_exams() || self::can_teacher_access_exam($exam_id));
 
         if (empty($student_uid) && !$is_preview) {
             olama_exam_log("Olama Exam [AJAX]: Error - Empty Student UID", 'info');
@@ -1197,7 +1197,7 @@ class Olama_Exam_Ajax
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
         $answers_json = wp_unslash($_POST['answers_json'] ?? '{}');
 
-        $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
+        $is_preview = !empty($_POST['is_preview']) && (self::can_manage_exams() || self::can_teacher_access_exam($exam_id));
 
         if (empty($student_uid) && !$is_preview) {
             wp_send_json_error(array('message' => 'Student ID is required.'));
@@ -1240,7 +1240,7 @@ class Olama_Exam_Ajax
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
 
-        $is_preview = !empty($_POST['is_preview']) && self::can_manage_exams();
+        $is_preview = !empty($_POST['is_preview']) && (self::can_manage_exams() || self::can_teacher_access_exam($exam_id));
 
         if (empty($student_uid) && !$is_preview) {
             wp_send_json_error(array('message' => 'Student ID is required.'));

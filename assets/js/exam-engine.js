@@ -810,7 +810,8 @@
         // 1. show_results flag must be explicitly truthy (not 0, "0", false, null, undefined)
         // 2. percentage must exist and be a valid number
         // 3. score and max_score must exist
-        var showResultsFlag = data && parseInt(data.show_results, 10) === 1;
+        // EXCEPTION: Always show results if in preview mode (simulation)
+        var showResultsFlag = (data && parseInt(data.show_results, 10) === 1) || config.isPreview;
         var hasValidScore = data &&
             typeof data.percentage !== 'undefined' && data.percentage !== null &&
             typeof data.score !== 'undefined' && data.score !== null &&

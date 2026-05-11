@@ -118,7 +118,8 @@ class Olama_Exam_Grader
         error_log("Olama Exam Debug: Grade Attempt " . $attempt_id . " - show_results DB value: " . ($exam ? $exam->show_results : 'no exam') . " - Final Response show_results: " . $response['show_results']);
 
         // Security: If show_results is not explicitly 1, strip sensitive result data from the response
-        if (intval($response['show_results']) !== 1) {
+        // EXCEPTION: Allow previews (teacher/admin simulation) to see results regardless of settings.
+        if (intval($response['show_results']) !== 1 && intval($attempt->is_preview) !== 1) {
             error_log("Olama Exam Debug: Hiding results for attempt " . $attempt_id . " (show_results=" . $response['show_results'] . ")");
             return array(
                 'attempt_id'   => $attempt_id,
