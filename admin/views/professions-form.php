@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oee_save_profession']
             $error = $res->get_error_message();
         } else {
             // Redirect
-            wp_redirect(admin_url('admin.php?page=oee-professions&message=saved'));
+            echo '<script>window.location.href="' . admin_url('admin.php?page=oee-professions&message=saved') . '";</script>';
             exit;
         }
     }

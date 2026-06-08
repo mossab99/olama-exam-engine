@@ -14,23 +14,52 @@ class Olama_Exam_Engine
      * Start an exam for a student
      * Creates a question snapshot and inserts an attempt row
      */
-    public static function start_exam($exam_id, $student_uid, $is_preview = false, $is_admin_override = false)
+    public static function start_exam($exam_id, $student_uid, $is_preview = false, $is_admin_override = false, $exam_type_override = '')
     {
         global $wpdb;
 
         $is_acceptance = false;
+        $is_student_acceptance = false;
         $exam = null;
-        if (class_exists('OEE_Acceptance_Tests')) {
+
+        if ($exam_type_override === 'acceptance' && class_exists('OEE_Acceptance_Tests')) {
             $exam = OEE_Acceptance_Tests::get($exam_id);
             if ($exam) {
                 $is_acceptance = true;
                 $exam->duration_minutes = $exam->duration_min;
                 $exam->max_attempts = 1;
             }
-        }
-
-        if (!$is_acceptance) {
+        } elseif ($exam_type_override === 'student_acceptance' && class_exists('OEE_Student_Tests')) {
+            $exam = OEE_Student_Tests::get($exam_id);
+            if ($exam) {
+                $is_student_acceptance = true;
+                $exam->duration_minutes = $exam->duration_min;
+                $exam->max_attempts = 1;
+            }
+        } elseif ($exam_type_override === 'school') {
             $exam = Olama_Exam_Manager::get_exam($exam_id);
+        } else {
+            if (class_exists('OEE_Acceptance_Tests')) {
+                $exam = OEE_Acceptance_Tests::get($exam_id);
+                if ($exam) {
+                    $is_acceptance = true;
+                    $exam->duration_minutes = $exam->duration_min;
+                    $exam->max_attempts = 1;
+                }
+            }
+    
+            if (!$exam && class_exists('OEE_Student_Tests')) {
+                $exam = OEE_Student_Tests::get($exam_id);
+                if ($exam) {
+                    $is_student_acceptance = true;
+                    $exam->duration_minutes = $exam->duration_min;
+                    $exam->max_attempts = 1;
+                }
+            }
+    
+            if (!$exam && !$is_acceptance && !$is_student_acceptance) {
+                $exam = Olama_Exam_Manager::get_exam($exam_id);
+            }
         }
 
         if (!$exam) {
@@ -46,7 +75,7 @@ class Olama_Exam_Engine
         // Check time window (unless preview or override)
         $now = current_time('mysql');
         if (!$is_preview && !$is_admin_override) {
-            if ($is_acceptance) {
+            if ($is_acceptance || $is_student_acceptance) {
                 if (!empty($exam->expires_at) && $now > $exam->expires_at) {
                     return new WP_Error('outside_window', olama_exam_translate('This acceptance test has expired.'));
                 }
@@ -82,6 +111,15 @@ class Olama_Exam_Engine
         // Get questions
         if ($is_acceptance) {
             $questions = OEE_Acceptance_Tests::get_random_questions($exam->profession_id, $exam->num_questions);
+        } elseif ($is_student_acceptance) {
+            $subject_config = json_decode($exam->subject_config, true) ?: array();
+            $grouped = OEE_Student_Tests::get_questions_by_subject($subject_config);
+            $questions = array();
+            foreach ($grouped as $subject) {
+                foreach ($subject['questions'] as $q) {
+                    $questions[] = $q;
+                }
+            }
         } else {
             $questions = Olama_Exam_Manager::get_exam_questions($exam_id);
         }
@@ -92,12 +130,22 @@ class Olama_Exam_Engine
         // Build snapshot — randomize order, randomize MCQ choices
         $snapshot = array();
         $question_order = range(0, count($questions) - 1);
-        shuffle($question_order);
+        if (!$is_student_acceptance) {
+            shuffle($question_order);
+        }
 
         foreach ($question_order as $idx) {
             $q = $questions[$idx];
             $answers = json_decode($q->answers_json, true) ?: array();
             $student_data = self::prepare_student_question($q->type, $answers);
+
+            $cat_name = '';
+            if ($is_student_acceptance && !empty($q->category_id)) {
+                $cat_name = $wpdb->get_var($wpdb->prepare(
+                    "SELECT name FROM {$wpdb->prefix}olama_exam_question_categories WHERE id = %d LIMIT 1",
+                    intval($q->category_id)
+                ));
+            }
 
             $snapshot[] = array(
                 'question_id' => intval($q->id),
@@ -108,6 +156,7 @@ class Olama_Exam_Engine
                 'answers' => $student_data['display'],
                 'correct' => $student_data['correct'],
                 'points' => 1,
+                'category_name' => $cat_name,
             );
         }
 
@@ -121,7 +170,7 @@ class Olama_Exam_Engine
             'result' => 'pending',
             'started_at' => $now,
             'is_preview' => $is_preview ? 1 : 0,
-            'exam_type' => $is_acceptance ? 'acceptance' : 'school',
+            'exam_type' => $is_acceptance ? 'acceptance' : ($is_student_acceptance ? 'student_acceptance' : 'school'),
         ));
 
         $attempt_id = $wpdb->insert_id;
@@ -148,10 +197,16 @@ class Olama_Exam_Engine
                 if ($applicant) {
                     $student_name = $applicant->name;
                 } else {
-                    // Check SIS students
-                    $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $student_uid));
-                    if ($sis_student) {
-                        $student_name = $sis_student->student_name;
+                    // Check student applicants
+                    $student_applicant = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}oee_student_applicants WHERE attempt_id = %d", $attempt_id));
+                    if ($student_applicant) {
+                        $student_name = $student_applicant->student_name;
+                    } else {
+                        // Check SIS students
+                        $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $student_uid));
+                        if ($sis_student) {
+                            $student_name = $sis_student->student_name;
+                        }
                     }
                 }
             }
@@ -216,6 +271,13 @@ class Olama_Exam_Engine
                     $exam->duration_minutes = $exam->duration_min;
                 }
             }
+        } elseif ($attempt->exam_type === 'student_acceptance') {
+            if (class_exists('OEE_Student_Tests')) {
+                $exam = OEE_Student_Tests::get($attempt->exam_id);
+                if ($exam) {
+                    $exam->duration_minutes = $exam->duration_min;
+                }
+            }
         } else {
             $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
         }
@@ -267,6 +329,13 @@ class Olama_Exam_Engine
                     $exam->duration_minutes = $exam->duration_min;
                 }
             }
+        } elseif ($attempt->exam_type === 'student_acceptance') {
+            if (class_exists('OEE_Student_Tests')) {
+                $exam = OEE_Student_Tests::get($attempt->exam_id);
+                if ($exam) {
+                    $exam->duration_minutes = $exam->duration_min;
+                }
+            }
         } else {
             $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
         }
@@ -298,9 +367,14 @@ class Olama_Exam_Engine
             if ($applicant) {
                 $student_name = $applicant->name;
             } else {
-                $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $attempt->student_uid));
-                if ($sis_student) {
-                    $student_name = $sis_student->student_name;
+                $student_applicant = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}oee_student_applicants WHERE attempt_id = %d", $attempt_id));
+                if ($student_applicant) {
+                    $student_name = $student_applicant->student_name;
+                } else {
+                    $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $attempt->student_uid));
+                    if ($sis_student) {
+                        $student_name = $sis_student->student_name;
+                    }
                 }
             }
         }

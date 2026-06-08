@@ -342,7 +342,7 @@ class Olama_Exam_Gift_Parser
      * @param string $difficulty
      * @return array ['imported' => int, 'skipped' => int, 'errors' => [...]]
      */
-    public static function import($parsed, $category_id, $language = 'ar', $difficulty = 'medium', $unit_id = 0, $lesson_id = 0, $profession_id = 0)
+    public static function import($parsed, $category_id, $language = 'ar', $difficulty = 'medium', $unit_id = 0, $lesson_id = 0, $profession_id = 0, $grade_level_id = 0)
     {
         $imported = 0;
         $skipped = 0;
@@ -351,8 +351,8 @@ class Olama_Exam_Gift_Parser
         foreach ($parsed['questions'] as $q) {
             $question_data = array(
                 'category_id' => $category_id,
-                'unit_id' => $profession_id > 0 ? 0 : $unit_id,
-                'lesson_id' => $profession_id > 0 ? 0 : $lesson_id,
+                'unit_id' => ($profession_id > 0 || $grade_level_id > 0) ? 0 : $unit_id,
+                'lesson_id' => ($profession_id > 0 || $grade_level_id > 0) ? 0 : $lesson_id,
                 'type' => $q['type'],
                 'question_text' => $q['question_text'],
                 'answers_json' => $q['answers_json'],
@@ -362,6 +362,10 @@ class Olama_Exam_Gift_Parser
 
             if ($profession_id > 0) {
                 $question_data['profession_id'] = $profession_id;
+            }
+
+            if ($grade_level_id > 0) {
+                $question_data['grade_level_id'] = $grade_level_id;
             }
 
             $result = Olama_Exam_Questions::save_question($question_data);

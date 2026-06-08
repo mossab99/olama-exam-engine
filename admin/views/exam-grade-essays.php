@@ -96,6 +96,8 @@ if ($grading_attempt_id) {
         <h1><?php echo olama_exam_translate('Grade Essays'); ?></h1>
     </div>
 
+    <?php include OLAMA_EXAM_PATH . 'admin/views/school-exams-tabs.php'; ?>
+
     <?php if ($grading_attempt && !empty($essay_questions)): ?>
         <!-- Grading Individual Attempt -->
         <div style="margin-bottom: 16px;">

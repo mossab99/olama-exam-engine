@@ -29,7 +29,7 @@ $exam_questions = ($exam && $exam->question_mode === 'manual' && $exam->manual_q
 if ($show_form && $edit_id > 0 && $exam) {
     if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
         $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
-        wp_redirect(admin_url('admin.php?page=' . $list_page . '&access_denied=1'));
+        echo '<script>window.location.href="' . admin_url('admin.php?page=' . $list_page . '&access_denied=1') . '";</script>';
         exit;
     }
 }
@@ -73,6 +73,8 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             <?php endif; ?>
         </div>
     </div>
+
+    <?php include OLAMA_EXAM_PATH . 'admin/views/school-exams-tabs.php'; ?>
 
     <?php if (!$show_form): ?>
     <!-- ═══════════════════ EXAM LIST VIEW ═══════════════════ -->

@@ -14,6 +14,7 @@
         ajaxUrl: container.dataset.ajaxUrl,
         nonce: container.dataset.nonce,
         studentUid: container.dataset.studentUid || '',
+        examType: container.dataset.examType || '',
         isPreview: container.dataset.isPreview === '1',
     };
 
@@ -37,6 +38,7 @@
     function init(password = '') {
         ajax('olama_exam_start', { 
             exam_id: config.examId,
+            exam_type: config.examType,
             student_uid: config.studentUid,
             password: password
         }, function (data) {
@@ -134,6 +136,7 @@
             // Try to init again with password
             ajax('olama_exam_start', { 
                 exam_id: config.examId,
+                exam_type: config.examType,
                 student_uid: config.studentUid,
                 password: pass
             }, function (data) {
@@ -156,11 +159,17 @@
     function renderQuestions() {
         const wrap = document.getElementById('oe-questions');
         let html = '';
+        let currentCategory = null;
 
         state.questions.forEach(function (q, idx) {
             const qId = q.question_id;
             const isAnswered = state.answers[qId] !== undefined && state.answers[qId] !== null && state.answers[qId] !== '';
             const answeredClass = isAnswered ? 'oe-answered' : '';
+
+            if (q.category_name && q.category_name !== currentCategory) {
+                currentCategory = q.category_name;
+                html += '<h3 class="os-exam-subject-header oe-subject-header" style="margin-top: 24px; margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #1e293b; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">' + escHtml(currentCategory) + '</h3>';
+            }
 
             html += '<div class="oe-question-card ' + answeredClass + '" data-qid="' + qId + '" id="q-' + qId + '">';
             html += '  <div class="oe-q-header">';

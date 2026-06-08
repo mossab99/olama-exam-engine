@@ -54,6 +54,12 @@ function olama_exam_load_includes()
     require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-tests.php';
     require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-public.php';
 
+    // ── Student Acceptance Test Module ──
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-categories.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-grade-levels.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-student-tests.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-student-public.php';
+
     if (is_admin()) {
         require_once OLAMA_EXAM_PATH . 'admin/class-exam-admin.php';
     }
@@ -86,6 +92,13 @@ function olama_exam_activate()
     require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-public.php';
     $public_flow = new OEE_Acceptance_Public();
     $public_flow->register_rewrite();
+
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-grade-levels.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-student-tests.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-student-public.php';
+    $student_public_flow = new OEE_Student_Public();
+    $student_public_flow->register_rewrite();
+
     flush_rewrite_rules(false);
 }
 register_activation_hook(__FILE__, 'olama_exam_activate');
@@ -117,6 +130,9 @@ function olama_exam_init()
     // Initialize AJAX handlers
     Olama_Exam_Ajax::init();
 
+    // Initialize Student Public handler
+    new OEE_Student_Public();
+
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
     if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_3', false) || !get_option('olama_exam_db_sync_acceptance_v1', false)) {
@@ -134,6 +150,7 @@ function olama_exam_init()
     olama_exam_migrate_lesson_id();
     olama_exam_migrate_student_uid(); // ensure it's synced
     olama_exam_sync_db_columns();
+    olama_exam_migrate_grade_level_id();
 
     // Suppress system noise (WPvivid, etc.)
     Olama_Exam_Logger::suppress_noise();
@@ -226,6 +243,35 @@ function olama_exam_sync_db_columns()
     Olama_Exam_DB::migrate_student_uid();
 
     update_option('olama_exam_db_synced_v113', true);
+}
+
+/**
+ * Migration: Add grade_level_id to questions table
+ */
+function olama_exam_migrate_grade_level_id() {
+    if ( get_option( 'olama_exam_grade_level_migrated', false ) ) {
+        return;
+    }
+
+    global $wpdb;
+
+    $col = $wpdb->get_results(
+        "SHOW COLUMNS FROM {$wpdb->prefix}olama_exam_questions LIKE 'grade_level_id'"
+    );
+    if ( empty( $col ) ) {
+        $wpdb->query(
+            "ALTER TABLE {$wpdb->prefix}olama_exam_questions
+             ADD COLUMN grade_level_id BIGINT UNSIGNED NULL DEFAULT NULL AFTER lesson_id"
+        );
+        $wpdb->query(
+            "ALTER TABLE {$wpdb->prefix}olama_exam_questions
+             ADD KEY idx_grade_level (grade_level_id)"
+        );
+    }
+
+    flush_rewrite_rules( false );
+
+    update_option( 'olama_exam_grade_level_migrated', true );
 }
 
 // ── Enqueue Assets ─────────────────────────────────────────────

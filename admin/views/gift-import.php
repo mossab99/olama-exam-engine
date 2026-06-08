@@ -48,6 +48,30 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
                         style="background:#f1f5f9; cursor:not-allowed;">
                 </div>
             </div>
+        <?php elseif ($qb_type === 'grade_level'): 
+            $grade_level_id = isset($_GET['grade_level_id']) ? intval($_GET['grade_level_id']) : 0;
+            $grade_level = OEE_Grade_Levels::get($grade_level_id);
+            $categories = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_exam_question_categories ORDER BY name ASC");
+        ?>
+            <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr;">
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Grade Level'); ?></label>
+                    <input type="text" value="<?php echo esc_attr($grade_level ? $grade_level->name_ar : '—'); ?>" readonly
+                        style="background:#f1f5f9; cursor:not-allowed;">
+                    <input type="hidden" id="gift-grade-level-id" value="<?php echo $grade_level_id; ?>">
+                </div>
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Category'); ?></label>
+                    <select id="gift-category-id">
+                        <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?php echo $cat->id; ?>" <?php echo (isset($_GET['category_id']) && $_GET['category_id'] == $cat->id) ? 'selected' : ''; ?>>
+                                <?php echo esc_html($cat->name); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
         <?php else: ?>
             <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;">
                 <div class="olama-exam-form-group">
@@ -313,9 +337,15 @@ Match countries to capitals.{
         $('#gift-import-btn').on('click', function () {
             const qbType = '<?php echo esc_js($qb_type); ?>';
             const professionId = <?php echo intval($profession_id); ?>;
-            const unitId = qbType === 'profession' ? 0 : $('#gift-unit').val();
+            const gradeLevelId = qbType === 'grade_level' ? $('#gift-grade-level-id').val() : 0;
+            const categoryId = qbType === 'grade_level' ? $('#gift-category-id').val() : 0;
+            const unitId = (qbType === 'profession' || qbType === 'grade_level') ? 0 : $('#gift-unit').val();
             
-            if (qbType !== 'profession' && (!unitId || unitId == '0')) {
+            if (qbType === 'grade_level' && (!categoryId || categoryId == '0')) {
+                ExamAdmin.toast('<?php echo olama_exam_translate("Please select a category for import."); ?>', 'error');
+                return;
+            }
+            if (qbType === 'school' && (!unitId || unitId == '0')) {
                 ExamAdmin.toast('<?php echo olama_exam_translate("Please select a unit for import."); ?>', 'error');
                 return;
             }
@@ -326,8 +356,10 @@ Match countries to capitals.{
                 nonce: olamaExam.nonce,
                 gift_content: $('#gift-content').val(),
                 unit_id: unitId,
-                lesson_id: $('#gift-lesson').val() || 0,
+                lesson_id: (qbType === 'profession' || qbType === 'grade_level') ? 0 : ($('#gift-lesson').val() || 0),
                 profession_id: professionId,
+                grade_level_id: gradeLevelId,
+                category_id: categoryId,
                 language: $('#gift-language').val(),
                 difficulty: $('#gift-difficulty').val(),
                 mode: 'import',

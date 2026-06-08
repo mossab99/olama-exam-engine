@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oee_save_test'])) {
         if (is_wp_error($res)) {
             $error = $res->get_error_message();
         } else {
-            wp_redirect(admin_url('admin.php?page=oee-acceptance-tests&message=saved'));
+            echo '<script>window.location.href="' . admin_url('admin.php?page=oee-acceptance-tests&message=saved') . '";</script>';
             exit;
         }
     }

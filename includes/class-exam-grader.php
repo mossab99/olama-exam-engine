@@ -89,6 +89,13 @@ class Olama_Exam_Grader
                     $passing = $exam->pass_score_pct;
                 }
             }
+        } elseif ($attempt->exam_type === 'student_acceptance') {
+            if (class_exists('OEE_Student_Tests')) {
+                $exam = OEE_Student_Tests::get($attempt->exam_id);
+                if ($exam) {
+                    $passing = $exam->pass_score_pct;
+                }
+            }
         } else {
             $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
             $passing = $exam ? $exam->passing_grade : 50;
@@ -121,8 +128,8 @@ class Olama_Exam_Grader
             'passing' => $passing,
             'has_essay' => $has_essay,
             'details' => $results,
-            'show_results' => ($attempt->exam_type === 'acceptance') ? 1 : ($exam ? intval($exam->show_results) : 0),
-            'show_correct_answers' => ($attempt->exam_type === 'acceptance') ? 0 : ($exam ? intval($exam->show_correct_answers) : 0),
+            'show_results' => ($attempt->exam_type === 'acceptance' || $attempt->exam_type === 'student_acceptance') ? 1 : ($exam ? intval($exam->show_results) : 0),
+            'show_correct_answers' => ($attempt->exam_type === 'acceptance' || $attempt->exam_type === 'student_acceptance') ? 0 : ($exam ? intval($exam->show_correct_answers) : 0),
         );
 
         // Debug log for production investigation
@@ -378,6 +385,13 @@ class Olama_Exam_Grader
         if ($attempt->exam_type === 'acceptance') {
             if (class_exists('OEE_Acceptance_Tests')) {
                 $exam = OEE_Acceptance_Tests::get($attempt->exam_id);
+                if ($exam) {
+                    $passing = $exam->pass_score_pct;
+                }
+            }
+        } elseif ($attempt->exam_type === 'student_acceptance') {
+            if (class_exists('OEE_Student_Tests')) {
+                $exam = OEE_Student_Tests::get($attempt->exam_id);
                 if ($exam) {
                     $passing = $exam->pass_score_pct;
                 }

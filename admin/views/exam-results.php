@@ -232,6 +232,8 @@ if ($selected_exam_id && !$review_attempt_id) {
         <h1><?php echo olama_exam_translate('Results'); ?></h1>
     </div>
 
+    <?php include OLAMA_EXAM_PATH . 'admin/views/school-exams-tabs.php'; ?>
+
     <?php if ($review_data): ?>
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- ATTEMPT REVIEW VIEW -->

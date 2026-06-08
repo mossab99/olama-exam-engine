@@ -59,6 +59,10 @@ class Olama_Exam_Questions
             $query .= " AND q.profession_id = %d";
             $params[] = intval($filters['profession_id']);
         }
+        if (isset($filters['grade_level_id']) && $filters['grade_level_id'] !== '') {
+            $query .= " AND q.grade_level_id = %d";
+            $params[] = intval($filters['grade_level_id']);
+        }
         if (!empty($filters['language'])) {
             $query .= " AND q.language = %s";
             $params[] = sanitize_text_field($filters['language']);
@@ -101,7 +105,8 @@ class Olama_Exam_Questions
             'category_id' => intval($data['category_id'] ?? 0),
             'unit_id' => intval($data['unit_id'] ?? 0),
             'lesson_id' => intval($data['lesson_id'] ?? 0),
-            'profession_id' => isset($data['profession_id']) ? intval($data['profession_id']) : null,
+            'profession_id' => isset($data['profession_id']) && $data['profession_id'] !== '' && intval($data['profession_id']) !== 0 ? intval($data['profession_id']) : null,
+            'grade_level_id' => isset($data['grade_level_id']) && $data['grade_level_id'] !== '' && intval($data['grade_level_id']) !== 0 ? intval($data['grade_level_id']) : null,
             'type' => sanitize_text_field($data['type'] ?? 'mcq'),
             'question_text' => wp_kses_post($data['question_text'] ?? ''),
             'answers_json' => wp_unslash($data['answers_json'] ?? '{}'),
@@ -118,16 +123,38 @@ class Olama_Exam_Questions
 
         if ($id > 0) {
             // Update: increment version
-            $wpdb->query($wpdb->prepare(
-                "UPDATE $table SET 
-                    category_id = %d, unit_id = %d, lesson_id = %d, profession_id = %d, type = %s, question_text = %s, answers_json = %s,
-                    difficulty = %s, language = %s, explanation = %s, image_filename = %s,
-                    version = version + 1, updated_at = %s
-                WHERE id = %d",
+            $prof_placeholder = $fields['profession_id'] === null ? 'NULL' : '%d';
+            $grade_placeholder = $fields['grade_level_id'] === null ? 'NULL' : '%d';
+
+            $sql = "UPDATE $table SET 
+                        category_id = %d, 
+                        unit_id = %d, 
+                        lesson_id = %d, 
+                        profession_id = $prof_placeholder, 
+                        grade_level_id = $grade_placeholder, 
+                        type = %s, 
+                        question_text = %s, 
+                        answers_json = %s,
+                        difficulty = %s, 
+                        language = %s, 
+                        explanation = %s, 
+                        image_filename = %s,
+                        version = version + 1, 
+                        updated_at = %s
+                    WHERE id = %d";
+
+            $args = array(
                 $fields['category_id'],
                 $fields['unit_id'],
                 $fields['lesson_id'],
-                $fields['profession_id'],
+            );
+            if ($fields['profession_id'] !== null) {
+                $args[] = $fields['profession_id'];
+            }
+            if ($fields['grade_level_id'] !== null) {
+                $args[] = $fields['grade_level_id'];
+            }
+            array_push($args,
                 $fields['type'],
                 $fields['question_text'],
                 $fields['answers_json'],
@@ -137,7 +164,9 @@ class Olama_Exam_Questions
                 $fields['image_filename'],
                 $fields['updated_at'],
                 $id
-            ));
+            );
+
+            $wpdb->query($wpdb->prepare($sql, $args));
             return $id;
         } else {
             // Insert
@@ -181,6 +210,8 @@ class Olama_Exam_Questions
             'category_id' => $original->category_id,
             'unit_id' => $original->unit_id,
             'lesson_id' => $original->lesson_id,
+            'profession_id' => $original->profession_id,
+            'grade_level_id' => $original->grade_level_id,
             'type' => $original->type,
             'question_text' => $original->question_text . ' (copy)',
             'answers_json' => $original->answers_json,

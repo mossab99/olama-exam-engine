@@ -359,6 +359,7 @@ class Olama_Exam_Shortcodes
 
         ?>
         <div class="oe-container" dir="auto" id="oe-exam-container" data-exam-id="<?php echo $exam_id; ?>"
+            data-exam-type="school"
             data-ajax-url="<?php echo admin_url('admin-ajax.php'); ?>"
             data-nonce="<?php echo wp_create_nonce('olama_exam_nonce'); ?>"
             data-student-uid="<?php echo esc_attr($final_student_uid); ?>">

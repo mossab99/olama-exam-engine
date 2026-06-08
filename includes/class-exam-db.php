@@ -54,6 +54,7 @@ class Olama_Exam_DB
             unit_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             profession_id BIGINT UNSIGNED NULL DEFAULT NULL,
+            grade_level_id bigint(20) unsigned NULL DEFAULT NULL,
             type VARCHAR(20) NOT NULL DEFAULT 'mcq',
             question_text TEXT NOT NULL,
             answers_json LONGTEXT NOT NULL,
@@ -70,6 +71,7 @@ class Olama_Exam_DB
             KEY idx_unit_lesson (unit_id, lesson_id),
             KEY idx_lesson (lesson_id),
             KEY idx_profession (profession_id),
+            KEY idx_grade_level (grade_level_id),
             KEY idx_type (type),
             KEY idx_difficulty (difficulty),
             KEY idx_language (language)
@@ -220,6 +222,56 @@ class Olama_Exam_DB
             KEY idx_test_id (test_id)
         ) $charset;";
 
+        // ── Table 10: Grade Levels ─────────────────────────────
+        $table_grade_levels = "{$wpdb->prefix}oee_grade_levels";
+        $sql_grade_levels = "CREATE TABLE $table_grade_levels (
+          id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          name_ar varchar(100) NOT NULL,
+          name_en varchar(100) NOT NULL DEFAULT '',
+          sort_order int(11) NOT NULL DEFAULT 0,
+          status varchar(20) NOT NULL DEFAULT 'active',
+          created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY  (id),
+          KEY idx_sort (sort_order)
+        ) $charset;";
+
+        // ── Table 11: Student Tests ────────────────────────────
+        $table_student_tests = "{$wpdb->prefix}oee_student_tests";
+        $sql_student_tests = "CREATE TABLE $table_student_tests (
+          id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          grade_level_id bigint(20) unsigned NOT NULL,
+          title varchar(255) NOT NULL,
+          duration_min int(11) NOT NULL DEFAULT 60,
+          pass_score_pct int(11) NOT NULL DEFAULT 60,
+          subject_config text NOT NULL DEFAULT '',
+          status varchar(20) NOT NULL DEFAULT 'active',
+          expires_at datetime DEFAULT NULL,
+          public_token varchar(64) NOT NULL DEFAULT '',
+          created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY  (id),
+          UNIQUE KEY public_token (public_token),
+          KEY idx_grade_level_id (grade_level_id),
+          KEY idx_status (status)
+        ) $charset;";
+
+        // ── Table 12: Student Applicants ───────────────────────
+        $table_student_applicants = "{$wpdb->prefix}oee_student_applicants";
+        $sql_student_applicants = "CREATE TABLE $table_student_applicants (
+          id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          attempt_id bigint(20) unsigned NOT NULL,
+          test_id bigint(20) unsigned NOT NULL,
+          student_name varchar(255) NOT NULL,
+          guardian_name varchar(255) NOT NULL DEFAULT '',
+          date_of_birth date DEFAULT NULL,
+          national_id varchar(20) NOT NULL DEFAULT '',
+          phone varchar(20) NOT NULL DEFAULT '',
+          email varchar(100) NOT NULL DEFAULT '',
+          created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY  (id),
+          KEY idx_attempt_id (attempt_id),
+          KEY idx_test_id (test_id)
+        ) $charset;";
+
         dbDelta($sql_categories);
         dbDelta($sql_questions);
         dbDelta($sql_exams);
@@ -229,6 +281,9 @@ class Olama_Exam_DB
         dbDelta($sql_professions);
         dbDelta($sql_acceptance_tests);
         dbDelta($sql_applicants);
+        dbDelta($sql_grade_levels);
+        dbDelta($sql_student_tests);
+        dbDelta($sql_student_applicants);
     }
     
     /**

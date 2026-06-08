@@ -19,7 +19,7 @@ if (!$exam) {
 // Prevent teachers from simulating exams outside their subject/section assignment.
 if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
     $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
-    wp_redirect(admin_url('admin.php?page=' . $list_page . '&access_denied=1'));
+    echo '<script>window.location.href="' . admin_url('admin.php?page=' . $list_page . '&access_denied=1') . '";</script>';
     exit;
 }
 // ── End Access Guard ─────────────────────────────────────────────────────────

@@ -139,6 +139,30 @@ class Olama_Exam_Ajax
                 }
             }
 
+            // Stage 4 — Student acceptance bypass on START
+            if (isset($_POST['exam_id'])) {
+                global $wpdb;
+                $student_test_exists = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}oee_student_tests WHERE id = %d LIMIT 1",
+                    intval($_POST['exam_id'])
+                ));
+                if ($student_test_exists) {
+                    return; // Allow
+                }
+            }
+
+            // Stage 5 — Student acceptance bypass on AUTOSAVE / SUBMIT
+            if (isset($_POST['attempt_id'])) {
+                global $wpdb;
+                $exam_type = $wpdb->get_var($wpdb->prepare(
+                    "SELECT exam_type FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d LIMIT 1",
+                    intval($_POST['attempt_id'])
+                ));
+                if ($exam_type === 'student_acceptance') {
+                    return; // Allow
+                }
+            }
+
             wp_send_json_error(array('message' => 'You must be logged in.'), 401);
         }
 
@@ -664,6 +688,7 @@ class Olama_Exam_Ajax
             'unit_id' => intval($_POST['unit_id'] ?? 0),
             'lesson_id' => intval($_POST['lesson_id'] ?? 0),
             'profession_id' => isset($_POST['profession_id']) && $_POST['profession_id'] !== '' ? intval($_POST['profession_id']) : null,
+            'grade_level_id' => isset($_POST['grade_level_id']) && $_POST['grade_level_id'] !== '' ? intval($_POST['grade_level_id']) : null,
             'type' => sanitize_text_field($_POST['type'] ?? 'mcq'),
             'question_text' => wp_kses_post($_POST['question_text'] ?? ''),
             'answers_json' => wp_unslash($_POST['answers_json'] ?? '{}'),
@@ -774,6 +799,7 @@ class Olama_Exam_Ajax
             'language' => sanitize_text_field($_POST['language'] ?? ''),
             'search' => sanitize_text_field($_POST['search'] ?? ''),
             'profession_id' => isset($_POST['profession_id']) && $_POST['profession_id'] !== '' ? intval($_POST['profession_id']) : '',
+            'grade_level_id' => isset($_POST['grade_level_id']) && $_POST['grade_level_id'] !== '' ? intval($_POST['grade_level_id']) : '',
         );
 
         // Remove empty filters
@@ -802,6 +828,7 @@ class Olama_Exam_Ajax
         $unit_id = intval($_POST['unit_id'] ?? 0);
         $lesson_id = intval($_POST['lesson_id'] ?? 0);
         $profession_id = intval($_POST['profession_id'] ?? 0);
+        $grade_level_id = intval($_POST['grade_level_id'] ?? 0);
         $language = sanitize_text_field($_POST['language'] ?? 'ar');
         $difficulty = sanitize_text_field($_POST['difficulty'] ?? 'medium');
         $mode = sanitize_text_field($_POST['mode'] ?? 'preview'); // preview|import
@@ -821,11 +848,11 @@ class Olama_Exam_Ajax
             ));
         }
 
-        if ($unit_id <= 0 && $profession_id <= 0) {
-            wp_send_json_error(array('message' => olama_exam_translate('Please select a unit or profession for import.')));
+        if ($unit_id <= 0 && $profession_id <= 0 && $grade_level_id <= 0) {
+            wp_send_json_error(array('message' => olama_exam_translate('Please select a unit, profession, or grade level for import.')));
         }
 
-        $result = Olama_Exam_Gift_Parser::import($parsed, $category_id, $language, $difficulty, $unit_id, $lesson_id, $profession_id);
+        $result = Olama_Exam_Gift_Parser::import($parsed, $category_id, $language, $difficulty, $unit_id, $lesson_id, $profession_id, $grade_level_id);
         wp_send_json_success($result);
     }
 
@@ -1112,7 +1139,7 @@ class Olama_Exam_Ajax
         $student_uid = 'placement_' . substr(md5($student_name . time() . rand()), 0, 10);
 
         // Start the exam via the engine
-        $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, false, true);
+        $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, false, true, 'school');
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
@@ -1155,14 +1182,18 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family (skip for placement and acceptance)
+        // Security: if not admin, verify student belongs to family (skip for placement, acceptance, and student acceptance)
         $is_placement = self::is_placement_exam($exam_id);
         $is_acceptance = false;
         if (class_exists('OEE_Acceptance_Tests') && OEE_Acceptance_Tests::get($exam_id)) {
             $is_acceptance = true;
         }
+        $is_student_acceptance = false;
+        if (class_exists('OEE_Student_Tests') && OEE_Student_Tests::get($exam_id)) {
+            $is_student_acceptance = true;
+        }
         
-        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance) {
+        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance && !$is_student_acceptance) {
             global $wpdb;
             $family_id = wp_get_current_user()->user_login;
             olama_exam_log("Olama Exam [AJAX]: Family ID: " . $family_id, 'info');
@@ -1208,7 +1239,8 @@ class Olama_Exam_Ajax
 
         // error_log("Olama Exam [AJAX]: Calling Engine::start_exam...");
         
-        $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, $is_preview, $is_admin_override);
+        $exam_type_override = sanitize_text_field($_POST['exam_type'] ?? '');
+        $result = Olama_Exam_Engine::start_exam($exam_id, $student_uid, $is_preview, $is_admin_override, $exam_type_override);
 
         if (is_wp_error($result)) {
             olama_exam_log("Olama Exam [AJAX]: Engine returned error: " . $result->get_error_message());
@@ -1235,6 +1267,7 @@ class Olama_Exam_Ajax
         $exam_type = $attempt ? $attempt->exam_type : '';
         $is_placement = self::is_placement_exam($exam_id);
         $is_acceptance = ($exam_type === 'acceptance');
+        $is_student_acceptance = ($exam_type === 'student_acceptance');
 
         $is_preview = !empty($_POST['is_preview']) && (self::can_manage_exams() || self::can_teacher_access_exam($exam_id));
 
@@ -1242,9 +1275,9 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family (skip for placement and acceptance)
+        // Security: if not admin, verify student belongs to family (skip for placement, acceptance, and student acceptance)
         
-        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance) {
+        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance && !$is_student_acceptance) {
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
@@ -1282,6 +1315,7 @@ class Olama_Exam_Ajax
         $exam_type = $attempt ? $attempt->exam_type : '';
         $is_placement = self::is_placement_exam($exam_id);
         $is_acceptance = ($exam_type === 'acceptance');
+        $is_student_acceptance = ($exam_type === 'student_acceptance');
 
         $is_preview = !empty($_POST['is_preview']) && (self::can_manage_exams() || self::can_teacher_access_exam($exam_id));
 
@@ -1289,9 +1323,9 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family (skip for placement and acceptance)
+        // Security: if not admin, verify student belongs to family (skip for placement, acceptance, and student acceptance)
 
-        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance) {
+        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance && !$is_student_acceptance) {
             $family_id = wp_get_current_user()->user_login;
             $is_member = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",

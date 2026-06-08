@@ -1,18 +1,18 @@
 <?php
 /**
- * Public Acceptance Test Controller & Templating
+ * Public Student Acceptance Test Controller & Templating
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-class OEE_Acceptance_Public
+class OEE_Student_Public
 {
     public function __construct()
     {
         $this->register_rewrite();
-        add_action('template_redirect', array($this, 'handle_acceptance_request'));
+        add_action('template_redirect', array($this, 'handle'));
     }
 
     /**
@@ -21,106 +21,121 @@ class OEE_Acceptance_Public
     public function register_rewrite()
     {
         add_rewrite_rule(
-            '^acceptance/([a-zA-Z0-9]+)/?$',
-            'index.php?oee_acceptance_token=$matches[1]',
+            '^student-test/([a-zA-Z0-9]+)/?$',
+            'index.php?oee_student_token=$matches[1]',
             'top'
         );
 
         add_filter('query_vars', function ($vars) {
-            $vars[] = 'oee_acceptance_token';
+            $vars[] = 'oee_student_token';
             return $vars;
         });
 
         // Flush rewrite rules once to apply the new route automatically
-        if (!get_option('oee_acceptance_rewrite_flushed_v1')) {
+        if (!get_option('oee_student_rewrite_flushed_v1')) {
             flush_rewrite_rules(false);
-            update_option('oee_acceptance_rewrite_flushed_v1', true);
+            update_option('oee_student_rewrite_flushed_v1', true);
         }
     }
 
     /**
-     * Handle public test requests
+     * Handle public student test requests
      */
-    public function handle_acceptance_request()
+    public function handle()
     {
         // 1. Get Token (supporting pretty rewrite rule and query param fallback)
-        $token = get_query_var('oee_acceptance_token');
-        if (!$token && isset($_GET['oee-acceptance'])) {
-            $token = sanitize_text_field($_GET['oee-acceptance']);
+        $token = get_query_var('oee_student_token');
+        if (!$token && isset($_GET['oee-student'])) {
+            $token = sanitize_text_field($_GET['oee-student']);
         }
 
         if (empty($token)) {
             return;
         }
 
-        // 2. Fetch and validate acceptance test
-        $test = OEE_Acceptance_Tests::get_by_token($token);
+        // Force-load frontend assets
+        if (function_exists('olama_exam_enqueue_frontend_assets')) {
+            olama_exam_enqueue_frontend_assets(true);
+        }
+
+        // 2. Fetch and validate student test
+        $test = OEE_Student_Tests::get_by_token($token);
         if (!$test) {
-            $this->render_error_page(olama_exam_translate('acceptance_inactive'));
+            $this->render_error(olama_exam_translate('student_acceptance_expired'));
             return;
         }
 
-        // Ensure session is started for transient key
-        if (!session_id() && !headers_sent()) {
-            @session_start();
-        }
-
-        $session_id = session_id() ?: 'default';
-        $transient_key = 'oee_acc_' . $token . '_' . $session_id;
-        $attempt_id = get_transient($transient_key);
+        // 3. Read attempt_id from cookie (token-scoped)
+        $cookie_name = 'oee_student_' . md5($token);
+        $attempt_id  = isset($_COOKIE[$cookie_name]) ? intval($_COOKIE[$cookie_name]) : 0;
 
         global $wpdb;
 
-        // 3. Process POST (applicant info submission)
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'oee_start_acceptance') {
-            if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'oee_acceptance_start')) {
-                $this->render_error_page(olama_exam_translate('Security check failed.'));
+        // 4. Process POST (applicant info submission)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$attempt_id) {
+            if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'oee_student_start')) {
+                $this->render_error(olama_exam_translate('Security check failed.'));
                 return;
             }
 
-            $name = sanitize_text_field($_POST['applicant_name'] ?? '');
-            $national_id = sanitize_text_field($_POST['national_id'] ?? '');
-            $phone = sanitize_text_field($_POST['phone'] ?? '');
-            $email = sanitize_email($_POST['email'] ?? '');
+            $student_name  = sanitize_text_field($_POST['student_name'] ?? '');
+            $guardian_name = sanitize_text_field($_POST['guardian_name'] ?? '');
+            $dob           = sanitize_text_field($_POST['date_of_birth'] ?? '');
+            $national_id   = sanitize_text_field($_POST['national_id'] ?? '');
+            $phone         = sanitize_text_field($_POST['phone'] ?? '');
+            $email         = sanitize_email($_POST['email'] ?? '');
 
-            if (empty($name) || empty($national_id) || empty($phone)) {
-                $error = olama_exam_translate('Please fill in all required fields.');
-                $this->render_info_form($test, $error);
+            if (empty($student_name) || empty($guardian_name) || empty($phone) || empty($dob)) {
+                $error = olama_exam_translate('field_required_error');
+                $this->render_form($test, $error);
                 return;
             }
 
-            // Generate unique student UID for public applicant
-            $student_uid = 'acceptance_' . substr(md5($name . time() . rand()), 0, 10);
+            // Generate unique student UID
+            $student_uid = 'student_acc_' . substr(md5($student_name . time() . rand()), 0, 10);
 
             // Start the exam in the engine
-            $result = Olama_Exam_Engine::start_exam($test->id, $student_uid, false, true, 'acceptance');
+            $result = Olama_Exam_Engine::start_exam($test->id, $student_uid, false, true, 'student_acceptance');
             if (is_wp_error($result)) {
-                $this->render_info_form($test, $result->get_error_message());
+                $this->render_form($test, $result->get_error_message());
                 return;
             }
 
             $attempt_id = $result['attempt_id'];
 
             // Insert metadata
-            $wpdb->insert("{$wpdb->prefix}oee_acceptance_applicants", array(
-                'attempt_id' => $attempt_id,
-                'test_id' => $test->id,
-                'name' => $name,
-                'national_id' => $national_id,
-                'phone' => $phone,
-                'email' => $email,
-                'created_at' => current_time('mysql'),
+            $wpdb->insert("{$wpdb->prefix}oee_student_applicants", array(
+                'attempt_id'    => $attempt_id,
+                'test_id'       => $test->id,
+                'student_name'  => $student_name,
+                'guardian_name' => $guardian_name,
+                'date_of_birth' => $dob,
+                'national_id'   => $national_id,
+                'phone'         => $phone,
+                'email'         => $email,
+                'created_at'    => current_time('mysql'),
             ));
 
-            // Store transient for 2 hours
-            set_transient($transient_key, $attempt_id, HOUR_IN_SECONDS * 2);
+            // Set cookie for 2 hours
+            setcookie(
+                $cookie_name,
+                $attempt_id,
+                array(
+                    'expires'  => time() + 2 * HOUR_IN_SECONDS,
+                    'path'     => COOKIEPATH,
+                    'domain'   => COOKIE_DOMAIN,
+                    'secure'   => is_ssl(),
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                )
+            );
 
             // Redirect (PRG Pattern)
-            wp_redirect(add_query_arg('r', time(), home_url($_SERVER['REQUEST_URI'])));
+            wp_safe_redirect(add_query_arg('r', time(), home_url($_SERVER['REQUEST_URI'])));
             exit;
         }
 
-        // 4. If session attempt exists, process rendering
+        // 5. If attempt exists, process rendering
         if ($attempt_id) {
             $attempt = $wpdb->get_row($wpdb->prepare(
                 "SELECT * FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d",
@@ -130,43 +145,47 @@ class OEE_Acceptance_Public
             if ($attempt) {
                 if ($attempt->submitted_at) {
                     // Render Results Screen
-                    $this->render_results_page($attempt, $test);
+                    $passed    = ($attempt->result === 'pass');
+                    $score_pct = intval($attempt->percentage ?? 0);
+                    $this->render_result($passed, $score_pct);
                     return;
                 } else {
                     // Render Exam Taking UI
-                    $this->render_exam_taking_page($attempt, $test);
+                    $this->render_exam($test, $attempt);
                     return;
                 }
             }
         }
 
-        // 5. Render default Applicant info form
-        $this->render_info_form($test);
+        // 6. Render default Applicant info form
+        $this->render_form($test);
     }
 
-    /**
-     * Enqueue standard assets for frontend
-     */
-    private function enqueue_assets()
+    private function render_error($message)
     {
-        if (function_exists('olama_exam_enqueue_frontend_assets')) {
-            olama_exam_enqueue_frontend_assets(true);
-        }
-    }
-
-    /**
-     * Render applicant info form page
-     */
-    private function render_info_form($test, $error = '')
-    {
-        $this->enqueue_assets();
         get_header();
         ?>
-        <div class="os-exam-acceptance-wrap" dir="rtl" style="max-width: 600px; margin: 50px auto; padding: 20px;">
+        <div class="os-exam-acceptance-wrap" dir="rtl" style="max-width: 500px; margin: 100px auto; padding: 20px;">
+            <div class="oe-placement-card" style="background:#fff; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.08); padding:32px; text-align:center; border-top:4px solid #ef4444;">
+                <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
+                <h3 style="font-size:18px; color:#1e293b; margin:0 0 12px;"><?php echo olama_exam_translate('Error'); ?></h3>
+                <p style="color:#64748b; font-size:14px; line-height:1.5; margin:0;"><?php echo esc_html($message); ?></p>
+            </div>
+        </div>
+        <?php
+        get_footer();
+        exit;
+    }
+
+    private function render_form($test, $error = '')
+    {
+        get_header();
+        ?>
+        <div class="os-exam-student-wrap" dir="rtl" style="max-width: 600px; margin: 50px auto; padding: 20px;">
             <div class="oe-placement-card" style="background:#fff; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.08); padding:32px;">
                 <div class="oe-placement-header" style="text-align:center; margin-bottom:24px; border-bottom:2px solid #f1f5f9; padding-bottom:16px;">
-                    <h2 style="font-size:22px; color:#1e293b;"><?php echo olama_exam_translate('acceptance_form_title'); ?></h2>
-                    <span class="oe-subject-tag" style="background:#6366f115; color:#6366f1; padding:4px 12px; border-radius:99px; font-weight:600; font-size:14px; margin-top:8px; display:inline-block;"><?php echo esc_html($test->profession_name_ar); ?></span>
+                    <h2 style="font-size:22px; color:#1e293b;"><?php echo olama_exam_translate('student_form_title'); ?></h2>
+                    <span class="oe-subject-tag" style="background:#6366f115; color:#6366f1; padding:4px 12px; border-radius:99px; font-weight:600; font-size:14px; margin-top:8px; display:inline-block;"><?php echo esc_html($test->grade_name_ar); ?></span>
                 </div>
 
                 <?php if (!empty($error)): ?>
@@ -176,22 +195,31 @@ class OEE_Acceptance_Public
                 <?php endif; ?>
 
                 <form method="post" class="oe-form">
-                    <input type="hidden" name="action" value="oee_start_acceptance">
-                    <?php wp_nonce_field('oee_acceptance_start'); ?>
+                    <?php wp_nonce_field('oee_student_start'); ?>
 
                     <div class="oe-form-group" style="margin-bottom:16px;">
-                        <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('applicant_name'); ?> *</label>
-                        <input type="text" name="applicant_name" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="مثال: محمد أحمد علي">
+                        <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('student_name'); ?> *</label>
+                        <input type="text" name="student_name" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="مثال: أحمد محمد علي">
                     </div>
 
                     <div class="oe-form-group" style="margin-bottom:16px;">
-                        <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('national_id'); ?> *</label>
-                        <input type="text" name="national_id" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="رقم الهوية أو الرقم الوطني">
+                        <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('guardian_name'); ?> *</label>
+                        <input type="text" name="guardian_name" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="مثال: محمد علي أحمد">
+                    </div>
+
+                    <div class="oe-form-group" style="margin-bottom:16px;">
+                        <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('student_dob'); ?> *</label>
+                        <input type="date" name="date_of_birth" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;">
+                    </div>
+
+                    <div class="oe-form-group" style="margin-bottom:16px;">
+                        <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('national_id'); ?></label>
+                        <input type="text" name="national_id" style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="رقم الهوية الوطنية للطالب">
                     </div>
 
                     <div class="oe-form-group" style="margin-bottom:16px;">
                         <label style="display:block; font-weight:600; color:#334155; margin-bottom:6px; font-size:14px;"><?php echo olama_exam_translate('phone'); ?> *</label>
-                        <input type="tel" name="phone" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="مثال: 079XXXXXXXX">
+                        <input type="tel" name="phone" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="رقم هاتف ولي الأمر">
                     </div>
 
                     <div class="oe-form-group" style="margin-bottom:24px;">
@@ -201,7 +229,7 @@ class OEE_Acceptance_Public
 
                     <div class="oe-form-actions">
                         <button type="submit" class="oe-btn oe-btn-primary oe-btn-lg" style="width:100%; padding:12px; background:#6366f1; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
-                            🚀 <?php echo olama_exam_translate('start_acceptance_exam'); ?>
+                            🚀 <?php echo olama_exam_translate('start_student_exam'); ?>
                         </button>
                     </div>
                 </form>
@@ -212,21 +240,16 @@ class OEE_Acceptance_Public
         exit;
     }
 
-    /**
-     * Render active exam taking interface
-     */
-    private function render_exam_taking_page($attempt, $test)
+    private function render_exam($test, $attempt)
     {
-        $this->enqueue_assets();
         get_header();
 
-        // Standard student engine dependencies
         $exam_id = intval($attempt->exam_id);
         $final_student_uid = sanitize_text_field($attempt->student_uid);
         ?>
         <div class="os-exam-acceptance-wrap" dir="rtl" style="padding: 20px 0;">
             <div class="oe-container" dir="rtl" id="oe-exam-container" data-exam-id="<?php echo $exam_id; ?>"
-                data-exam-type="acceptance"
+                data-exam-type="student_acceptance"
                 data-ajax-url="<?php echo admin_url('admin-ajax.php'); ?>"
                 data-nonce="<?php echo wp_create_nonce('olama_exam_nonce'); ?>"
                 data-student-uid="<?php echo esc_attr($final_student_uid); ?>">
@@ -312,28 +335,20 @@ class OEE_Acceptance_Public
         exit;
     }
 
-    /**
-     * Render results screen (correct answers NOT displayed)
-     */
-    private function render_results_page($attempt, $test)
+    private function render_result($passed, $score_pct)
     {
-        $this->enqueue_assets();
         get_header();
-
-        $score_pct = floatval($attempt->percentage);
-        $passed = ($attempt->result === 'pass');
         ?>
         <div class="os-exam-acceptance-wrap" dir="rtl" style="max-width: 500px; margin: 80px auto; padding: 20px;">
             <div class="oe-placement-card" style="background:#fff; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.08); padding:40px; text-align:center;">
                 <div class="os-exam-score-circle" style="width:120px; height:120px; border-radius:50%; background:#f1f5f9; display:flex; align-items:center; justify-content:center; margin:0 auto 24px; font-size:32px; font-weight:700; color:#1e293b; border:4px solid <?php echo $passed ? '#10b981' : '#ef4444'; ?>;">
                     <?php echo $score_pct; ?>%
                 </div>
-                <h3 style="font-size:22px; margin:0 0 10px; color:#1e293b;"><?php echo esc_html($test->title); ?></h3>
                 <div class="os-exam-verdict" style="font-size:18px; font-weight:600; color:<?php echo $passed ? '#10b981' : '#ef4444'; ?>; margin-bottom:20px;">
-                    <?php echo $passed ? olama_exam_translate('acceptance_passed') : olama_exam_translate('acceptance_failed'); ?>
+                    <?php echo $passed ? olama_exam_translate('student_acceptance_passed') : olama_exam_translate('student_acceptance_failed'); ?>
                 </div>
                 <p class="os-exam-thankyou" style="font-size:15px; color:#64748b; line-height:1.6; border-top:1px solid #f1f5f9; padding-top:20px; margin:0;">
-                    <?php echo olama_exam_translate('acceptance_thankyou'); ?>
+                    <?php echo olama_exam_translate('student_acceptance_thankyou'); ?>
                 </p>
             </div>
         </div>
@@ -341,25 +356,4 @@ class OEE_Acceptance_Public
         get_footer();
         exit;
     }
-
-    /**
-     * Render simple error page
-     */
-    private function render_error_page($message)
-    {
-        $this->enqueue_assets();
-        get_header();
-        ?>
-        <div class="os-exam-acceptance-wrap" dir="rtl" style="max-width: 500px; margin: 100px auto; padding: 20px;">
-            <div class="oe-placement-card" style="background:#fff; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.08); padding:32px; text-align:center; border-top:4px solid #ef4444;">
-                <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
-                <h3 style="font-size:18px; color:#1e293b; margin:0 0 12px;"><?php echo olama_exam_translate('Error'); ?></h3>
-                <p style="color:#64748b; font-size:14px; line-height:1.5; margin:0;"><?php echo esc_html($message); ?></p>
-            </div>
-        </div>
-        <?php
-        get_footer();
-        exit;
-    }
 }
-new OEE_Acceptance_Public();
