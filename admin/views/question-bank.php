@@ -15,6 +15,8 @@ $active_year = Olama_School_Academic::get_active_year();
 $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
 $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
 
+$qb_type = isset($_GET['qb_type']) ? sanitize_text_field($_GET['qb_type']) : 'school';
+
 $type_labels = array(
     'mcq' => olama_exam_translate('Multiple Choice'),
     'tf' => olama_exam_translate('True / False'),
@@ -44,41 +46,73 @@ $diff_labels = array(
         </div>
     </div>
 
-    <!-- Academic Context (read-only) + Grade/Subject Selectors -->
-    <div class="olama-exam-card">
-        <div class="olama-exam-card-header">
-            <h3>📚 <?php echo olama_exam_translate('Select Grade & Subject'); ?></h3>
-        </div>
-        <div style="padding:20px;">
-            <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;">
-                <div class="olama-exam-form-group">
-                    <label><?php echo olama_exam_translate('Academic Year'); ?></label>
-                    <input type="text" value="<?php echo esc_attr($active_year->year_name ?? '—'); ?>" readonly
-                        style="background:#f1f5f9; cursor:not-allowed;">
-                </div>
-                <div class="olama-exam-form-group">
-                    <label><?php echo olama_exam_translate('Semester'); ?></label>
-                    <input type="text" value="<?php echo esc_attr($active_semester->semester_name ?? '—'); ?>"
-                        readonly style="background:#f1f5f9; cursor:not-allowed;">
-                </div>
-                <div class="olama-exam-form-group">
-                    <label><?php echo olama_exam_translate('Grade'); ?></label>
-                    <select id="qb-grade-select">
-                        <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
-                        <?php foreach ($grades as $g): ?>
-                            <option value="<?php echo $g->id; ?>"><?php echo esc_html($g->grade_name); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="olama-exam-form-group">
-                    <label><?php echo olama_exam_translate('Subject'); ?></label>
-                    <select id="qb-subject-select" disabled>
-                        <option value="0">— <?php echo olama_exam_translate('Select Grade First'); ?> —</option>
-                    </select>
+    <h2 class="nav-tab-wrapper" style="margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 0;">
+        <a href="?page=olama-exam" class="nav-tab <?php echo $qb_type !== 'profession' ? 'nav-tab-active' : ''; ?>">
+            <?php echo olama_exam_translate('Academic Question Bank'); ?>
+        </a>
+        <a href="?page=olama-exam&qb_type=profession" class="nav-tab <?php echo $qb_type === 'profession' ? 'nav-tab-active' : ''; ?>">
+            <?php echo olama_exam_translate('Professional Question Bank'); ?>
+        </a>
+    </h2>
+
+    <!-- Academic Context (read-only) + Grade/Subject Selectors or Profession Selector -->
+    <?php if ($qb_type === 'profession'): 
+        $professions = OEE_Professions::get_all('active');
+    ?>
+        <div class="olama-exam-card">
+            <div class="olama-exam-card-header">
+                <h3>💼 <?php echo olama_exam_translate('Select Profession'); ?></h3>
+            </div>
+            <div style="padding:20px;">
+                <div class="olama-exam-form-row" style="grid-template-columns: 1fr;">
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Profession'); ?></label>
+                        <select id="qb-profession-select">
+                            <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
+                            <?php foreach ($professions as $p): ?>
+                                <option value="<?php echo $p->id; ?>"><?php echo esc_html($p->name_ar); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    <?php else: ?>
+        <div class="olama-exam-card">
+            <div class="olama-exam-card-header">
+                <h3>📚 <?php echo olama_exam_translate('Select Grade & Subject'); ?></h3>
+            </div>
+            <div style="padding:20px;">
+                <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Academic Year'); ?></label>
+                        <input type="text" value="<?php echo esc_attr($active_year->year_name ?? '—'); ?>" readonly
+                            style="background:#f1f5f9; cursor:not-allowed;">
+                    </div>
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Semester'); ?></label>
+                        <input type="text" value="<?php echo esc_attr($active_semester->semester_name ?? '—'); ?>"
+                            readonly style="background:#f1f5f9; cursor:not-allowed;">
+                    </div>
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Grade'); ?></label>
+                        <select id="qb-grade-select">
+                            <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
+                            <?php foreach ($grades as $g): ?>
+                                <option value="<?php echo $g->id; ?>"><?php echo esc_html($g->grade_name); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Subject'); ?></label>
+                        <select id="qb-subject-select" disabled>
+                            <option value="0">— <?php echo olama_exam_translate('Select Grade First'); ?> —</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <!-- Completion Ratio Bars -->
     <div id="qb-completion-bars" class="olama-exam-card" style="display:none; padding:16px 20px;">
@@ -207,6 +241,7 @@ $diff_labels = array(
                     <input type="hidden" name="id" id="q-id" value="0">
                     <input type="hidden" name="image_filename" id="q-image-filename" value="">
                     <input type="hidden" name="unit_id" id="q-unit-id" value="0">
+                    <input type="hidden" name="profession_id" id="q-profession-id" value="0">
 
                     <!-- Row: Lesson -->
                     <div class="olama-exam-form-row">
@@ -439,11 +474,38 @@ $diff_labels = array(
 
 <script>
     (function ($) {
+        const qbType = '<?php echo esc_js($qb_type); ?>';
         const typeLabels = <?php echo json_encode($type_labels); ?>;
         const diffLabels = <?php echo json_encode($diff_labels); ?>;
         let activeUnitId = 0;
         let unitsList = [];
         let lessonsList = [];
+
+        if (qbType === 'profession') {
+            $('#filter-lesson').hide();
+            $('#q-lesson-id').closest('.olama-exam-form-row').hide();
+        }
+
+        // ── Profession Selector Change ──────────────────────────
+        $('#qb-profession-select').on('change', function () {
+            const professionId = $(this).val();
+            const professionName = $(this).find('option:selected').text();
+
+            if (!professionId || professionId == '0') {
+                $('#qb-questions-panel').hide();
+                $('.olama-exam-add-question').hide();
+                return;
+            }
+
+            $('#qb-active-unit-name').text(professionName);
+            $('#q-profession-id').val(professionId);
+            $('#q-unit-id').val(0);
+            $('#q-lesson-id').val(0);
+
+            $('#qb-questions-panel').show();
+            $('.olama-exam-add-question').show();
+            loadQuestions();
+        });
 
         // ── Grade → Subject Cascade ────────────────────────────
         $('#qb-grade-select').on('change', function () {
@@ -736,12 +798,17 @@ $diff_labels = array(
             const filters = {
                 action: 'olama_exam_get_questions',
                 nonce: olamaExam.nonce,
-                unit_id: activeUnitId,
-                lesson_id: $('#filter-lesson').val(),
                 type: $('#filter-type').val(),
                 difficulty: $('#filter-difficulty').val(),
                 search: $('#filter-search').val(),
             };
+
+            if (qbType === 'profession') {
+                filters.profession_id = $('#qb-profession-select').val();
+            } else {
+                filters.unit_id = activeUnitId;
+                filters.lesson_id = $('#filter-lesson').val();
+            }
 
             $('#questions-loading').show();
             $('#questions-table, #questions-empty').hide();
@@ -917,8 +984,14 @@ $diff_labels = array(
             $('#q-id').val(q.id);
             $('#question-type-select').val(q.type).trigger('change');
             $('#q-difficulty').val(q.difficulty);
-            $('#q-unit-id').val(q.unit_id || activeUnitId);
-            $('#q-lesson-id').val(q.lesson_id || 0);
+            if (qbType === 'profession') {
+                $('#q-profession-id').val(q.profession_id || $('#qb-profession-select').val());
+                $('#q-unit-id').val(0);
+                $('#q-lesson-id').val(0);
+            } else {
+                $('#q-unit-id').val(q.unit_id || activeUnitId);
+                $('#q-lesson-id').val(q.lesson_id || 0);
+            }
             $('#q-language').val(q.language);
             $('#q-text').val(q.question_text);
             $('#q-explanation').val(q.explanation || '');
@@ -967,9 +1040,15 @@ $diff_labels = array(
         function resetForm() {
             $('#olama-exam-question-form')[0].reset();
             $('#q-id').val(0);
-            $('#q-unit-id').val(activeUnitId);
-            const curLesson = $('#filter-lesson').val();
-            $('#q-lesson-id').val(curLesson ? curLesson : 0);
+            if (qbType === 'profession') {
+                $('#q-profession-id').val($('#qb-profession-select').val());
+                $('#q-unit-id').val(0);
+                $('#q-lesson-id').val(0);
+            } else {
+                $('#q-unit-id').val(activeUnitId);
+                const curLesson = $('#filter-lesson').val();
+                $('#q-lesson-id').val(curLesson ? curLesson : 0);
+            }
             $('#q-image-filename').val('');
             $('#q-image-preview').text('');
             $('.olama-exam-remove-image').hide();
@@ -1142,17 +1221,27 @@ ${lessonLine}
 
         // ── Import GIFT/CSV ────────────────────────────────────
         $('#qb-import-gift-btn').on('click', function () {
-            const gradeId = $('#qb-grade-select').val();
-            const subjectId = $('#qb-subject-select').val();
-            const lessonId = $('#filter-lesson').val() || 0;
-            window.location.href = `?page=olama-exam-import-gift&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
+            if (qbType === 'profession') {
+                const professionId = $('#qb-profession-select').val();
+                window.location.href = `?page=olama-exam-import-gift&qb_type=profession&profession_id=${professionId}`;
+            } else {
+                const gradeId = $('#qb-grade-select').val();
+                const subjectId = $('#qb-subject-select').val();
+                const lessonId = $('#filter-lesson').val() || 0;
+                window.location.href = `?page=olama-exam-import-gift&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
+            }
         });
 
         $('#qb-import-csv-btn').on('click', function () {
-            const gradeId = $('#qb-grade-select').val();
-            const subjectId = $('#qb-subject-select').val();
-            const lessonId = $('#filter-lesson').val() || 0;
-            window.location.href = `?page=olama-exam-import-csv&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
+            if (qbType === 'profession') {
+                const professionId = $('#qb-profession-select').val();
+                window.location.href = `?page=olama-exam-import-csv&qb_type=profession&profession_id=${professionId}`;
+            } else {
+                const gradeId = $('#qb-grade-select').val();
+                const subjectId = $('#qb-subject-select').val();
+                const lessonId = $('#filter-lesson').val() || 0;
+                window.location.href = `?page=olama-exam-import-csv&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
+            }
         });
 
         // ── Open Edit Question ─────────────────────────────────
@@ -1177,12 +1266,10 @@ ${lessonLine}
         $('#olama-exam-question-form').on('submit', function (e) {
             e.preventDefault();
             const type = $('#question-type-select').val();
-            $.post(olamaExam.ajaxUrl, {
+            const postData = {
                 action: 'olama_exam_save_question',
                 nonce: olamaExam.nonce,
                 id: $('#q-id').val(),
-                unit_id: $('#q-unit-id').val(),
-                lesson_id: $('#q-lesson-id').val(),
                 type: type,
                 question_text: $('#q-text').val(),
                 answers_json: buildAnswersJson(type),
@@ -1190,13 +1277,26 @@ ${lessonLine}
                 language: $('#q-language').val(),
                 explanation: $('#q-explanation').val(),
                 image_filename: $('#q-image-filename').val(),
-            }, function (res) {
+            };
+
+            if (qbType === 'profession') {
+                postData.profession_id = $('#q-profession-id').val();
+                postData.unit_id = 0;
+                postData.lesson_id = 0;
+            } else {
+                postData.unit_id = $('#q-unit-id').val();
+                postData.lesson_id = $('#q-lesson-id').val();
+            }
+
+            $.post(olamaExam.ajaxUrl, postData, function (res) {
                 if (res.success) {
                     ExamAdmin.toast(res.data.message);
                     ExamAdmin.closeModal();
                     loadQuestions();
                     // Refresh unit counts
-                    loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    if (qbType !== 'profession') {
+                        loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    }
                 } else {
                     ExamAdmin.toast(res.data.message, 'error');
                 }
@@ -1214,7 +1314,9 @@ ${lessonLine}
                 ExamAdmin.toast(res.data.message, res.success ? 'success' : 'error');
                 if (res.success) {
                     loadQuestions();
-                    loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    if (qbType !== 'profession') {
+                        loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    }
                 }
             });
         });
@@ -1229,7 +1331,9 @@ ${lessonLine}
                 ExamAdmin.toast(res.data.message, res.success ? 'success' : 'error');
                 if (res.success) {
                     loadQuestions();
-                    loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    if (qbType !== 'profession') {
+                        loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    }
                 }
             });
         });
@@ -1247,7 +1351,9 @@ ${lessonLine}
                 ExamAdmin.toast(res.data.message, res.success ? 'success' : 'error');
                 if (res.success) {
                     loadQuestions();
-                    loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    if (qbType !== 'profession') {
+                        loadUnits($('#qb-grade-select').val(), $('#qb-subject-select').val());
+                    }
                 }
             });
         });

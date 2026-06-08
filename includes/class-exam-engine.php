@@ -18,7 +18,21 @@ class Olama_Exam_Engine
     {
         global $wpdb;
 
-        $exam = Olama_Exam_Manager::get_exam($exam_id);
+        $is_acceptance = false;
+        $exam = null;
+        if (class_exists('OEE_Acceptance_Tests')) {
+            $exam = OEE_Acceptance_Tests::get($exam_id);
+            if ($exam) {
+                $is_acceptance = true;
+                $exam->duration_minutes = $exam->duration_min;
+                $exam->max_attempts = 1;
+            }
+        }
+
+        if (!$is_acceptance) {
+            $exam = Olama_Exam_Manager::get_exam($exam_id);
+        }
+
         if (!$exam) {
             return new WP_Error('not_found', 'Exam not found.');
         }
@@ -31,8 +45,16 @@ class Olama_Exam_Engine
 
         // Check time window (unless preview or override)
         $now = current_time('mysql');
-        if (!$is_preview && !$is_admin_override && ($now < $exam->start_time || $now > $exam->end_time)) {
-            return new WP_Error('outside_window', olama_exam_translate('This exam is outside its scheduled time window.'));
+        if (!$is_preview && !$is_admin_override) {
+            if ($is_acceptance) {
+                if (!empty($exam->expires_at) && $now > $exam->expires_at) {
+                    return new WP_Error('outside_window', olama_exam_translate('This acceptance test has expired.'));
+                }
+            } else {
+                if ($now < $exam->start_time || $now > $exam->end_time) {
+                    return new WP_Error('outside_window', olama_exam_translate('This exam is outside its scheduled time window.'));
+                }
+            }
         }
 
         // Check for existing unsubmitted attempt (resume instead)
@@ -58,7 +80,11 @@ class Olama_Exam_Engine
         }
 
         // Get questions
-        $questions = Olama_Exam_Manager::get_exam_questions($exam_id);
+        if ($is_acceptance) {
+            $questions = OEE_Acceptance_Tests::get_random_questions($exam->profession_id, $exam->num_questions);
+        } else {
+            $questions = Olama_Exam_Manager::get_exam_questions($exam_id);
+        }
         if (empty($questions)) {
             return new WP_Error('no_questions', olama_exam_translate('This exam has no questions.'));
         }
@@ -95,6 +121,7 @@ class Olama_Exam_Engine
             'result' => 'pending',
             'started_at' => $now,
             'is_preview' => $is_preview ? 1 : 0,
+            'exam_type' => $is_acceptance ? 'acceptance' : 'school',
         ));
 
         $attempt_id = $wpdb->insert_id;
@@ -116,10 +143,16 @@ class Olama_Exam_Engine
             if ($placement) {
                 $student_name = $placement->student_name;
             } else {
-                // Check SIS students
-                $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $student_uid));
-                if ($sis_student) {
-                    $student_name = $sis_student->student_name;
+                // Check acceptance applicants
+                $applicant = $wpdb->get_row($wpdb->prepare("SELECT name FROM {$wpdb->prefix}oee_acceptance_applicants WHERE attempt_id = %d", $attempt_id));
+                if ($applicant) {
+                    $student_name = $applicant->name;
+                } else {
+                    // Check SIS students
+                    $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $student_uid));
+                    if ($sis_student) {
+                        $student_name = $sis_student->student_name;
+                    }
                 }
             }
         }
@@ -175,7 +208,17 @@ class Olama_Exam_Engine
         }
 
         // Server-side time check with 30-second grace period
-        $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
+        $exam = null;
+        if ($attempt->exam_type === 'acceptance') {
+            if (class_exists('OEE_Acceptance_Tests')) {
+                $exam = OEE_Acceptance_Tests::get($attempt->exam_id);
+                if ($exam) {
+                    $exam->duration_minutes = $exam->duration_min;
+                }
+            }
+        } else {
+            $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
+        }
         $started = strtotime($attempt->started_at);
         $now = current_time('timestamp');
         $elapsed_seconds = $now - $started;
@@ -216,7 +259,17 @@ class Olama_Exam_Engine
             return new WP_Error('already_submitted', 'This attempt has already been submitted.');
         }
 
-        $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
+        $exam = null;
+        if ($attempt->exam_type === 'acceptance') {
+            if (class_exists('OEE_Acceptance_Tests')) {
+                $exam = OEE_Acceptance_Tests::get($attempt->exam_id);
+                if ($exam) {
+                    $exam->duration_minutes = $exam->duration_min;
+                }
+            }
+        } else {
+            $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
+        }
 
         // Check if time has expired
         $started = strtotime($attempt->started_at);
@@ -241,9 +294,14 @@ class Olama_Exam_Engine
         if ($placement) {
             $student_name = $placement->student_name;
         } else {
-            $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $attempt->student_uid));
-            if ($sis_student) {
-                $student_name = $sis_student->student_name;
+            $applicant = $wpdb->get_row($wpdb->prepare("SELECT name FROM {$wpdb->prefix}oee_acceptance_applicants WHERE attempt_id = %d", $attempt_id));
+            if ($applicant) {
+                $student_name = $applicant->name;
+            } else {
+                $sis_student = $wpdb->get_row($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}olama_students WHERE student_uid = %s", $attempt->student_uid));
+                if ($sis_student) {
+                    $student_name = $sis_student->student_name;
+                }
             }
         }
 

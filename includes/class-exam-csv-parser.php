@@ -257,23 +257,29 @@ class Olama_Exam_Csv_Parser
      * @param int   $category_id
      * @return array ['imported' => int, 'skipped' => int, 'errors' => [...]]
      */
-    public static function import($parsed, $category_id, $unit_id = 0, $lesson_id = 0)
+    public static function import($parsed, $category_id, $unit_id = 0, $lesson_id = 0, $profession_id = 0)
     {
         $imported = 0;
         $skipped = 0;
         $errors = array();
 
         foreach ($parsed['questions'] as $q) {
-            $result = Olama_Exam_Questions::save_question(array(
+            $question_data = array(
                 'category_id' => $category_id,
-                'unit_id' => $unit_id,
-                'lesson_id' => $lesson_id,
+                'unit_id' => $profession_id > 0 ? 0 : $unit_id,
+                'lesson_id' => $profession_id > 0 ? 0 : $lesson_id,
                 'type' => $q['type'],
                 'question_text' => $q['question_text'],
                 'answers_json' => $q['answers_json'],
                 'difficulty' => $q['difficulty'],
                 'language' => $q['language'],
-            ));
+            );
+
+            if ($profession_id > 0) {
+                $question_data['profession_id'] = $profession_id;
+            }
+
+            $result = Olama_Exam_Questions::save_question($question_data);
 
             if (is_wp_error($result)) {
                 $errors[] = $result->get_error_message();

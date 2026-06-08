@@ -19,7 +19,12 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
             <h1><?php echo olama_exam_translate('Import CSV'); ?></h1>
         </div>
         <div class="actions" style="display:flex; gap:10px;">
-            <a href="?page=olama-exam&grade_id=<?php echo intval($_GET['grade_id'] ?? 0); ?>&subject_id=<?php echo intval($_GET['subject_id'] ?? 0); ?>&unit_id=<?php echo intval($_GET['unit_id'] ?? 0); ?>" 
+            <?php
+            $qb_type = isset($_GET['qb_type']) ? sanitize_text_field($_GET['qb_type']) : 'school';
+            $profession_id = isset($_GET['profession_id']) ? intval($_GET['profession_id']) : 0;
+            $back_url = $qb_type === 'profession' ? '?page=olama-exam&qb_type=profession' : '?page=olama-exam&grade_id=' . intval($_GET['grade_id'] ?? 0) . '&subject_id=' . intval($_GET['subject_id'] ?? 0) . '&unit_id=' . intval($_GET['unit_id'] ?? 0);
+            ?>
+            <a href="<?php echo esc_url($back_url); ?>" 
                 class="olama-exam-btn olama-exam-btn-outline">
                 ← <?php echo olama_exam_translate('Back to Question Bank'); ?>
             </a>
@@ -37,46 +42,58 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
         </div>
 
         <!-- Academic Context (read-only) + Grade/Subject/Unit selectors -->
-        <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;">
-            <div class="olama-exam-form-group">
-                <label><?php echo olama_exam_translate('Academic Year'); ?></label>
-                <input type="text" value="<?php echo esc_attr($active_year->year_name ?? '—'); ?>" readonly
-                    style="background:#f1f5f9; cursor:not-allowed;">
+        <?php if ($qb_type === 'profession'): 
+            $profession = OEE_Professions::get($profession_id);
+        ?>
+            <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr;">
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Profession'); ?></label>
+                    <input type="text" value="<?php echo esc_attr($profession ? $profession->name_ar : '—'); ?>" readonly
+                        style="background:#f1f5f9; cursor:not-allowed;">
+                </div>
             </div>
-            <div class="olama-exam-form-group">
-                <label><?php echo olama_exam_translate('Semester'); ?></label>
-                <input type="text" value="<?php echo esc_attr($active_semester->semester_name ?? '—'); ?>"
-                    readonly style="background:#f1f5f9; cursor:not-allowed;">
-                <input type="hidden" id="csv-semester-id" value="<?php echo esc_attr($active_semester->id ?? 0); ?>">
+        <?php else: ?>
+            <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;">
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Academic Year'); ?></label>
+                    <input type="text" value="<?php echo esc_attr($active_year->year_name ?? '—'); ?>" readonly
+                        style="background:#f1f5f9; cursor:not-allowed;">
+                </div>
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Semester'); ?></label>
+                    <input type="text" value="<?php echo esc_attr($active_semester->semester_name ?? '—'); ?>"
+                        readonly style="background:#f1f5f9; cursor:not-allowed;">
+                    <input type="hidden" id="csv-semester-id" value="<?php echo esc_attr($active_semester->id ?? 0); ?>">
+                </div>
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Grade'); ?></label>
+                    <select id="csv-grade">
+                        <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
+                        <?php foreach ($grades as $g): ?>
+                            <option value="<?php echo $g->id; ?>"><?php echo esc_html($g->grade_name); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Subject'); ?></label>
+                    <select id="csv-subject" disabled>
+                        <option value="0">— <?php echo olama_exam_translate('Select Grade First'); ?> —</option>
+                    </select>
+                </div>
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Unit'); ?></label>
+                    <select id="csv-unit" disabled>
+                        <option value="0">— <?php echo olama_exam_translate('Select Subject First'); ?> —</option>
+                    </select>
+                </div>
+                <div class="olama-exam-form-group">
+                    <label><?php echo olama_exam_translate('Lesson'); ?></label>
+                    <select id="csv-lesson" disabled>
+                        <option value="0">— <?php echo olama_exam_translate('General Unit Questions'); ?> —</option>
+                    </select>
+                </div>
             </div>
-            <div class="olama-exam-form-group">
-                <label><?php echo olama_exam_translate('Grade'); ?></label>
-                <select id="csv-grade">
-                    <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
-                    <?php foreach ($grades as $g): ?>
-                        <option value="<?php echo $g->id; ?>"><?php echo esc_html($g->grade_name); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="olama-exam-form-group">
-                <label><?php echo olama_exam_translate('Subject'); ?></label>
-                <select id="csv-subject" disabled>
-                    <option value="0">— <?php echo olama_exam_translate('Select Grade First'); ?> —</option>
-                </select>
-            </div>
-            <div class="olama-exam-form-group">
-                <label><?php echo olama_exam_translate('Unit'); ?></label>
-                <select id="csv-unit" disabled>
-                    <option value="0">— <?php echo olama_exam_translate('Select Subject First'); ?> —</option>
-                </select>
-            </div>
-            <div class="olama-exam-form-group">
-                <label><?php echo olama_exam_translate('Lesson'); ?></label>
-                <select id="csv-lesson" disabled>
-                    <option value="0">— <?php echo olama_exam_translate('General Unit Questions'); ?> —</option>
-                </select>
-            </div>
-        </div>
+        <?php endif; ?>
 
         <div class="olama-exam-form-row">
             <div class="olama-exam-form-group">
@@ -282,8 +299,11 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
 
         // Import CSV
         $('#csv-import-btn').on('click', function () {
-            const unitId = $('#csv-unit').val();
-            if (!unitId || unitId == '0') {
+            const qbType = '<?php echo esc_js($qb_type); ?>';
+            const professionId = <?php echo intval($profession_id); ?>;
+            const unitId = qbType === 'profession' ? 0 : $('#csv-unit').val();
+            
+            if (qbType !== 'profession' && (!unitId || unitId == '0')) {
                 ExamAdmin.toast('<?php echo olama_exam_translate("Please select a unit for import."); ?>', 'error');
                 return;
             }
@@ -296,7 +316,8 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
             fd.append('nonce', olamaExam.nonce);
             fd.append('csv_file', fileInput.files[0]);
             fd.append('unit_id', unitId);
-            fd.append('lesson_id', $('#csv-lesson').val() || 0);
+            fd.append('lesson_id', qbType === 'profession' ? 0 : ($('#csv-lesson').val() || 0));
+            fd.append('profession_id', professionId);
             fd.append('mode', 'import');
 
             $(this).prop('disabled', true).text('⏳ Importing...');

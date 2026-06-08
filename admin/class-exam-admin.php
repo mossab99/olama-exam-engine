@@ -12,6 +12,17 @@ class Olama_Exam_Admin
     public function __construct()
     {
         add_action('admin_menu', array($this, 'register_menus'));
+        add_action('admin_post_oee_export_acceptance_csv', array($this, 'export_acceptance_csv'));
+        add_filter('submenu_file', array($this, 'highlight_job_apps_menu'));
+    }
+
+    public function highlight_job_apps_menu($submenu_file)
+    {
+        global $plugin_page;
+        if (in_array($plugin_page, array('oee-acceptance-tests', 'oee-acceptance-results'))) {
+            $submenu_file = 'oee-professions';
+        }
+        return $submenu_file;
     }
 
     /**
@@ -113,6 +124,36 @@ class Olama_Exam_Admin
             array($this, 'render_grade_essays')
         );
 
+        // Submenu: Job Apps (Acts as parent tab)
+        add_submenu_page(
+            'olama-exam',
+            olama_exam_translate('Job Apps'),
+            olama_exam_translate('Job Apps'),
+            $this->get_capability('olama_manage_question_bank'),
+            'oee-professions',
+            array($this, 'render_professions')
+        );
+
+        // Submenu: Acceptance Tests (Hidden)
+        add_submenu_page(
+            null,
+            olama_exam_translate('Acceptance Tests'),
+            olama_exam_translate('Acceptance Tests'),
+            $this->get_capability('olama_create_exams'),
+            'oee-acceptance-tests',
+            array($this, 'render_acceptance_tests')
+        );
+
+        // Submenu: Acceptance Results (Hidden)
+        add_submenu_page(
+            null,
+            olama_exam_translate('Acceptance Results'),
+            olama_exam_translate('Acceptance Results'),
+            $this->get_capability('olama_view_exam_results'),
+            'oee-acceptance-results',
+            array($this, 'render_acceptance_results')
+        );
+
         // Hidden submenu for Preview (not shown in menu but accessible via link)
         add_submenu_page(
             null, // Hide from menu
@@ -175,5 +216,133 @@ class Olama_Exam_Admin
     public static function render_student_preview()
     {
         include OLAMA_EXAM_PATH . 'admin/views/student-preview.php';
+    }
+
+    public function render_professions()
+    {
+        $action = $_GET['action'] ?? '';
+        if (in_array($action, array('add', 'edit'))) {
+            include OLAMA_EXAM_PATH . 'admin/views/professions-form.php';
+        } else {
+            include OLAMA_EXAM_PATH . 'admin/views/professions-list.php';
+        }
+    }
+
+    public function render_acceptance_tests()
+    {
+        $action = $_GET['action'] ?? '';
+        if (in_array($action, array('add', 'edit'))) {
+            include OLAMA_EXAM_PATH . 'admin/views/acceptance-tests-form.php';
+        } else {
+            include OLAMA_EXAM_PATH . 'admin/views/acceptance-tests-list.php';
+        }
+    }
+
+    public function render_acceptance_results()
+    {
+        include OLAMA_EXAM_PATH . 'admin/views/acceptance-results.php';
+    }
+
+    /**
+     * Export acceptance results to CSV
+     */
+    public function export_acceptance_csv()
+    {
+        if (!check_admin_referer('oee_export_csv_nonce')) {
+            wp_die('Security check failed.');
+        }
+
+        $cap = $this->get_capability('olama_view_exam_results');
+        if (!current_user_can($cap)) {
+            wp_die('Insufficient permissions.');
+        }
+
+        global $wpdb;
+
+        $prof_filter   = isset($_POST['profession_id']) ? intval($_POST['profession_id']) : 0;
+        $test_filter   = isset($_POST['test_id']) ? intval($_POST['test_id']) : 0;
+        $result_filter = isset($_POST['result_status']) ? sanitize_text_field($_POST['result_status']) : '';
+        $start_filter  = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+        $end_filter    = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+
+        $query = "SELECT ap.name, ap.national_id, ap.phone, ap.email,
+                         p.name_ar AS profession,
+                         t.title AS test_title,
+                         att.score, att.max_score, att.percentage, att.result, att.started_at
+                  FROM {$wpdb->prefix}oee_acceptance_applicants ap
+                  JOIN {$wpdb->prefix}olama_exam_attempts att ON att.id = ap.attempt_id
+                  JOIN {$wpdb->prefix}oee_acceptance_tests t ON t.id = ap.test_id
+                  JOIN {$wpdb->prefix}oee_professions p ON p.id = t.profession_id
+                  WHERE att.exam_type = 'acceptance'";
+
+        $params = array();
+
+        if ($prof_filter > 0) {
+            $query .= " AND t.profession_id = %d";
+            $params[] = $prof_filter;
+        }
+        if ($test_filter > 0) {
+            $query .= " AND ap.test_id = %d";
+            $params[] = $test_filter;
+        }
+        if ($result_filter === 'pass') {
+            $query .= " AND att.result = 'pass'";
+        } elseif ($result_filter === 'fail') {
+            $query .= " AND att.result = 'fail'";
+        }
+        if (!empty($start_filter)) {
+            $query .= " AND att.started_at >= %s";
+            $params[] = $start_filter . ' 00:00:00';
+        }
+        if (!empty($end_filter)) {
+            $query .= " AND att.started_at <= %s";
+            $params[] = $end_filter . ' 23:59:59';
+        }
+
+        $query .= " ORDER BY att.started_at DESC";
+
+        if (!empty($params)) {
+            $results = $wpdb->get_results($wpdb->prepare($query, $params));
+        } else {
+            $results = $wpdb->get_results($query);
+        }
+
+        $filename = 'acceptance_results_' . date('Y-m-d') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        
+        // Add UTF-8 BOM
+        echo "\xEF\xBB\xBF";
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, array(
+            olama_exam_translate('Applicant Name'),
+            olama_exam_translate('National ID'),
+            olama_exam_translate('Phone'),
+            olama_exam_translate('Email'),
+            olama_exam_translate('Profession'),
+            olama_exam_translate('Test Title'),
+            olama_exam_translate('Score'),
+            olama_exam_translate('Result'),
+            olama_exam_translate('Date')
+        ));
+
+        foreach ($results as $row) {
+            fputcsv($output, array(
+                $row->name,
+                $row->national_id,
+                $row->phone,
+                $row->email,
+                $row->profession,
+                $row->test_title,
+                $row->percentage . '% (' . $row->score . '/' . $row->max_score . ')',
+                $row->result === 'pass' ? olama_exam_translate('Pass') : olama_exam_translate('Fail'),
+                $row->started_at
+            ));
+        }
+
+        fclose($output);
+        exit;
     }
 }

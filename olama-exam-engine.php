@@ -49,6 +49,11 @@ function olama_exam_load_includes()
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-ajax.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-shortcodes.php';
 
+    // ── Employee Acceptance Test Module ──
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-professions.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-tests.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-public.php';
+
     if (is_admin()) {
         require_once OLAMA_EXAM_PATH . 'admin/class-exam-admin.php';
     }
@@ -74,6 +79,14 @@ function olama_exam_activate()
 
     update_option('olama_exam_version', OLAMA_EXAM_VERSION);
     update_option('olama_exam_db_version', '1.0.0');
+
+    // Load acceptance test class and flush rewrite rules
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-professions.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-tests.php';
+    require_once OLAMA_EXAM_PATH . 'includes/acceptance/class-oee-acceptance-public.php';
+    $public_flow = new OEE_Acceptance_Public();
+    $public_flow->register_rewrite();
+    flush_rewrite_rules(false);
 }
 register_activation_hook(__FILE__, 'olama_exam_activate');
 
@@ -106,11 +119,12 @@ function olama_exam_init()
 
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
-    if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_3', false)) {
+    if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_3', false) || !get_option('olama_exam_db_sync_acceptance_v1', false)) {
         Olama_Exam_DB::create_tables();
         Olama_Exam_DB::migrate_student_uid();
         update_option('olama_exam_db_version', OLAMA_EXAM_VERSION);
         update_option('olama_exam_db_sync_1_1_3', true);
+        update_option('olama_exam_db_sync_acceptance_v1', true);
     }
 
     // One-time migrations
@@ -218,7 +232,7 @@ function olama_exam_sync_db_columns()
 function olama_exam_enqueue_admin_assets($hook)
 {
     // Only load on our admin pages
-    if (strpos($hook, 'olama-exam') === false) {
+    if (strpos($hook, 'olama-exam') === false && strpos($hook, 'oee-') === false) {
         return;
     }
 

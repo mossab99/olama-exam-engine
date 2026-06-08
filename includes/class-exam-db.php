@@ -53,6 +53,7 @@ class Olama_Exam_DB
             category_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             unit_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            profession_id BIGINT UNSIGNED NULL DEFAULT NULL,
             type VARCHAR(20) NOT NULL DEFAULT 'mcq',
             question_text TEXT NOT NULL,
             answers_json LONGTEXT NOT NULL,
@@ -63,11 +64,12 @@ class Olama_Exam_DB
             version INT UNSIGNED NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
+            PRIMARY KEY  (id),
             KEY idx_category (category_id),
             KEY idx_unit (unit_id),
             KEY idx_unit_lesson (unit_id, lesson_id),
             KEY idx_lesson (lesson_id),
+            KEY idx_profession (profession_id),
             KEY idx_type (type),
             KEY idx_difficulty (difficulty),
             KEY idx_language (language)
@@ -130,7 +132,8 @@ class Olama_Exam_DB
             submitted_at DATETIME NULL,
             submit_type VARCHAR(15) NULL,
             is_preview TINYINT(1) NOT NULL DEFAULT 0,
-            PRIMARY KEY (id),
+            exam_type VARCHAR(20) NOT NULL DEFAULT 'school',
+            PRIMARY KEY  (id),
             KEY idx_exam (exam_id),
             KEY idx_student (student_uid),
             KEY idx_exam_student (exam_id, student_uid),
@@ -169,12 +172,63 @@ class Olama_Exam_DB
             KEY idx_attempt (attempt_id)
         ) $charset;";
 
+        // ── Table 7: Professions ────────────────────────────────
+        $table_professions = "{$wpdb->prefix}oee_professions";
+        $sql_professions = "CREATE TABLE $table_professions (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name_ar VARCHAR(255) NOT NULL,
+            name_en VARCHAR(255) NOT NULL DEFAULT '',
+            description TEXT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY idx_status (status)
+        ) $charset;";
+
+        // ── Table 8: Acceptance Tests ──────────────────────────
+        $table_acceptance_tests = "{$wpdb->prefix}oee_acceptance_tests";
+        $sql_acceptance_tests = "CREATE TABLE $table_acceptance_tests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            profession_id BIGINT UNSIGNED NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            duration_min INT NOT NULL DEFAULT 45,
+            num_questions INT NOT NULL DEFAULT 40,
+            pass_score_pct INT NOT NULL DEFAULT 60,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            expires_at DATETIME NULL,
+            public_token VARCHAR(64) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            UNIQUE KEY public_token (public_token),
+            KEY idx_profession_id (profession_id),
+            KEY idx_status (status)
+        ) $charset;";
+
+        // ── Table 9: Acceptance Applicants ─────────────────────
+        $table_applicants = "{$wpdb->prefix}oee_acceptance_applicants";
+        $sql_applicants = "CREATE TABLE $table_applicants (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            attempt_id BIGINT UNSIGNED NOT NULL,
+            test_id BIGINT UNSIGNED NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            national_id VARCHAR(20) NOT NULL DEFAULT '',
+            phone VARCHAR(20) NOT NULL DEFAULT '',
+            email VARCHAR(100) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY idx_attempt_id (attempt_id),
+            KEY idx_test_id (test_id)
+        ) $charset;";
+
         dbDelta($sql_categories);
         dbDelta($sql_questions);
         dbDelta($sql_exams);
         dbDelta($sql_attempts);
         dbDelta($sql_essays);
         dbDelta($sql_placement);
+        dbDelta($sql_professions);
+        dbDelta($sql_acceptance_tests);
+        dbDelta($sql_applicants);
     }
     
     /**
