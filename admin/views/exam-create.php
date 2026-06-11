@@ -12,8 +12,7 @@ if (!defined('ABSPATH')) {
 global $wpdb;
 
 // Active academic context
-$active_year     = Olama_School_Academic::get_active_year();
-$active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
+list($active_year, $active_semester) = olama_exam_get_active_academic_context();
 $grades          = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
 
 // Check if showing form (edit param present = show form, even for new exams with edit=0)

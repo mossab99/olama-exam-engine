@@ -34,6 +34,16 @@ function olama_exam_check_dependencies()
     return true;
 }
 
+function olama_exam_get_active_academic_context()
+{
+    $active_year = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_active_year() : null;
+    $active_semester = ($active_year && class_exists('Olama_School_Academic'))
+        ? Olama_School_Academic::get_active_semester($active_year->id)
+        : null;
+
+    return array($active_year, $active_semester);
+}
+
 // ── Load Includes ──────────────────────────────────────────────
 function olama_exam_load_includes()
 {

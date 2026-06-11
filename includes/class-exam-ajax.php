@@ -466,7 +466,7 @@ class Olama_Exam_Ajax
         if (!$is_placement) {
             // If semester_id not provided, get the active semester
             if ($semester_id <= 0) {
-                $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
+                list(, $active_semester) = olama_exam_get_active_academic_context();
                 $semester_id = $active_semester ? $active_semester->id : 0;
             }
             $query .= " AND cu.semester_id = %d";
@@ -536,8 +536,7 @@ class Olama_Exam_Ajax
         }
 
         // Get active academic context
-        $active_year     = Olama_School_Academic::get_active_year();
-        $active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
+        list($active_year, $active_semester) = olama_exam_get_active_academic_context();
 
         if (!$active_year || !$active_semester) {
             wp_send_json_error('No active year or semester');

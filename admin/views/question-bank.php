@@ -11,8 +11,7 @@ if (!defined('ABSPATH')) {
 global $wpdb;
 
 // Get active year and semester from the SIS
-$active_year = Olama_School_Academic::get_active_year();
-$active_semester = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}olama_semesters WHERE is_active = 1 LIMIT 1");
+list($active_year, $active_semester) = olama_exam_get_active_academic_context();
 $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
 
 $qb_type = isset($_GET['qb_type']) ? sanitize_text_field($_GET['qb_type']) : 'school';
