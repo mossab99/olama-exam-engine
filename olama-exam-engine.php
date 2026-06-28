@@ -140,8 +140,18 @@ function olama_exam_init()
     // Initialize AJAX handlers
     Olama_Exam_Ajax::init();
 
-    // Initialize Student Public handler
+    // Initialize public acceptance handlers. Loading the class file alone is not
+    // enough: the instances register the rewrite/query vars and handle requests.
+    new OEE_Acceptance_Public();
     new OEE_Student_Public();
+
+    // Deployments upgraded from an older build may already have the old
+    // one-time flags while the acceptance rule is missing from WordPress.
+    // Refresh the saved rules once after both public routes are registered.
+    if (!get_option('oee_public_rewrite_flushed_v2', false)) {
+        flush_rewrite_rules(false);
+        update_option('oee_public_rewrite_flushed_v2', true);
+    }
 
     // Check for DB updates
     $current_db = get_option('olama_exam_db_version', '0');
