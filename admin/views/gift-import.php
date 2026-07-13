@@ -329,10 +329,6 @@ Match countries to capitals.{
             const categoryId = qbType === 'grade_level' ? $('#gift-category-id').val() : 0;
             const unitId = (qbType === 'profession' || qbType === 'grade_level') ? 0 : $('#gift-unit').val();
             
-            if (qbType === 'grade_level' && (!categoryId || categoryId == '0')) {
-                ExamAdmin.toast('<?php echo olama_exam_translate("Please select a category for import."); ?>', 'error');
-                return;
-            }
             if (qbType === 'school' && (!unitId || unitId == '0')) {
                 ExamAdmin.toast('<?php echo olama_exam_translate("Please select a unit for import."); ?>', 'error');
                 return;
