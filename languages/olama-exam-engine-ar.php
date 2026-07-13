@@ -21,6 +21,8 @@ return array(
     'grade_levels_menu' => 'المراحل الدراسية',
     'student_tests_menu' => 'اختبارات الطلاب',
     'student_results_menu' => 'نتائج الطلاب',
+    'View Results' => 'عرض النتائج',
+    'Delete Attempt' => 'حذف المحاولة',
     'Acceptance Tests' => 'اختبارات القبول',
     'Acceptance Results' => 'نتائج القبول',
     'Job Apps' => 'طلبات التوظيف',

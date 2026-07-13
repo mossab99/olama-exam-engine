@@ -111,4 +111,13 @@ class OEE_Grade_Levels
         }
         return $map;
     }
+
+    public static function get_total_question_count($grade_level_id)
+    {
+        global $wpdb;
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions WHERE grade_level_id = %d",
+            intval($grade_level_id)
+        ));
+    }
 }

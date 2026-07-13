@@ -87,7 +87,7 @@ $diff_labels = array(
                 <h3>🏫 <?php echo olama_exam_translate('Select Grade Level'); ?></h3>
             </div>
             <div style="padding:20px;">
-                <div class="olama-exam-form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="olama-exam-form-row" style="grid-template-columns: 1fr;">
                     <div class="olama-exam-form-group">
                         <label><?php echo olama_exam_translate('Grade Level'); ?></label>
                         <select id="qb-grade-level-select">
@@ -95,18 +95,6 @@ $diff_labels = array(
                             <?php foreach ($grade_levels as $gl): ?>
                                 <option value="<?php echo $gl->id; ?>"><?php echo esc_html($gl->name_ar); ?></option>
                             <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="olama-exam-form-group">
-                        <label><?php echo olama_exam_translate('Category'); ?></label>
-                        <select id="qb-category-select">
-                            <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
-                            <?php
-                            $categories = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_exam_question_categories ORDER BY name ASC");
-                            foreach ($categories as $cat) {
-                                echo '<option value="' . esc_attr($cat->id) . '">' . esc_html($cat->name) . '</option>';
-                            }
-                            ?>
                         </select>
                     </div>
                 </div>
@@ -282,18 +270,7 @@ $diff_labels = array(
                     <!-- Row: Lesson / Category -->
                     <div class="olama-exam-form-row">
                         <?php if ($qb_type === 'grade_level'): ?>
-                            <div class="olama-exam-form-group">
-                                <label><?php echo olama_exam_translate('Category'); ?> *</label>
-                                <select name="category_id" id="q-category-id" required>
-                                    <option value="">— <?php echo olama_exam_translate('Select'); ?> —</option>
-                                    <?php
-                                    $categories = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_exam_question_categories ORDER BY name ASC");
-                                    foreach ($categories as $cat) {
-                                        echo '<option value="' . esc_attr($cat->id) . '">' . esc_html($cat->name) . '</option>';
-                                    }
-                                    ?>
-                                </select>
-                            </div>
+                            <input type="hidden" name="category_id" id="q-category-id" value="0">
                         <?php else: ?>
                             <div class="olama-exam-form-group">
                                 <label><?php echo olama_exam_translate('Lesson'); ?></label>
@@ -540,9 +517,9 @@ $diff_labels = array(
         }
 
         // ── Grade Level Selector Change ──────────────────────────
-        $('#qb-grade-level-select, #qb-category-select').on('change', function () {
+        $('#qb-grade-level-select').on('change', function () {
             const gradeLevelId = $('#qb-grade-level-select').val();
-            const categoryId = $('#qb-category-select').val();
+            const categoryId = 0;
             const gradeLevelName = $('#qb-grade-level-select option:selected').text();
 
             if (!gradeLevelId || gradeLevelId == '0') {
@@ -551,7 +528,7 @@ $diff_labels = array(
                 return;
             }
 
-            $('#qb-active-unit-name').text(gradeLevelName + (categoryId && categoryId != '0' ? ' - ' + $('#qb-category-select option:selected').text() : ''));
+            $('#qb-active-unit-name').text(gradeLevelName);
             $('#q-grade-level-id').val(gradeLevelId);
             $('#q-profession-id').val(0);
             $('#q-unit-id').val(0);
@@ -885,9 +862,6 @@ $diff_labels = array(
                 filters.profession_id = $('#qb-profession-select').val();
             } else if (qbType === 'grade_level') {
                 filters.grade_level_id = $('#qb-grade-level-select').val();
-                if ($('#qb-category-select').val() != '0') {
-                    filters.category_id = $('#qb-category-select').val();
-                }
             } else {
                 filters.unit_id = activeUnitId;
                 filters.lesson_id = $('#filter-lesson').val();
@@ -1140,8 +1114,7 @@ $diff_labels = array(
                 $('#q-grade-level-id').val($('#qb-grade-level-select').val());
                 $('#q-profession-id').val(0);
                 $('#q-unit-id').val(0);
-                const catVal = $('#qb-category-select').val();
-                $('#q-category-id').val(catVal && catVal != '0' ? catVal : '');
+                $('#q-category-id').val(0);
             } else {
                 $('#q-unit-id').val(activeUnitId);
                 const curLesson = $('#filter-lesson').val();
@@ -1326,8 +1299,7 @@ ${lessonLine}
                 window.location.href = `?page=olama-exam-import-gift&qb_type=profession&profession_id=${professionId}`;
             } else if (qbType === 'grade_level') {
                 const gradeLevelId = $('#qb-grade-level-select').val();
-                const categoryId = $('#qb-category-select').val() || 0;
-                window.location.href = `?page=olama-exam-import-gift&qb_type=grade_level&grade_level_id=${gradeLevelId}&category_id=${categoryId}`;
+                window.location.href = `?page=olama-exam-import-gift&qb_type=grade_level&grade_level_id=${gradeLevelId}&category_id=0`;
             } else {
                 const gradeId = $('#qb-grade-select').val();
                 const subjectId = $('#qb-subject-select').val();
@@ -1342,8 +1314,7 @@ ${lessonLine}
                 window.location.href = `?page=olama-exam-import-csv&qb_type=profession&profession_id=${professionId}`;
             } else if (qbType === 'grade_level') {
                 const gradeLevelId = $('#qb-grade-level-select').val();
-                const categoryId = $('#qb-category-select').val() || 0;
-                window.location.href = `?page=olama-exam-import-csv&qb_type=grade_level&grade_level_id=${gradeLevelId}&category_id=${categoryId}`;
+                window.location.href = `?page=olama-exam-import-csv&qb_type=grade_level&grade_level_id=${gradeLevelId}&category_id=0`;
             } else {
                 const gradeId = $('#qb-grade-select').val();
                 const subjectId = $('#qb-subject-select').val();
@@ -1522,17 +1493,8 @@ ${lessonLine}
 
             if (qbType === 'grade_level') {
                 const gradeLevelId = urlParams.get('grade_level_id');
-                const categoryId = urlParams.get('category_id');
                 if (gradeLevelId) {
                     $('#qb-grade-level-select').val(gradeLevelId).trigger('change');
-                    if (categoryId) {
-                        const checkCategory = setInterval(() => {
-                            if ($('#qb-category-select option[value="' + categoryId + '"]').length > 0) {
-                                clearInterval(checkCategory);
-                                $('#qb-category-select').val(categoryId).trigger('change');
-                            }
-                        }, 200);
-                    }
                 }
                 
                 if (editQuestionId) {

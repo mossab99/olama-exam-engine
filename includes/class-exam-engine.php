@@ -113,7 +113,7 @@ class Olama_Exam_Engine
             $questions = OEE_Acceptance_Tests::get_random_questions($exam->profession_id, $exam->num_questions);
         } elseif ($is_student_acceptance) {
             $subject_config = json_decode($exam->subject_config, true) ?: array();
-            $grouped = OEE_Student_Tests::get_questions_by_subject($subject_config);
+            $grouped = OEE_Student_Tests::get_questions_by_subject($subject_config, $exam->grade_level_id);
             $questions = array();
             foreach ($grouped as $subject) {
                 foreach ($subject['questions'] as $q) {

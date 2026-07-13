@@ -114,37 +114,69 @@ class OEE_Student_Tests
      * @param  array $subject_config  Decoded JSON: [['category_id'=>5,'num_questions'=>10], ...]
      * @return array  Array of ['category_id'=>int, 'category_name_ar'=>string, 'questions'=>array]
      */
-    public static function get_questions_by_subject($subject_config)
+    public static function get_questions_by_subject($subject_config, $grade_level_id = 0)
     {
         global $wpdb;
         $grouped = array();
 
-        foreach ($subject_config as $subject) {
-            $cat_id = intval($subject['category_id']);
-            $num    = intval($subject['num_questions']);
+        if (intval($grade_level_id) > 0) {
+            // Count total questions requested in the configuration
+            $total_questions = 0;
+            if (is_array($subject_config)) {
+                foreach ($subject_config as $subject) {
+                    $total_questions += intval($subject['num_questions'] ?? 0);
+                }
+            }
+            if ($total_questions <= 0) {
+                $total_questions = 10; // safety fallback
+            }
 
             $questions = $wpdb->get_results($wpdb->prepare(
                 "SELECT q.*
                  FROM {$wpdb->prefix}olama_exam_questions q
-                 WHERE q.grade_level_id IS NOT NULL
-                   AND q.category_id = %d
+                 WHERE q.grade_level_id = %d
                  ORDER BY RAND()
                  LIMIT %d",
-                $cat_id,
-                $num
-            ));
-
-            // Get the category name for section headers
-            $cat_name = $wpdb->get_var($wpdb->prepare(
-                "SELECT name FROM {$wpdb->prefix}olama_exam_question_categories WHERE id = %d LIMIT 1",
-                $cat_id
+                intval($grade_level_id),
+                intval($total_questions)
             ));
 
             $grouped[] = array(
-                'category_id'      => $cat_id,
-                'category_name_ar' => $cat_name ?: '',
+                'category_id'      => 0,
+                'category_name_ar' => '',
                 'questions'        => $questions,
             );
+        } else {
+            // Fallback legacy support
+            if (is_array($subject_config)) {
+                foreach ($subject_config as $subject) {
+                    $cat_id = intval($subject['category_id'] ?? 0);
+                    $num    = intval($subject['num_questions'] ?? 0);
+
+                    $questions = $wpdb->get_results($wpdb->prepare(
+                        "SELECT q.*
+                         FROM {$wpdb->prefix}olama_exam_questions q
+                         WHERE q.grade_level_id IS NOT NULL
+                           AND q.category_id = %d
+                         ORDER BY RAND()
+                         LIMIT %d",
+                        $cat_id,
+                        $num
+                    ));
+
+                    // Get the category name for section headers
+                    $cat_name = $wpdb->get_var($wpdb->prepare(
+                        "SELECT name FROM {$wpdb->prefix}olama_exam_question_categories WHERE id = %d LIMIT 1",
+                        $cat_id
+                    ));
+
+                    $grouped[] = array(
+                        'category_id'      => $cat_id,
+                        'category_name_ar' => $cat_name ?: '',
+                        'questions'        => $questions,
+                    );
+                }
+            }
         }
 
         return $grouped;

@@ -411,8 +411,25 @@ function olama_exam_translate($text)
     }
 
     $locale = get_locale();
-    if ($locale && strpos((string)$locale, 'ar') === 0 && isset($translations[$text])) {
-        return $translations[$text];
+    if ($locale && strpos((string)$locale, 'ar') === 0) {
+        if (isset($translations[$text])) {
+            return $translations[$text];
+        }
+    } else {
+        // English/fallback human-readable titles for technical keys
+        $english_fallback = array(
+            'student_results_menu' => 'Student Results',
+            'student_tests_menu'   => 'Student Tests',
+            'grade_levels_menu'    => 'Grade Levels',
+            'student_name'         => 'Student Name',
+            'guardian_name'        => 'Guardian Name',
+            'student_dob'          => 'Student DOB',
+            'national_id'          => 'National ID',
+            'phone'                => 'Phone',
+        );
+        if (isset($english_fallback[$text])) {
+            return $english_fallback[$text];
+        }
     }
     return $text;
 }

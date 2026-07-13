@@ -77,15 +77,7 @@ class Olama_Exam_Admin
             array($this, 'render_question_bank')
         );
 
-        // Submenu: Categories (Hidden from sidebar, accessible via tab)
-        add_submenu_page(
-            null,
-            olama_exam_translate('Categories'),
-            olama_exam_translate('Categories'),
-            $this->get_capability('olama_manage_question_bank'),
-            'olama-exam-categories',
-            array($this, 'render_categories')
-        );
+        // Categories submenu removed.
 
         // Submenu: Import Questions (GIFT) - Hidden (called from QB)
         add_submenu_page(
@@ -299,7 +291,7 @@ class Olama_Exam_Admin
     public function highlight_student_acceptance_menu($submenu_file)
     {
         global $plugin_page;
-        if (in_array($plugin_page, array('oee-student-tests', 'oee-student-results', 'olama-exam-categories'))) {
+        if (in_array($plugin_page, array('oee-student-tests', 'oee-student-results'))) {
             $submenu_file = 'oee-grade-levels';
         }
         return $submenu_file;

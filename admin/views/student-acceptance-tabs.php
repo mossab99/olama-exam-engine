@@ -25,9 +25,4 @@ $current_page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : '';
        style="padding: 0 4px 12px 4px; font-weight: 600; font-size: 15px; text-decoration: none; color: <?php echo $current_page === 'oee-student-results' ? '#6366f1' : '#64748b'; ?>; border-bottom: 2px solid <?php echo $current_page === 'oee-student-results' ? '#6366f1' : 'transparent'; ?>; transition: all 0.2s ease;">
        <?php echo olama_exam_translate('student_results_menu'); ?>
     </a>
-    <a href="<?php echo admin_url('admin.php?page=olama-exam-categories'); ?>" 
-       class="olama-exam-tab" 
-       style="padding: 0 4px 12px 4px; font-weight: 600; font-size: 15px; text-decoration: none; color: <?php echo $current_page === 'olama-exam-categories' ? '#6366f1' : '#64748b'; ?>; border-bottom: 2px solid <?php echo $current_page === 'olama-exam-categories' ? '#6366f1' : 'transparent'; ?>; transition: all 0.2s ease;">
-       التصنيفات
-    </a>
 </div>

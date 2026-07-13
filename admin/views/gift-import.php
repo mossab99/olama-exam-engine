@@ -50,25 +50,14 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
         <?php elseif ($qb_type === 'grade_level'): 
             $grade_level_id = isset($_GET['grade_level_id']) ? intval($_GET['grade_level_id']) : 0;
             $grade_level = OEE_Grade_Levels::get($grade_level_id);
-            $categories = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_exam_question_categories ORDER BY name ASC");
         ?>
-            <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr;">
+            <div class="olama-exam-form-row" style="grid-template-columns:1fr;">
                 <div class="olama-exam-form-group">
                     <label><?php echo olama_exam_translate('Grade Level'); ?></label>
                     <input type="text" value="<?php echo esc_attr($grade_level ? $grade_level->name_ar : '—'); ?>" readonly
                         style="background:#f1f5f9; cursor:not-allowed;">
                     <input type="hidden" id="gift-grade-level-id" value="<?php echo $grade_level_id; ?>">
-                </div>
-                <div class="olama-exam-form-group">
-                    <label><?php echo olama_exam_translate('Category'); ?></label>
-                    <select id="gift-category-id">
-                        <option value="0">— <?php echo olama_exam_translate('Select'); ?> —</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?php echo $cat->id; ?>" <?php echo (isset($_GET['category_id']) && $_GET['category_id'] == $cat->id) ? 'selected' : ''; ?>>
-                                <?php echo esc_html($cat->name); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="hidden" id="gift-category-id" value="0">
                 </div>
             </div>
         <?php else: ?>

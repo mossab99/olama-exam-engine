@@ -18,12 +18,10 @@ if ($id > 0) {
 }
 
 $grade_levels = OEE_Grade_Levels::get_all('active');
-$categories   = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_exam_question_categories ORDER BY name ASC");
-
-// Pre-load question counts by category for each grade level
+// Pre-load total question counts for each grade level
 $counts_map = array();
 foreach ($grade_levels as $gl) {
-    $counts_map[$gl->id] = OEE_Grade_Levels::get_question_count_by_category($gl->id);
+    $counts_map[$gl->id] = OEE_Grade_Levels::get_total_question_count($gl->id);
 }
 
 // Handle Form POST
@@ -126,24 +124,24 @@ $title = $id > 0 ? olama_exam_translate('Edit Student Test') : olama_exam_transl
             <!-- Subject Configuration Builder -->
             <div style="margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 24px;">
                 <h3 style="margin-bottom: 8px;">📚 <?php echo olama_exam_translate('Subject Configuration'); ?></h3>
-                <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;"><?php echo olama_exam_translate('Configure the number of questions to pull from each subject category.'); ?></p>
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;"><?php echo olama_exam_translate('Configure the number of questions to pull from the grade level question bank.'); ?></p>
                 
-                <table class="olama-exam-table" id="subject-config-table">
-                    <thead>
-                        <tr>
-                            <th><?php echo olama_exam_translate('Subject Category'); ?></th>
-                            <th><?php echo olama_exam_translate('Live Question Count'); ?></th>
-                            <th><?php echo olama_exam_translate('Question Count'); ?></th>
-                            <th><?php echo olama_exam_translate('Actions'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody id="config-rows-container">
-                        <!-- Dynamic Rows Inserted Here -->
-                    </tbody>
-                </table>
-                
-                <div style="margin-top: 16px;">
-                    <button type="button" class="olama-exam-btn olama-exam-btn-outline" id="add-config-row-btn">+ <?php echo olama_exam_translate('Add Category Config'); ?></button>
+                <div class="olama-exam-form-row" style="grid-template-columns: 1fr 1fr; align-items: center; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; gap: 20px;">
+                    <div class="olama-exam-form-group" style="margin-bottom: 0;">
+                        <label style="font-weight: 600;"><?php echo olama_exam_translate('Live Question Count'); ?></label>
+                        <div style="margin-top: 8px;">
+                            <span id="live-question-count-badge" style="font-size: 15px; font-weight: bold; padding: 6px 16px; border-radius: 99px; background: #e2e8f0; color: #334155;">
+                                0
+                            </span>
+                        </div>
+                    </div>
+                    <div class="olama-exam-form-group" style="margin-bottom: 0;">
+                        <label for="num_questions_input" style="font-weight: 600;"><?php echo olama_exam_translate('Question Count'); ?> *</label>
+                        <input type="number" id="num_questions_input" min="1" required style="width: 150px; margin-top: 4px;" value="10">
+                        <div id="not-enough-questions-warning" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;">
+                            ⚠️ <?php echo olama_exam_translate('Not enough questions in this grade level! Available:'); ?> <span id="avail-num-label">0</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -158,7 +156,6 @@ $title = $id > 0 ? olama_exam_translate('Edit Student Test') : olama_exam_transl
 <script>
 jQuery(document).ready(function($) {
     const qCounts = <?php echo json_encode($counts_map); ?>;
-    const categories = <?php echo json_encode($categories); ?>;
     let initialConfig = [];
     
     try {
@@ -167,6 +164,13 @@ jQuery(document).ready(function($) {
         initialConfig = [];
     }
 
+    // Load initial questions count
+    let initialQuestions = 10;
+    if (initialConfig && initialConfig.length > 0) {
+        initialQuestions = initialConfig[0].num_questions || 10;
+    }
+    $('#num_questions_input').val(initialQuestions);
+
     // Dynamic Title suggestion when Grade Level changes
     var previousSuggest = '';
     $('#grade_level_id').on('change', function() {
@@ -174,7 +178,7 @@ jQuery(document).ready(function($) {
         var currentTitle = $('#title').val().trim();
         
         if (!gradeName || gradeName.indexOf('—') === 0) {
-            updateAllRowCounts();
+            updateAvailableCount();
             return;
         }
 
@@ -191,153 +195,48 @@ jQuery(document).ready(function($) {
             previousSuggest = autoTitle;
         }
         
-        updateAllRowCounts();
+        updateAvailableCount();
     });
 
-    function getAvailableCount(catId) {
+    function updateAvailableCount() {
         const gradeId = $('#grade_level_id').val();
-        if (!gradeId || gradeId === '0') return 0;
-        if (qCounts[gradeId] && qCounts[gradeId][catId]) {
-            return parseInt(qCounts[gradeId][catId]);
-        }
-        return 0;
-    }
-
-    function addConfigRow(catId = 0, numQuestions = 5) {
-        const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-        let catOptions = `<option value="">— <?php echo esc_js(olama_exam_translate('Select')); ?> —</option>`;
+        const avail = (gradeId && qCounts[gradeId]) ? parseInt(qCounts[gradeId]) : 0;
+        $('#live-question-count-badge').text(avail);
+        $('#avail-num-label').text(avail);
         
-        categories.forEach(function(cat) {
-            const selected = (cat.id == catId) ? 'selected' : '';
-            catOptions += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
-        });
-
-        const available = catId > 0 ? getAvailableCount(catId) : 0;
-        const warningStyle = (numQuestions > available) ? 'display: block;' : 'display: none;';
-
-        const rowHtml = `
-            <tr class="config-row" id="${rowId}">
-                <td>
-                    <select class="config-category" required style="width: 100%;">
-                        ${catOptions}
-                    </select>
-                </td>
-                <td>
-                    <span class="live-count-badge" style="font-weight: 600; padding: 4px 10px; border-radius: 99px; background: #f1f5f9; color: #64748b;">
-                        ${available}
-                    </span>
-                </td>
-                <td>
-                    <input type="number" class="config-num-questions" value="${numQuestions}" min="1" required style="width: 100px;">
-                    <div class="row-warning-msg" style="color: #dc2626; font-size: 12px; margin-top: 4px; ${warningStyle}">
-                        ⚠️ <?php echo esc_js(olama_exam_translate('Not enough questions in this category! Available:')); ?> <span class="avail-num">${available}</span>
-                    </div>
-                </td>
-                <td>
-                    <button type="button" class="olama-exam-btn olama-exam-btn-danger olama-exam-btn-sm remove-row-btn">🗑</button>
-                </td>
-            </tr>
-        `;
-
-        $('#config-rows-container').append(rowHtml);
-    }
-
-    function updateAllRowCounts() {
-        $('.config-row').each(function() {
-            const catId = $(this).find('.config-category').val();
-            const avail = catId ? getAvailableCount(catId) : 0;
-            $(this).find('.live-count-badge').text(avail);
-            $(this).find('.avail-num').text(avail);
-            
-            const numInput = $(this).find('.config-num-questions');
-            const num = parseInt(numInput.val()) || 0;
-            if (num > avail && catId) {
-                $(this).find('.row-warning-msg').show();
-            } else {
-                $(this).find('.row-warning-msg').hide();
-            }
-        });
-    }
-
-    // Add Row Click Event
-    $('#add-config-row-btn').on('click', function() {
-        addConfigRow();
-    });
-
-    // Remove Row Event
-    $(document).on('click', '.remove-row-btn', function() {
-        $(this).closest('.config-row').remove();
-    });
-
-    // Category Selector Change Event
-    $(document).on('change', '.config-category', function() {
-        const catId = $(this).val();
-        const row = $(this).closest('.config-row');
-        const avail = catId ? getAvailableCount(catId) : 0;
-        
-        row.find('.live-count-badge').text(avail);
-        row.find('.avail-num').text(avail);
-        
-        const numInput = row.find('.config-num-questions');
-        const num = parseInt(numInput.val()) || 0;
-        if (num > avail && catId) {
-            row.find('.row-warning-msg').show();
+        const num = parseInt($('#num_questions_input').val()) || 0;
+        if (num > avail && gradeId && gradeId !== '0') {
+            $('#not-enough-questions-warning').show();
         } else {
-            row.find('.row-warning-msg').hide();
+            $('#not-enough-questions-warning').hide();
         }
-    });
-
-    // Question Input Change Event
-    $(document).on('input change', '.config-num-questions', function() {
-        const row = $(this).closest('.config-row');
-        const catId = row.find('.config-category').val();
-        const num = parseInt($(this).val()) || 0;
-        const avail = catId ? getAvailableCount(catId) : 0;
-        
-        if (num > avail && catId) {
-            row.find('.row-warning-msg').show();
-        } else {
-            row.find('.row-warning-msg').hide();
-        }
-    });
-
-    // Load initial configs
-    if (initialConfig && initialConfig.length > 0) {
-        initialConfig.forEach(function(item) {
-            addConfigRow(item.category_id, item.num_questions);
-        });
-    } else {
-        // Add one empty row by default
-        addConfigRow();
     }
+
+    // Trigger update on input change
+    $('#num_questions_input').on('input change', function() {
+        updateAvailableCount();
+    });
+
+    // Run once on load
+    updateAvailableCount();
 
     // Serialize subject configuration JSON on form submit
     $('#oee-student-test-form').on('submit', function(e) {
-        const config = [];
-        let hasError = false;
+        const gradeId = $('#grade_level_id').val();
+        const val = parseInt($('#num_questions_input').val()) || 0;
+        const avail = (gradeId && qCounts[gradeId]) ? parseInt(qCounts[gradeId]) : 0;
         
-        $('.config-row').each(function() {
-            const catId = $(this).find('.config-category').val();
-            const num = $(this).find('.config-num-questions').val();
-            
-            if (catId && num) {
-                const avail = getAvailableCount(catId);
-                if (parseInt(num) > avail) {
-                    hasError = true;
-                }
-                config.push({
-                    category_id: parseInt(catId),
-                    num_questions: parseInt(num)
-                });
-            }
-        });
-
-        if (hasError) {
+        if (val > avail && gradeId && gradeId !== '0') {
             if (!confirm('<?php echo esc_js(olama_exam_translate("Warning: Some categories do not have enough questions. Are you sure you want to save?")); ?>')) {
                 e.preventDefault();
                 return false;
             }
         }
+
+        const config = [{
+            category_id: 0,
+            num_questions: val
+        }];
         
         $('#subject_config_hidden').val(JSON.stringify(config));
     });

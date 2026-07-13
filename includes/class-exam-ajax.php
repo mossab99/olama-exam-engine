@@ -1395,6 +1395,19 @@ class Olama_Exam_Ajax
         global $wpdb;
         // Delete essay grades first due to FK or logic
         $wpdb->delete("{$wpdb->prefix}olama_exam_essay_grades", array('attempt_id' => $attempt_id));
+
+        // Delete applicant records for student_acceptance or acceptance attempts to avoid orphaned records
+        $exam_type = $wpdb->get_var($wpdb->prepare(
+            "SELECT exam_type FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d LIMIT 1",
+            $attempt_id
+        ));
+
+        if ($exam_type === 'student_acceptance') {
+            $wpdb->delete("{$wpdb->prefix}oee_student_applicants", array('attempt_id' => $attempt_id));
+        } elseif ($exam_type === 'acceptance') {
+            $wpdb->delete("{$wpdb->prefix}oee_acceptance_applicants", array('attempt_id' => $attempt_id));
+        }
+
         $result = $wpdb->delete("{$wpdb->prefix}olama_exam_attempts", array('id' => $attempt_id));
 
         if ($result === false) {
