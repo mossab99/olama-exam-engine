@@ -243,7 +243,7 @@ class Olama_Exam_DB
           title varchar(255) NOT NULL,
           duration_min int(11) NOT NULL DEFAULT 60,
           pass_score_pct int(11) NOT NULL DEFAULT 60,
-          subject_config text NOT NULL DEFAULT '',
+          subject_config text NOT NULL,
           status varchar(20) NOT NULL DEFAULT 'active',
           expires_at datetime DEFAULT NULL,
           public_token varchar(64) NOT NULL DEFAULT '',
