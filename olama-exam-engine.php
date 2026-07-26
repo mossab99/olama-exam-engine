@@ -3,11 +3,12 @@
  * Plugin Name: Olama Exam Engine
  * Plugin URI: https://olama.online/exam-engine
  * Description: Secure online exam module for the Olama School System. Supports MCQ, True/False, Short Answer, Matching, Ordering, Fill-in-the-Blank, and Essay questions with GIFT/CSV import.
- * Version: 1.0.0
+ * Version: 1.1.7
  * Author: Dr. Mossab Al Hunaity !!
  * Text Domain: olama-exam
  * Domain Path: /languages
  * Requires PHP: 7.4
+ * Requires Plugins: olama-core, olama-users, olama-school
  */
 
 if (!defined('ABSPATH')) {
@@ -15,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 // ── Constants ──────────────────────────────────────────────────
-define('OLAMA_EXAM_VERSION', '1.1.6');
+define('OLAMA_EXAM_VERSION', '1.1.7');
 define('OLAMA_EXAM_PATH', plugin_dir_path(__FILE__));
 define('OLAMA_EXAM_URL', plugin_dir_url(__FILE__));
 define('OLAMA_EXAM_BASENAME', plugin_basename(__FILE__));
@@ -44,6 +45,54 @@ function olama_exam_get_active_academic_context()
     return array($active_year, $active_semester);
 }
 
+/**
+ * Register Exam Engine permissions with the Olama Users access matrix.
+ */
+function olama_exam_register_users_module()
+{
+    if (!function_exists('olama_users_register_module')) {
+        return;
+    }
+
+    olama_users_register_module(array(
+        'id' => 'olama_exam_engine',
+        'plugin' => 'olama-exam-engine',
+        'label' => __('Exam Engine', 'olama-exam'),
+        'capability' => 'olama_manage_question_bank',
+        'items' => array(
+            array(
+                'id' => 'olama_exam_engine.question_bank',
+                'type' => 'submenu',
+                'label' => __('Question Bank', 'olama-exam'),
+                'capability' => 'olama_manage_question_bank',
+                'url' => admin_url('admin.php?page=olama-exam'),
+            ),
+            array(
+                'id' => 'olama_exam_engine.exams',
+                'type' => 'submenu',
+                'label' => __('Create Exams', 'olama-exam'),
+                'capability' => 'olama_create_exams',
+                'url' => admin_url('admin.php?page=olama-exam-create'),
+            ),
+            array(
+                'id' => 'olama_exam_engine.results',
+                'type' => 'submenu',
+                'label' => __('View Results', 'olama-exam'),
+                'capability' => 'olama_view_exam_results',
+                'url' => admin_url('admin.php?page=olama-exam-results'),
+            ),
+            array(
+                'id' => 'olama_exam_engine.grading',
+                'type' => 'submenu',
+                'label' => __('Grade Exams', 'olama-exam'),
+                'capability' => 'olama_grade_exams',
+                'url' => admin_url('admin.php?page=olama-exam-grade-essays'),
+            ),
+        ),
+    ));
+}
+add_action('olama_users_register_modules', 'olama_exam_register_users_module', 20);
+
 // ── Load Includes ──────────────────────────────────────────────
 function olama_exam_load_includes()
 {
@@ -53,6 +102,7 @@ function olama_exam_load_includes()
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-gift-parser.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-db.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-logger.php';
+    require_once OLAMA_EXAM_PATH . 'includes/class-exam-identity.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-manager.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-engine.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-grader.php';
@@ -158,6 +208,7 @@ function olama_exam_init()
     if (version_compare($current_db, OLAMA_EXAM_VERSION, '<') || !get_option('olama_exam_db_sync_1_1_3', false) || !get_option('olama_exam_db_sync_acceptance_v1', false)) {
         Olama_Exam_DB::create_tables();
         Olama_Exam_DB::migrate_student_uid();
+        Olama_Exam_DB::migrate_legacy_attempt_student_uids();
         update_option('olama_exam_db_version', OLAMA_EXAM_VERSION);
         update_option('olama_exam_db_sync_1_1_3', true);
         update_option('olama_exam_db_sync_acceptance_v1', true);
@@ -171,6 +222,7 @@ function olama_exam_init()
     olama_exam_migrate_student_uid(); // ensure it's synced
     olama_exam_sync_db_columns();
     olama_exam_migrate_grade_level_id();
+    Olama_Exam_DB::migrate_legacy_attempt_student_uids();
 
     // Suppress system noise (WPvivid, etc.)
     Olama_Exam_Logger::suppress_noise();

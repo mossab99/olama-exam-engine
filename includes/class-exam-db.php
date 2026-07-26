@@ -392,6 +392,86 @@ class Olama_Exam_DB
     }
 
     /**
+     * Convert legacy attempt IDs only when an explicit trusted mapping exists.
+     *
+     * The old School student_uid was an independently imported academic ID and
+     * cannot be inferred safely from current Core columns. Integrators can
+     * provide old_uid => canonical_uid pairs through the filter below. Every
+     * canonical target is verified against Core before any attempt is changed.
+     */
+    public static function migrate_legacy_attempt_student_uids()
+    {
+        $mapping = apply_filters('olama_exam_legacy_student_uid_map', array());
+        $mapping = is_array($mapping) ? $mapping : array();
+        ksort($mapping);
+        $mapping_hash = hash('sha256', wp_json_encode($mapping));
+
+        $existing_result = get_option('olama_exam_legacy_attempt_uid_migration_v117', false);
+        if (is_array($existing_result) && ($existing_result['mapping_hash'] ?? '') === $mapping_hash) {
+            return $existing_result;
+        }
+
+        global $wpdb;
+        $attempts = "{$wpdb->prefix}olama_exam_attempts";
+        $students = "{$wpdb->prefix}olama_core_students";
+
+        $attempts_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $attempts));
+        $students_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $students));
+        if ($attempts_exists !== $attempts || $students_exists !== $students) {
+            return new WP_Error('olama_exam_migration_tables_missing', 'Exam attempts or Olama Core students table is unavailable.');
+        }
+
+        $numeric_before = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$attempts} WHERE student_uid REGEXP '^[0-9]+$'"
+        );
+
+        $updated = 0;
+
+        foreach ($mapping as $legacy_uid => $canonical_uid) {
+            $legacy_uid = sanitize_text_field((string) $legacy_uid);
+            $canonical_uid = sanitize_text_field((string) $canonical_uid);
+            if ($legacy_uid === '' || $canonical_uid === '' || $legacy_uid === $canonical_uid) {
+                continue;
+            }
+
+            $canonical_exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT student_uid FROM {$students} WHERE student_uid = %s LIMIT 1",
+                $canonical_uid
+            ));
+            if (!$canonical_exists) {
+                continue;
+            }
+
+            $changed = $wpdb->update(
+                $attempts,
+                array('student_uid' => $canonical_uid),
+                array('student_uid' => $legacy_uid),
+                array('%s'),
+                array('%s')
+            );
+            if ($changed === false) {
+                return new WP_Error('olama_exam_legacy_uid_migration_failed', $wpdb->last_error ?: 'Legacy attempt migration failed.');
+            }
+            $updated += (int) $changed;
+        }
+
+        $numeric_after = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$attempts} WHERE student_uid REGEXP '^[0-9]+$'"
+        );
+        $result = array(
+            'updated' => (int) $updated,
+            'unresolved' => $numeric_after,
+            'numeric_before' => $numeric_before,
+            'mapping_entries' => count($mapping),
+            'mapping_hash' => $mapping_hash,
+            'completed_at' => current_time('mysql', true),
+        );
+
+        update_option('olama_exam_legacy_attempt_uid_migration_v117', $result, false);
+        return $result;
+    }
+
+    /**
      * Drop all exam engine tables (use with caution)
      */
     public static function drop_tables()
@@ -411,5 +491,6 @@ class Olama_Exam_DB
 
         delete_option('olama_exam_version');
         delete_option('olama_exam_db_version');
+        delete_option('olama_exam_legacy_attempt_uid_migration_v117');
     }
 }

@@ -62,18 +62,13 @@ class Olama_Exam_Shortcodes
         }
 
         global $wpdb;
-        $family_id = wp_get_current_user()->user_login;
+        $family_id = Olama_Exam_Identity::get_family_uid();
         $student_filter = sanitize_text_field($_GET['student_uid'] ?? '');
 
-        // Smart Fallback: if logged-in user IS a student UID, auto-filter to them
-        if (empty($student_filter)) {
-            $is_student_uid = $wpdb->get_var($wpdb->prepare(
-                "SELECT student_uid FROM {$wpdb->prefix}olama_students WHERE student_uid = %s",
-                $family_id
-            ));
-            if ($is_student_uid) {
-                $student_filter = $is_student_uid;
-            }
+        // Future/legacy student accounts are restricted to their own record.
+        $current_student_uid = Olama_Exam_Identity::get_student_uid();
+        if ($current_student_uid !== '') {
+            $student_filter = $current_student_uid;
         }
 
         // Fetch all students in this family for the selector bar
@@ -88,6 +83,11 @@ class Olama_Exam_Shortcodes
              ORDER BY s.student_name ASC",
             $family_id
         ));
+        if ($current_student_uid !== '') {
+            $family_students = array_values(array_filter($family_students, function ($student) use ($current_student_uid) {
+                return isset($student->student_uid) && hash_equals($current_student_uid, (string) $student->student_uid);
+            }));
+        }
 
         // Get ALL assigned or attempted exams for all students in this family
         // Filter out finished (expired or no attempts) and inactive exams
@@ -356,6 +356,20 @@ class Olama_Exam_Shortcodes
         $student_uid = sanitize_text_field($_GET['student_uid'] ?? '');
         $manual_student_uid = (Olama_Exam_Ajax::can_manage_exams()) ? sanitize_text_field($_GET['manual_student_uid'] ?? '') : '';
         $final_student_uid = $manual_student_uid ?: $student_uid;
+        global $wpdb;
+        $is_public_placement = (bool) $wpdb->get_var($wpdb->prepare(
+            "SELECT is_placement FROM {$wpdb->prefix}olama_exam_exams WHERE id = %d",
+            $exam_id
+        ));
+
+        if (
+            is_user_logged_in() &&
+            !Olama_Exam_Ajax::can_manage_exams() &&
+            !$is_public_placement &&
+            !Olama_Exam_Identity::can_access_student($final_student_uid)
+        ) {
+            return '<div class="oe-error">' . olama_exam_translate('Permission denied. Student does not belong to your family.') . '</div>';
+        }
 
         ?>
         <div class="oe-container" dir="auto" id="oe-exam-container" data-exam-id="<?php echo $exam_id; ?>"
@@ -460,28 +474,21 @@ class Olama_Exam_Shortcodes
         global $wpdb;
         $student_uid = sanitize_text_field($_GET['student_uid'] ?? '');
 
-        // Security check is done securely in the query using family_id unless admin
-        $family_where = "";
-        $family_id = "";
-        if (!Olama_Exam_Ajax::can_manage_exams()) {
-            $family_id = wp_get_current_user()->user_login;
-            $family_where = $wpdb->prepare(" AND a.student_uid IN (SELECT student_uid FROM {$wpdb->prefix}olama_students WHERE family_id = %s) ", $family_id);
-        }
-
         $attempt = $wpdb->get_row($wpdb->prepare(
             "SELECT a.*, e.title as exam_title, e.show_results, e.show_correct_answers, e.passing_grade, sub.subject_name
              FROM {$wpdb->prefix}olama_exam_attempts a
              JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-             WHERE a.id = %d $family_where",
+             WHERE a.id = %d",
             $attempt_id
         ));
 
-        if (!$attempt) {
+        if (
+            !$attempt ||
+            (!Olama_Exam_Ajax::can_manage_exams() && !Olama_Exam_Identity::can_access_student($attempt->student_uid))
+        ) {
             return '<div class="oe-error">' . olama_exam_translate('Results not found or permission denied.') . '</div>';
         }
-
-        error_log("Olama Exam Debug: Render Results Attempt " . $attempt_id . " - show_results: " . ($attempt ? $attempt->show_results : 'null'));
 
         if (intval($attempt->show_results) === 0) {
             return '<div class="oe-container"><div class="oe-message">' .

@@ -224,6 +224,63 @@ class Olama_Exam_Ajax
     }
 
     /**
+     * Enforce ownership of a school student UID for the current principal.
+     */
+    private static function abort_if_no_student_access($student_uid)
+    {
+        if (self::can_manage_exams()) {
+            return;
+        }
+
+        if (!Olama_Exam_Identity::can_access_student($student_uid)) {
+            wp_send_json_error(array(
+                'message' => olama_exam_translate('Permission denied. Student does not belong to your family.'),
+                'code' => 'STUDENT_ACCESS_DENIED',
+            ), 403);
+        }
+    }
+
+    /**
+     * Bind an attempt ID to its stored student before allowing a mutation.
+     * Public placement/acceptance flows use their generated student UID as a
+     * bearer value; authenticated school flows additionally require ownership.
+     */
+    private static function abort_if_no_attempt_access($attempt, $posted_student_uid = '', $allow_public = false)
+    {
+        if (!$attempt || empty($attempt->student_uid)) {
+            wp_send_json_error(array('message' => 'Attempt not found.'), 404);
+        }
+
+        if (self::can_manage_exams()) {
+            return;
+        }
+
+        $stored_student_uid = (string) $attempt->student_uid;
+        $posted_student_uid = sanitize_text_field((string) $posted_student_uid);
+        if ($posted_student_uid !== '' && !hash_equals($stored_student_uid, $posted_student_uid)) {
+            wp_send_json_error(array(
+                'message' => olama_exam_translate('Permission denied. Attempt does not belong to this student.'),
+                'code' => 'ATTEMPT_STUDENT_MISMATCH',
+            ), 403);
+        }
+
+        $exam_type = (string) ($attempt->exam_type ?? '');
+        $is_public_type = in_array($exam_type, array('acceptance', 'student_acceptance'), true);
+        if (!$is_public_type && !empty($attempt->exam_id)) {
+            $is_public_type = self::is_placement_exam((int) $attempt->exam_id);
+        }
+
+        if ($allow_public && $is_public_type) {
+            if ($posted_student_uid === '') {
+                wp_send_json_error(array('message' => 'Student ID is required.'), 403);
+            }
+            return;
+        }
+
+        self::abort_if_no_student_access($stored_student_uid);
+    }
+
+    /**
      * Check if the current teacher is allowed to access a specific exam.
      *
      * Supervisors and admins always pass.
@@ -1181,7 +1238,8 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family (skip for placement, acceptance, and student acceptance)
+        // Public applicant flows use generated UIDs; school exams require the
+        // canonical student to belong to the current Olama principal.
         $is_placement = self::is_placement_exam($exam_id);
         $is_acceptance = false;
         if (class_exists('OEE_Acceptance_Tests') && OEE_Acceptance_Tests::get($exam_id)) {
@@ -1193,22 +1251,7 @@ class Olama_Exam_Ajax
         }
         
         if (!self::can_manage_exams() && !$is_placement && !$is_acceptance && !$is_student_acceptance) {
-            global $wpdb;
-            $family_id = wp_get_current_user()->user_login;
-            olama_exam_log("Olama Exam [AJAX]: Family ID: " . $family_id, 'info');
-            
-            $is_member = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
-                $student_uid,
-                $family_id
-            ));
-            
-            if (!$is_member) {
-                olama_exam_log("Olama Exam [AJAX]: ERROR - Student $student_uid not found in family $family_id");
-                ob_clean();
-                wp_send_json_error(array('message' => 'Permission denied. Student does not belong to your family.'));
-            }
-            // error_log("Olama Exam [AJAX]: Student is valid member of family.");
+            self::abort_if_no_student_access($student_uid);
         }
 
         $is_admin_override = self::can_manage_exams();
@@ -1261,7 +1304,7 @@ class Olama_Exam_Ajax
         $answers_json = wp_unslash($_POST['answers_json'] ?? '{}');
 
         global $wpdb;
-        $attempt = $wpdb->get_row($wpdb->prepare("SELECT exam_id, exam_type FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
+        $attempt = $wpdb->get_row($wpdb->prepare("SELECT id, exam_id, exam_type, student_uid, is_preview FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
         $exam_id = $attempt ? intval($attempt->exam_id) : 0;
         $exam_type = $attempt ? $attempt->exam_type : '';
         $is_placement = self::is_placement_exam($exam_id);
@@ -1274,19 +1317,7 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family (skip for placement, acceptance, and student acceptance)
-        
-        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance && !$is_student_acceptance) {
-            $family_id = wp_get_current_user()->user_login;
-            $is_member = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
-                $student_uid,
-                $family_id
-            ));
-            if (!$is_member) {
-                wp_send_json_error(array('message' => 'Permission denied. Student does not belong to your family.'));
-            }
-        }
+        self::abort_if_no_attempt_access($attempt, $student_uid, $is_placement || $is_acceptance || $is_student_acceptance);
 
         // DEBUG: Log received autosave
         // error_log("Olama Exam Debug: Autosave hit. Attempt: " . $attempt_id . " Answers: " . $answers_json);
@@ -1309,7 +1340,7 @@ class Olama_Exam_Ajax
         $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
 
         global $wpdb;
-        $attempt = $wpdb->get_row($wpdb->prepare("SELECT exam_id, exam_type FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
+        $attempt = $wpdb->get_row($wpdb->prepare("SELECT id, exam_id, exam_type, student_uid, is_preview FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d", $attempt_id));
         $exam_id = $attempt ? intval($attempt->exam_id) : 0;
         $exam_type = $attempt ? $attempt->exam_type : '';
         $is_placement = self::is_placement_exam($exam_id);
@@ -1322,19 +1353,7 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        // Security: if not admin, verify student belongs to family (skip for placement, acceptance, and student acceptance)
-
-        if (!self::can_manage_exams() && !$is_placement && !$is_acceptance && !$is_student_acceptance) {
-            $family_id = wp_get_current_user()->user_login;
-            $is_member = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}olama_students WHERE student_uid = %s AND family_id = %s",
-                $student_uid,
-                $family_id
-            ));
-            if (!$is_member) {
-                wp_send_json_error(array('message' => 'Permission denied. Student does not belong to your family.'));
-            }
-        }
+        self::abort_if_no_attempt_access($attempt, $student_uid, $is_placement || $is_acceptance || $is_student_acceptance);
 
         // error_log("Olama Exam Debug: Submit hit. Attempt: " . $attempt_id . " Student: " . $student_uid);
 
@@ -1353,6 +1372,15 @@ class Olama_Exam_Ajax
         self::verify_request(null);
 
         $attempt_id = intval($_POST['attempt_id'] ?? 0);
+        $student_uid = sanitize_text_field($_POST['student_uid'] ?? '');
+        global $wpdb;
+        $attempt = $wpdb->get_row($wpdb->prepare(
+            "SELECT id, exam_id, exam_type, student_uid, is_preview
+             FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d",
+            $attempt_id
+        ));
+        self::abort_if_no_attempt_access($attempt, $student_uid, false);
+
         $result = Olama_Exam_Engine::resume_exam($attempt_id);
 
         if (is_wp_error($result)) {
