@@ -413,11 +413,8 @@ class Olama_Exam_DB
 
         global $wpdb;
         $attempts = "{$wpdb->prefix}olama_exam_attempts";
-        $students = "{$wpdb->prefix}olama_core_students";
-
         $attempts_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $attempts));
-        $students_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $students));
-        if ($attempts_exists !== $attempts || $students_exists !== $students) {
+        if ($attempts_exists !== $attempts || !function_exists('olama_core')) {
             return new WP_Error('olama_exam_migration_tables_missing', 'Exam attempts or Olama Core students table is unavailable.');
         }
 
@@ -434,11 +431,7 @@ class Olama_Exam_DB
                 continue;
             }
 
-            $canonical_exists = $wpdb->get_var($wpdb->prepare(
-                "SELECT student_uid FROM {$students} WHERE student_uid = %s LIMIT 1",
-                $canonical_uid
-            ));
-            if (!$canonical_exists) {
+            if (!olama_core()->students()->get_by_uid($canonical_uid)) {
                 continue;
             }
 

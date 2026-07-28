@@ -64,17 +64,12 @@ class Olama_Exam_Identity
         }
 
         if ($identity && ($identity['identity_type'] ?? '') === 'student') {
-            global $wpdb;
             $identifier = sanitize_text_field((string) ($identity['oracle_identifier'] ?? ''));
-            $family_uid = $wpdb->get_var($wpdb->prepare(
-                "SELECT family_uid FROM {$wpdb->prefix}olama_core_students
-                 WHERE student_uid = %s OR student_uid = %s
-                 LIMIT 1",
-                $identifier,
-                (string) $user->user_login
-            ));
-            if ($family_uid) {
-                return (string) $family_uid;
+            foreach (array($identifier, (string) $user->user_login) as $student_uid) {
+                $student = function_exists('olama_core') ? olama_core()->students()->get_by_uid($student_uid) : null;
+                if (is_array($student) && !empty($student['family_uid'])) {
+                    return (string) $student['family_uid'];
+                }
             }
         }
 
@@ -88,13 +83,8 @@ class Olama_Exam_Identity
             return $family_uid;
         }
 
-        global $wpdb;
-        $family_uid = $wpdb->get_var($wpdb->prepare(
-            "SELECT family_uid FROM {$wpdb->prefix}olama_core_families WHERE family_uid = %s LIMIT 1",
-            $login
-        ));
-
-        return $family_uid ? (string) $family_uid : $login;
+        $family = function_exists('olama_core') ? olama_core()->families()->get_by_uid($login) : null;
+        return is_array($family) && !empty($family['family_uid']) ? (string) $family['family_uid'] : $login;
     }
 
     /**
@@ -112,25 +102,16 @@ class Olama_Exam_Identity
         if ($identity && ($identity['identity_type'] ?? '') === 'student') {
             $identifier = sanitize_text_field((string) ($identity['oracle_identifier'] ?? ''));
             if ($identifier !== '') {
-                global $wpdb;
-                $student_uid = $wpdb->get_var($wpdb->prepare(
-                    "SELECT student_uid FROM {$wpdb->prefix}olama_core_students WHERE student_uid = %s LIMIT 1",
-                    $identifier
-                ));
-                if ($student_uid) {
-                    return (string) $student_uid;
+                $student = function_exists('olama_core') ? olama_core()->students()->get_by_uid($identifier) : null;
+                if (is_array($student) && !empty($student['student_uid'])) {
+                    return (string) $student['student_uid'];
                 }
             }
         }
 
-        global $wpdb;
         $login = sanitize_text_field((string) $user->user_login);
-        $student_uid = $wpdb->get_var($wpdb->prepare(
-            "SELECT student_uid FROM {$wpdb->prefix}olama_core_students WHERE student_uid = %s LIMIT 1",
-            $login
-        ));
-
-        return $student_uid ? (string) $student_uid : '';
+        $student = function_exists('olama_core') ? olama_core()->students()->get_by_uid($login) : null;
+        return is_array($student) && !empty($student['student_uid']) ? (string) $student['student_uid'] : '';
     }
 
     /**
@@ -154,14 +135,7 @@ class Olama_Exam_Identity
             return false;
         }
 
-        global $wpdb;
-        return (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}olama_core_students
-             WHERE student_uid = %s AND family_uid = %s
-             LIMIT 1",
-            $student_uid,
-            $family_uid
-        ));
+        return function_exists('olama_core') && olama_core()->students()->belongs_to_family($student_uid, $family_uid);
     }
 
     private static function family_uid_from_oracle_id($oracle_family_id)
@@ -178,12 +152,6 @@ class Olama_Exam_Identity
             }
         }
 
-        global $wpdb;
-        $family_uid = $wpdb->get_var($wpdb->prepare(
-            "SELECT family_uid FROM {$wpdb->prefix}olama_core_families WHERE oracle_family_id = %s LIMIT 1",
-            $oracle_family_id
-        ));
-
-        return $family_uid ? (string) $family_uid : '';
+        return '';
     }
 }
