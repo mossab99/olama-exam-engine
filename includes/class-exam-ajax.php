@@ -247,9 +247,20 @@ class Olama_Exam_Ajax
      * Public placement/acceptance flows use their generated student UID as a
      * bearer value; authenticated school flows additionally require ownership.
      */
-    private static function abort_if_no_attempt_access($attempt, $posted_student_uid = '', $allow_public = false)
+    private static function abort_if_no_attempt_access($attempt, $posted_student_uid = '', $allow_public = false, $allow_preview = false)
     {
-        if (!$attempt || empty($attempt->student_uid)) {
+        if (!$attempt) {
+            wp_send_json_error(array('message' => 'Attempt not found.'), 404);
+        }
+
+        // Authorized previews intentionally have no student UID. Check the
+        // preview context before applying the student-bound attempt rules.
+        if ($allow_preview && !empty($attempt->is_preview) &&
+            (self::can_manage_exams() || self::can_teacher_access_exam((int) $attempt->exam_id))) {
+            return;
+        }
+
+        if (empty($attempt->student_uid)) {
             wp_send_json_error(array('message' => 'Attempt not found.'), 404);
         }
 
@@ -1394,7 +1405,12 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        self::abort_if_no_attempt_access($attempt, $student_uid, $is_placement || $is_acceptance || $is_student_acceptance);
+        self::abort_if_no_attempt_access(
+            $attempt,
+            $student_uid,
+            $is_placement || $is_acceptance || $is_student_acceptance,
+            $is_preview
+        );
 
         // DEBUG: Log received autosave
         // error_log("Olama Exam Debug: Autosave hit. Attempt: " . $attempt_id . " Answers: " . $answers_json);
@@ -1430,7 +1446,12 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'Student ID is required.'));
         }
 
-        self::abort_if_no_attempt_access($attempt, $student_uid, $is_placement || $is_acceptance || $is_student_acceptance);
+        self::abort_if_no_attempt_access(
+            $attempt,
+            $student_uid,
+            $is_placement || $is_acceptance || $is_student_acceptance,
+            $is_preview
+        );
 
         // error_log("Olama Exam Debug: Submit hit. Attempt: " . $attempt_id . " Student: " . $student_uid);
 

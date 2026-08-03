@@ -1017,10 +1017,20 @@
             credentials: 'same-origin',
         })
             .then(function (response) {
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
-                }
-                return response.json();
+                return response.json().catch(function () {
+                    return null;
+                }).then(function (result) {
+                    if (!response.ok) {
+                        const message = result && result.data && result.data.message
+                            ? result.data.message
+                            : 'HTTP ' + response.status;
+                        throw new Error(message);
+                    }
+                    if (!result) {
+                        throw new Error('Invalid server response.');
+                    }
+                    return result;
+                });
             })
             .then(function (result) {
                 if (result.success) {

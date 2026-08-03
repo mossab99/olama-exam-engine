@@ -3,7 +3,7 @@
  * Plugin Name: Olama Exam Engine
  * Plugin URI: https://olama.online/exam-engine
  * Description: Secure online exam module for the Olama School System. Supports LaTeX mathematics and MCQ, True/False, Short Answer, Matching, Ordering, Fill-in-the-Blank, and Essay questions with structured imports.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Dr. Mossab Al Hunaity !!
  * Text Domain: olama-exam
  * Domain Path: /languages
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 // ── Constants ──────────────────────────────────────────────────
-define('OLAMA_EXAM_VERSION', '1.2.0');
+define('OLAMA_EXAM_VERSION', '1.2.1');
 define('OLAMA_EXAM_PATH', plugin_dir_path(__FILE__));
 define('OLAMA_EXAM_URL', plugin_dir_url(__FILE__));
 define('OLAMA_EXAM_BASENAME', plugin_basename(__FILE__));
