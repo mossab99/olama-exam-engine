@@ -74,21 +74,19 @@ class Olama_Exam_Gift_Parser
             $block = trim($m[2]);
         }
 
-        // 2. Find answer block inside {}
-        // Use a more flexible regex to find the first { and last }
-        $first_brace = mb_strpos($block, '{');
-        $last_brace = mb_strrpos($block, '}');
-
-        if ($first_brace === false || $last_brace === false || $last_brace < $first_brace) {
+        // 2. Find the GIFT answer block. TeX uses braces heavily, so the first
+        // { in the block is not necessarily the beginning of the answers.
+        $answer_block = self::extract_answer_block($block);
+        if (is_wp_error($answer_block)) {
             // Check if it might be a description (GIFT allows blocks without {})
             // But for our engine, we expect questions. 
             // If No {} found, we could treat it as a comment or error.
-            return new WP_Error('no_answers', "Block #{$block_num}: No answer block {} found.");
+            return new WP_Error('no_answers', "Block #{$block_num}: No valid answer block {} found.");
         }
 
-        $before_text = mb_substr($block, 0, $first_brace);
-        $answer_content = mb_substr($block, $first_brace + 1, $last_brace - $first_brace - 1);
-        $after_text = mb_substr($block, $last_brace + 1);
+        $before_text = $answer_block['before'];
+        $answer_content = $answer_block['content'];
+        $after_text = $answer_block['after'];
 
         // Normalize question text: if there's text after braces, it's a fill_blank (cloze)
         $is_cloze = (trim($before_text) !== '' && trim($after_text) !== '');
@@ -155,18 +153,24 @@ class Olama_Exam_Gift_Parser
             return 'tf';
         }
 
-        // Matching: contains -> arrows
-        if (preg_match('/=.*->/', $answer_block)) {
+        $entries = self::split_answer_entries($answer_block);
+
+        // Matching: answer entries contain -> arrows.
+        if (!empty($entries) && count(array_filter($entries, function ($entry) {
+            return $entry['marker'] === '=' && strpos($entry['text'], '->') !== false;
+        })) === count($entries)) {
             return 'matching';
         }
 
-        // MCQ: contains ~ (wrong answers)
-        if (strpos($answer_block, '~') !== false) {
+        // MCQ: contains a top-level wrong-answer marker.
+        if (!empty(array_filter($entries, function ($entry) {
+            return $entry['marker'] === '~';
+        }))) {
             return 'mcq';
         }
 
-        // Short answer: only = signs (correct answers)
-        if (preg_match('/^=/', $answer_block)) {
+        // Short answer: only top-level = markers.
+        if (!empty($entries)) {
             return 'short';
         }
 
@@ -212,16 +216,14 @@ class Olama_Exam_Gift_Parser
         }
         $answer_block = implode("\n", $normalized_lines);
 
-        // Now parse standard way
-        preg_match_all('/([=~])\s*([^=~]+)/u', $answer_block, $matches, PREG_SET_ORDER);
-
-        if (empty($matches)) {
+        $entries = self::split_answer_entries($answer_block);
+        if (empty($entries)) {
             return new WP_Error('no_choices', 'MCQ: No answer choices found after normalization.');
         }
 
-        foreach ($matches as $match) {
-            $marker = $match[1];
-            $text = trim($match[2]);
+        foreach ($entries as $entry) {
+            $marker = $entry['marker'];
+            $text = trim($entry['text']);
 
             // Remove percentage weights like %100%
             $text = preg_replace('/^%\d+%\s*/u', '', $text);
@@ -278,10 +280,12 @@ class Olama_Exam_Gift_Parser
         }
         $answer_block = implode("\n", $normalized_lines);
 
-        preg_match_all('/=\s*([^=~#\n]+)/u', $answer_block, $matches);
-
-        foreach ($matches[1] as $ans) {
-            $ans = trim($ans);
+        $entries = self::split_answer_entries($answer_block);
+        foreach ($entries as $entry) {
+            if ($entry['marker'] !== '=') {
+                continue;
+            }
+            $ans = trim(preg_replace('/#.*$/u', '', $entry['text']));
             if (!empty($ans)) {
                 $answers[] = $ans;
             }
@@ -308,12 +312,11 @@ class Olama_Exam_Gift_Parser
     {
         $pairs = array();
 
-        // Extract =left -> right pairs
-        preg_match_all('/=\s*(.+?)\s*->\s*(.+?)(?=\s*=|$)/su', $answer_block, $matches, PREG_SET_ORDER);
-
-        foreach ($matches as $match) {
-            $left = trim($match[1]);
-            $right = trim($match[2]);
+        foreach (self::split_answer_entries($answer_block) as $entry) {
+            if ($entry['marker'] !== '=' || strpos($entry['text'], '->') === false) {
+                continue;
+            }
+            list($left, $right) = array_map('trim', explode('->', $entry['text'], 2));
             if (!empty($left) && !empty($right)) {
                 $pairs[] = array('left' => $left, 'right' => $right);
             }
@@ -331,6 +334,161 @@ class Olama_Exam_Gift_Parser
                 'pairs' => $pairs,
             ), JSON_UNESCAPED_UNICODE),
         );
+    }
+
+    /**
+     * Locate a balanced GIFT answer block without confusing TeX argument
+     * braces for GIFT syntax.
+     */
+    private static function extract_answer_block($block)
+    {
+        $length = strlen($block);
+        $math_mode = null;
+
+        for ($i = 0; $i < $length; $i++) {
+            $token_length = self::math_delimiter_length($block, $i, $math_mode);
+            if ($token_length > 0) {
+                $math_mode = $math_mode === null ? substr($block, $i, $token_length) : null;
+                $i += $token_length - 1;
+                continue;
+            }
+
+            if ($math_mode !== null || $block[$i] !== '{' || self::is_escaped($block, $i)) {
+                continue;
+            }
+
+            $depth = 1;
+            for ($j = $i + 1; $j < $length; $j++) {
+                if (self::is_escaped($block, $j)) {
+                    continue;
+                }
+                if ($block[$j] === '{') {
+                    $depth++;
+                } elseif ($block[$j] === '}') {
+                    $depth--;
+                    if ($depth === 0) {
+                        $content = substr($block, $i + 1, $j - $i - 1);
+                        $after = substr($block, $j + 1);
+                        if (self::looks_like_answer_block($content, $after)) {
+                            return array(
+                                'before' => substr($block, 0, $i),
+                                'content' => $content,
+                                'after' => $after,
+                            );
+                        }
+                        $i = $j;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return new WP_Error('no_answers', 'No balanced GIFT answer block was found.');
+    }
+
+    private static function looks_like_answer_block($content, $after)
+    {
+        $trimmed = trim($content);
+        if ($trimmed === '') {
+            return trim($after) === '';
+        }
+
+        if (in_array(strtoupper($trimmed), array('TRUE', 'FALSE', 'T', 'F', 'صح', 'خطأ'), true)) {
+            return true;
+        }
+
+        return preg_match('/^[=~]/u', $trimmed) === 1;
+    }
+
+    /**
+     * Split answer entries only on top-level GIFT markers. Markers inside TeX
+     * math or nested TeX braces remain part of the answer text.
+     */
+    private static function split_answer_entries($answer_block)
+    {
+        $entries = array();
+        $length = strlen($answer_block);
+        $depth = 0;
+        $math_mode = null;
+        $marker = null;
+        $start = 0;
+
+        for ($i = 0; $i < $length; $i++) {
+            $token_length = self::math_delimiter_length($answer_block, $i, $math_mode);
+            if ($token_length > 0) {
+                $math_mode = $math_mode === null ? substr($answer_block, $i, $token_length) : null;
+                $i += $token_length - 1;
+                continue;
+            }
+
+            if ($math_mode !== null || self::is_escaped($answer_block, $i)) {
+                continue;
+            }
+
+            if ($answer_block[$i] === '{') {
+                $depth++;
+                continue;
+            }
+            if ($answer_block[$i] === '}' && $depth > 0) {
+                $depth--;
+                continue;
+            }
+
+            if ($depth === 0 && ($answer_block[$i] === '=' || $answer_block[$i] === '~')) {
+                if ($marker !== null) {
+                    $entries[] = array(
+                        'marker' => $marker,
+                        'text' => trim(substr($answer_block, $start, $i - $start)),
+                    );
+                }
+                $marker = $answer_block[$i];
+                $start = $i + 1;
+            }
+        }
+
+        if ($marker !== null) {
+            $entries[] = array(
+                'marker' => $marker,
+                'text' => trim(substr($answer_block, $start)),
+            );
+        }
+
+        return array_values(array_filter($entries, function ($entry) {
+            return $entry['text'] !== '';
+        }));
+    }
+
+    private static function is_escaped($text, $position)
+    {
+        $slashes = 0;
+        for ($i = $position - 1; $i >= 0 && $text[$i] === '\\'; $i--) {
+            $slashes++;
+        }
+        return $slashes % 2 === 1;
+    }
+
+    /**
+     * Return the delimiter length when the current position opens/closes the
+     * active math mode, otherwise zero.
+     */
+    private static function math_delimiter_length($text, $position, $math_mode)
+    {
+        if (self::is_escaped($text, $position)) {
+            return 0;
+        }
+
+        if ($math_mode === null) {
+            if (substr($text, $position, 2) === '$$' || substr($text, $position, 2) === '\\(' || substr($text, $position, 2) === '\\[') {
+                return 2;
+            }
+            return $text[$position] === '$' ? 1 : 0;
+        }
+
+        $closing = array('$$' => '$$', '$' => '$', '\\(' => '\\)', '\\[' => '\\]');
+        $expected = $closing[$math_mode] ?? '';
+        return $expected !== '' && substr($text, $position, strlen($expected)) === $expected
+            ? strlen($expected)
+            : 0;
     }
 
     /**

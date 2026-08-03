@@ -281,16 +281,19 @@ $grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is
 
                     let html = '';
                     parsedData.questions.forEach((q, i) => {
-                        const text = q.question_text.length > 60 ? q.question_text.substring(0, 60) + '...' : q.question_text;
+                        const text = q.question_text;
                         html += `<tr>
                         <td>${i + 1}</td>
                         <td><span class="olama-exam-badge olama-exam-badge-${q.type}">${q.type.toUpperCase()}</span></td>
                         <td><span class="olama-exam-badge olama-exam-badge-${q.difficulty}">${q.difficulty}</span></td>
-                        <td>${$('<span>').text(text).html()}</td>
+                        <td class="oee-question-text">${$('<span>').text(text).html()}</td>
                     </tr>`;
                     });
+                    const csvPreviewBody = document.getElementById('csv-preview-tbody');
+                    if (window.OlamaExamMath) window.OlamaExamMath.clear(csvPreviewBody);
                     $('#csv-preview-tbody').html(html);
                     $('#csv-preview-card').show();
+                    if (window.OlamaExamMath) window.OlamaExamMath.typeset(csvPreviewBody);
                     $('#csv-import-btn').prop('disabled', parsedData.count === 0);
                 }
             });

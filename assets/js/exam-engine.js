@@ -158,6 +158,7 @@
     // ── Render Questions ──────────────────────────────────────
     function renderQuestions() {
         const wrap = document.getElementById('oe-questions');
+        if (window.OlamaExamMath) window.OlamaExamMath.clear(wrap);
         let html = '';
         let currentCategory = null;
 
@@ -171,7 +172,7 @@
                 html += '<h3 class="os-exam-subject-header oe-subject-header" style="margin-top: 24px; margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #1e293b; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">' + escHtml(currentCategory) + '</h3>';
             }
 
-            html += '<div class="oe-question-card ' + answeredClass + '" data-qid="' + qId + '" id="q-' + qId + '">';
+            html += '<div class="oe-question-card oee-math ' + answeredClass + '" data-qid="' + qId + '" id="q-' + qId + '">';
             html += '  <div class="oe-q-header">';
             html += '    <span class="oe-q-number">' + (idx + 1) + '</span>';
             html += '    <div class="oe-q-header-right">';
@@ -196,6 +197,7 @@
 
         wrap.innerHTML = html;
         bindAnswerEvents();
+        if (window.OlamaExamMath) window.OlamaExamMath.typeset(wrap);
     }
 
     function renderNavigation() {
@@ -912,7 +914,7 @@
                 html += '  <div class="oe-review-question">' + d.text + '</div>';
                 
                 if (data.show_correct_answers && d.correct_answer) {
-                    html += '  <div class="oe-review-correct-box" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">';
+                    html += '  <div class="oe-review-correct-box oee-math" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">';
                     html += '    <strong style="color: #166534; font-size: 13px;">' + (isArabic ? 'الإجابة الصحيحة:' : 'Correct Answer:') + '</strong>';
                     html += '    <div style="margin-top: 4px; color: #15803d; font-weight: 500;">' + formatCorrectAnswer(d) + '</div>';
                     html += '  </div>';
@@ -932,12 +934,13 @@
         html += '</div>';
 
         resultsEl.innerHTML = html;
+        if (window.OlamaExamMath) window.OlamaExamMath.typeset(resultsEl);
 
         function formatCorrectAnswer(d) {
             if (!d.correct_answer) return '';
             switch (d.type) {
                 case 'mcq':
-                    return d.correct_answer.correct_text || '';
+                    return escHtml(d.correct_answer.correct_text || '');
                 case 'tf':
                     const val = d.correct_answer.correct;
                     if (isArabic) return (val === true || val === 'true') ? 'صح' : 'خطأ';
@@ -945,13 +948,13 @@
                 case 'short':
                 case 'fill_blank':
                     const answers = d.correct_answer.answers || [];
-                    return Array.isArray(answers) ? answers.join(' | ') : answers;
+                    return escHtml(Array.isArray(answers) ? answers.join(' | ') : answers);
                 case 'matching':
                     if (!d.correct_answer.pairs) return '';
-                    return d.correct_answer.pairs.map(p => p.left + ' → ' + p.right).join('<br>');
+                    return d.correct_answer.pairs.map(p => escHtml(p.left + ' → ' + p.right)).join('<br>');
                 case 'ordering':
                     const items = d.correct_answer.correct_order || [];
-                    return items.map((it, idx) => (idx + 1) + '. ' + it).join(' → ');
+                    return items.map((it, idx) => escHtml((idx + 1) + '. ' + it)).join(' → ');
                 default:
                     return '';
             }

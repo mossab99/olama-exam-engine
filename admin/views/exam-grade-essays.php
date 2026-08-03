@@ -135,7 +135,7 @@ if ($grading_attempt_id) {
                 </div>
 
                 <div style="padding: 0 20px 10px;">
-                    <div
+                    <div class="oee-math"
                         style="font-size: 15px; line-height: 1.7; color: #1e293b; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
                         <?php echo wp_kses_post($eq['question_text']); ?>
                     </div>

@@ -193,6 +193,12 @@ $diff_labels = array(
                 <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" id="qb-import-csv-btn">
                     📊 <?php echo olama_exam_translate('Import CSV'); ?>
                 </button>
+                <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" id="qb-import-json-btn">
+                    ∑ <?php echo olama_exam_translate('Import Math / JSON'); ?>
+                </button>
+                <button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" id="qb-export-json-btn">
+                    ⇩ <?php echo olama_exam_translate('Export JSON'); ?>
+                </button>
                 <button class="olama-exam-btn olama-exam-btn-primary olama-exam-btn-sm" id="qb-add-question-btn">
                     + <?php echo olama_exam_translate('Add Question'); ?>
                 </button>
@@ -330,6 +336,14 @@ $diff_labels = array(
                     <div class="olama-exam-form-group">
                         <label><?php echo olama_exam_translate('Question Text'); ?></label>
                         <textarea name="question_text" id="q-text" rows="3" required></textarea>
+                    </div>
+
+                    <div class="olama-exam-form-group">
+                        <label><?php echo olama_exam_translate('Math Preview'); ?></label>
+                        <div id="q-math-preview" class="oee-math"
+                            style="min-height:56px; padding:12px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc;">
+                            <span style="color:#94a3b8;"><?php echo olama_exam_translate('Type a question to preview it.'); ?></span>
+                        </div>
                     </div>
 
                     <!-- Type-specific answer fields -->
@@ -884,12 +898,12 @@ $diff_labels = array(
 
                 let html = '';
                 qs.forEach(function (q) {
-                    const text = q.question_text.length > 80 ? q.question_text.substring(0, 80) + '...' : q.question_text;
+                    const text = q.question_text;
                     const imgIcon = q.image_filename ? '📷 ' : '';
                     html += `<tr>
                     <td><input type="checkbox" class="olama-exam-row-check" value="${q.id}"></td>
                     <td>${q.id}</td>
-                    <td>${imgIcon}${escapeHtml(text)}</td>
+                    <td class="oee-question-text">${imgIcon}${escapeHtml(text)}</td>
                     <td><span class="olama-exam-badge olama-exam-badge-${q.type}">${typeLabels[q.type] || q.type}</span></td>
                     <td><span class="olama-exam-badge olama-exam-badge-${q.difficulty}">${diffLabels[q.difficulty] || q.difficulty}</span></td>
                     <td style="color:#64748b;">${q.version}</td>
@@ -901,8 +915,11 @@ $diff_labels = array(
                 </tr>`;
                 });
 
+                const questionsBody = document.getElementById('questions-tbody');
+                if (window.OlamaExamMath) window.OlamaExamMath.clear(questionsBody);
                 $('#questions-tbody').html(html);
                 $('#questions-table').show();
+                if (window.OlamaExamMath) window.OlamaExamMath.typeset(questionsBody);
             });
         }
 
@@ -1036,6 +1053,36 @@ $diff_labels = array(
             return '{}';
         }
 
+        let mathPreviewTimer;
+        function updateMathPreview() {
+            clearTimeout(mathPreviewTimer);
+            mathPreviewTimer = setTimeout(function () {
+                const preview = document.getElementById('q-math-preview');
+                if (!preview) return;
+                if (window.OlamaExamMath) window.OlamaExamMath.clear(preview);
+
+                const $preview = $(preview).empty();
+                const questionText = $('#q-text').val().trim();
+                if (!questionText) {
+                    $('<span>').css('color', '#94a3b8').text('<?php echo esc_js(olama_exam_translate('Type a question to preview it.')); ?>').appendTo($preview);
+                    return;
+                }
+
+                $('<div>').css({ fontWeight: 600, marginBottom: '8px' }).text(questionText).appendTo($preview);
+                if ($('#question-type-select').val() === 'mcq') {
+                    const $choices = $('<div>').css({ display: 'grid', gap: '5px' }).appendTo($preview);
+                    $('#mcq-choices-list .mcq-choice-text').each(function (index) {
+                        const value = $(this).val().trim();
+                        if (value) $('<div>').text(String.fromCharCode(65 + index) + '. ' + value).appendTo($choices);
+                    });
+                }
+
+                if (window.OlamaExamMath) window.OlamaExamMath.typeset(preview);
+            }, 180);
+        }
+
+        $(document).on('input change', '#q-text, #question-type-select, .mcq-choice-text', updateMathPreview);
+
         // ── Populate form from question data ───────────────────
         function populateForm(q) {
             $('#q-id').val(q.id);
@@ -1099,12 +1146,14 @@ $diff_labels = array(
                     $('#essay-guidelines').val(data.guidelines || '');
                     break;
             }
+            updateMathPreview();
         }
 
         // ── Reset form ─────────────────────────────────────────
         function resetForm() {
             $('#olama-exam-question-form')[0].reset();
             $('#q-id').val(0);
+            updateMathPreview();
             if (qbType === 'profession') {
                 $('#q-profession-id').val($('#qb-profession-select').val());
                 $('#q-unit-id').val(0);
@@ -1321,6 +1370,31 @@ ${lessonLine}
                 const lessonId = $('#filter-lesson').val() || 0;
                 window.location.href = `?page=olama-exam-import-csv&unit_id=${activeUnitId}&lesson_id=${lessonId}&grade_id=${gradeId}&subject_id=${subjectId}`;
             }
+        });
+
+        function currentQuestionBankTarget() {
+            if (qbType === 'profession') {
+                return `profession_id=${encodeURIComponent($('#qb-profession-select').val() || 0)}`;
+            }
+            if (qbType === 'grade_level') {
+                return `grade_level_id=${encodeURIComponent($('#qb-grade-level-select').val() || 0)}&category_id=0`;
+            }
+            const gradeId = $('#qb-grade-select').val() || 0;
+            const subjectId = $('#qb-subject-select').val() || 0;
+            const lessonId = $('#filter-lesson').val() || 0;
+            return `unit_id=${encodeURIComponent(activeUnitId)}&lesson_id=${encodeURIComponent(lessonId)}&grade_id=${encodeURIComponent(gradeId)}&subject_id=${encodeURIComponent(subjectId)}`;
+        }
+
+        $('#qb-import-json-btn').on('click', function () {
+            window.location.href = `?page=olama-exam-import-json&${currentQuestionBankTarget()}`;
+        });
+
+        $('#qb-export-json-btn').on('click', function () {
+            const base = <?php echo wp_json_encode(add_query_arg(array(
+                'action' => 'oee_export_questions_json',
+                '_wpnonce' => wp_create_nonce('oee_export_questions_json'),
+            ), admin_url('admin-post.php'))); ?>;
+            window.location.href = `${base}&${currentQuestionBankTarget()}`;
         });
 
         // ── Open Edit Question ─────────────────────────────────

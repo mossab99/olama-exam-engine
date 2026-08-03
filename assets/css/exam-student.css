@@ -1534,3 +1534,21 @@
         padding: 16px;
     }
 }
+/* LaTeX mathematics */
+.oee-math mjx-container,
+.oe-q-text mjx-container,
+.oe-review-question mjx-container,
+.oe-review-explanation mjx-container {
+    direction: ltr;
+    unicode-bidi: isolate;
+    max-width: 100%;
+}
+
+.oee-math mjx-container[display="true"],
+.oe-q-text mjx-container[display="true"],
+.oe-review-question mjx-container[display="true"],
+.oe-review-explanation mjx-container[display="true"] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.35rem 0;
+}

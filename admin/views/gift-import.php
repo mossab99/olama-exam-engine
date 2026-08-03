@@ -307,16 +307,19 @@ Match countries to capitals.{
 
                 let html = '';
                 data.questions.forEach((q, i) => {
-                    const text = q.question_text.length > 60 ? q.question_text.substring(0, 60) + '...' : q.question_text;
+                    const text = q.question_text;
                     html += `<tr>
                     <td>${i + 1}</td>
                     <td><span class="olama-exam-badge olama-exam-badge-${q.type}">${q.type.toUpperCase()}</span></td>
-                    <td>${$('<span>').text(text).html()}</td>
+                    <td class="oee-question-text">${$('<span>').text(text).html()}</td>
                     <td style="font-size:12px; color:#64748b; max-width:200px; overflow:hidden;">${q.answers_json.substring(0, 60)}...</td>
                 </tr>`;
                 });
+                const giftPreviewBody = document.getElementById('gift-preview-tbody');
+                if (window.OlamaExamMath) window.OlamaExamMath.clear(giftPreviewBody);
                 $('#gift-preview-tbody').html(html);
                 $('#gift-preview-card').show();
+                if (window.OlamaExamMath) window.OlamaExamMath.typeset(giftPreviewBody);
                 $('#gift-import-btn').prop('disabled', data.count === 0);
             });
         });

@@ -337,7 +337,7 @@ if ($selected_exam_id && !$review_attempt_id) {
                     </div>
 
                     <!-- Question Text -->
-                    <div
+                    <div class="oee-math"
                         style="font-size: 15px; line-height: 1.7; color: #1e293b; margin-bottom: 14px; padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px;">
                         <?php echo wp_kses_post($rq['text']); ?>
                     </div>
@@ -433,7 +433,7 @@ if ($selected_exam_id && !$review_attempt_id) {
                     </div>
 
                     <?php if ($rq['explanation']): ?>
-                        <div
+                        <div class="oee-math"
                             style="margin-top: 10px; padding: 8px 14px; background: #eff6ff; border-radius: 8px; font-size: 13px; color: #1e40af;">
                             📖 <?php echo esc_html($rq['explanation']); ?>
                         </div>

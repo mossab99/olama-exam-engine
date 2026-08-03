@@ -26,6 +26,8 @@ class Olama_Exam_Ajax
             // ── Import (Phase 2) ──
             'olama_exam_import_gift',
             'olama_exam_import_csv',
+            'olama_exam_import_json',
+            'olama_exam_import_tex',
             'olama_exam_download_csv_template',
 
             // ── Question Categories ──
@@ -746,11 +748,11 @@ class Olama_Exam_Ajax
             'profession_id' => isset($_POST['profession_id']) && $_POST['profession_id'] !== '' ? intval($_POST['profession_id']) : null,
             'grade_level_id' => isset($_POST['grade_level_id']) && $_POST['grade_level_id'] !== '' ? intval($_POST['grade_level_id']) : null,
             'type' => sanitize_text_field($_POST['type'] ?? 'mcq'),
-            'question_text' => wp_kses_post($_POST['question_text'] ?? ''),
+            'question_text' => wp_kses_post(wp_unslash($_POST['question_text'] ?? '')),
             'answers_json' => wp_unslash($_POST['answers_json'] ?? '{}'),
             'difficulty' => sanitize_text_field($_POST['difficulty'] ?? 'medium'),
             'language' => sanitize_text_field($_POST['language'] ?? 'ar'),
-            'explanation' => sanitize_textarea_field($_POST['explanation'] ?? ''),
+            'explanation' => sanitize_textarea_field(wp_unslash($_POST['explanation'] ?? '')),
             'image_filename' => sanitize_file_name($_POST['image_filename'] ?? ''),
         );
 
@@ -952,6 +954,81 @@ class Olama_Exam_Ajax
 
         $result = Olama_Exam_Csv_Parser::import($parsed, $category_id, $unit_id, $lesson_id, $profession_id);
         wp_send_json_success($result);
+    }
+
+    public static function handle_import_json()
+    {
+        self::verify_request('olama_manage_question_bank');
+
+        $content = wp_unslash($_POST['json_content'] ?? '');
+        $mode = sanitize_text_field($_POST['mode'] ?? 'preview');
+        if ($content === '') {
+            wp_send_json_error(array('message' => 'No OEE JSON content provided.'));
+        }
+        if (strlen($content) > 2 * 1024 * 1024) {
+            wp_send_json_error(array('message' => 'The JSON file exceeds the 2 MB import limit.'));
+        }
+
+        $parsed = Olama_Exam_Json_Parser::parse($content);
+        if ($mode === 'preview') {
+            wp_send_json_success(array(
+                'questions' => $parsed['questions'],
+                'errors' => $parsed['errors'],
+                'metadata' => $parsed['metadata'],
+                'count' => count($parsed['questions']),
+            ));
+        }
+
+        $target = array(
+            'category_id' => intval($_POST['category_id'] ?? 0),
+            'unit_id' => intval($_POST['unit_id'] ?? 0),
+            'lesson_id' => intval($_POST['lesson_id'] ?? 0),
+            'profession_id' => intval($_POST['profession_id'] ?? 0),
+            'grade_level_id' => intval($_POST['grade_level_id'] ?? 0),
+        );
+        if ($target['unit_id'] <= 0 && $target['profession_id'] <= 0 && $target['grade_level_id'] <= 0) {
+            wp_send_json_error(array('message' => 'Select a unit, profession, or grade level before importing.'));
+        }
+
+        wp_send_json_success(Olama_Exam_Json_Parser::import($parsed, $target));
+    }
+
+    public static function handle_import_tex()
+    {
+        self::verify_request('olama_manage_question_bank');
+
+        $content = wp_unslash($_POST['tex_content'] ?? '');
+        $mode = sanitize_text_field($_POST['mode'] ?? 'preview');
+        $review = json_decode(wp_unslash($_POST['review_json'] ?? '{}'), true);
+        if (!is_array($review)) {
+            $review = array();
+        }
+        if ($content === '') {
+            wp_send_json_error(array('message' => 'No TeX content provided.'));
+        }
+
+        $parsed = Olama_Exam_Tex_Parser::parse($content, $review);
+        if ($mode === 'preview') {
+            wp_send_json_success(array(
+                'questions' => $parsed['questions'],
+                'errors' => $parsed['errors'],
+                'metadata' => $parsed['metadata'],
+                'count' => count($parsed['questions']),
+            ));
+        }
+
+        $target = array(
+            'category_id' => intval($_POST['category_id'] ?? 0),
+            'unit_id' => intval($_POST['unit_id'] ?? 0),
+            'lesson_id' => intval($_POST['lesson_id'] ?? 0),
+            'profession_id' => intval($_POST['profession_id'] ?? 0),
+            'grade_level_id' => intval($_POST['grade_level_id'] ?? 0),
+        );
+        if ($target['unit_id'] <= 0 && $target['profession_id'] <= 0 && $target['grade_level_id'] <= 0) {
+            wp_send_json_error(array('message' => 'Select a unit, profession, or grade level before importing.'));
+        }
+
+        wp_send_json_success(Olama_Exam_Tex_Parser::import($parsed, $target));
     }
 
     public static function handle_download_csv_template()

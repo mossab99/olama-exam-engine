@@ -14,6 +14,7 @@ class Olama_Exam_Admin
         add_action('admin_menu', array($this, 'register_menus'));
         add_action('admin_post_oee_export_acceptance_csv', array($this, 'export_acceptance_csv'));
         add_action('admin_post_oee_export_student_acceptance_csv', array($this, 'export_student_acceptance_csv'));
+        add_action('admin_post_oee_export_questions_json', array($this, 'export_questions_json'));
         add_filter('submenu_file', array($this, 'highlight_job_apps_menu'));
         add_filter('submenu_file', array($this, 'highlight_student_acceptance_menu'));
         add_filter('submenu_file', array($this, 'highlight_school_exams_menu'));
@@ -97,6 +98,15 @@ class Olama_Exam_Admin
             $this->get_capability('olama_manage_question_bank'),
             'olama-exam-import-csv',
             array($this, 'render_csv_import')
+        );
+
+        add_submenu_page(
+            null,
+            olama_exam_translate('Import OEE JSON'),
+            olama_exam_translate('Import OEE JSON'),
+            $this->get_capability('olama_manage_question_bank'),
+            'olama-exam-import-json',
+            array($this, 'render_json_import')
         );
 
         // Submenu: Create Exam (Now acts as parent tab "School Exams")
@@ -236,6 +246,46 @@ class Olama_Exam_Admin
     public function render_csv_import()
     {
         include OLAMA_EXAM_PATH . 'admin/views/csv-import.php';
+    }
+
+    public function render_json_import()
+    {
+        include OLAMA_EXAM_PATH . 'admin/views/json-import.php';
+    }
+
+    public function export_questions_json()
+    {
+        if (!Olama_Exam_Ajax::can_manage_exams()) {
+            wp_die('Insufficient permissions.', 403);
+        }
+        check_admin_referer('oee_export_questions_json');
+
+        $filters = array();
+        $unit_id = intval($_GET['unit_id'] ?? 0);
+        $profession_id = intval($_GET['profession_id'] ?? 0);
+        $grade_level_id = intval($_GET['grade_level_id'] ?? 0);
+        if ($profession_id > 0) {
+            $filters['profession_id'] = $profession_id;
+        } elseif ($grade_level_id > 0) {
+            $filters['grade_level_id'] = $grade_level_id;
+        } elseif ($unit_id > 0) {
+            $filters['unit_id'] = $unit_id;
+            if (isset($_GET['lesson_id'])) {
+                $filters['lesson_id'] = intval($_GET['lesson_id']);
+            }
+        } else {
+            wp_die('A question-bank target is required.', 400);
+        }
+
+        $questions = Olama_Exam_Questions::get_questions($filters);
+        $json = Olama_Exam_Json_Parser::export($questions, array('source' => 'Olama Exam Engine'));
+        $filename = 'olama-question-bank-' . gmdate('Y-m-d-His') . '.oee.json';
+
+        nocache_headers();
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        echo $json;
+        exit;
     }
 
     public function render_exam_create()

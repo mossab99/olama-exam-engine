@@ -1141,3 +1141,25 @@
         min-width: 100%;
     }
 }
+/* LaTeX mathematics */
+.oee-math mjx-container,
+[data-oee-math] mjx-container,
+.oee-question-text mjx-container {
+    direction: ltr;
+    unicode-bidi: isolate;
+    max-width: 100%;
+}
+
+.oee-math mjx-container[display="true"],
+[data-oee-math] mjx-container[display="true"],
+.oee-question-text mjx-container[display="true"] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.25rem 0;
+}
+
+.olama-exam-table .oee-question-text {
+    min-width: 220px;
+    max-width: 520px;
+    overflow-wrap: anywhere;
+}

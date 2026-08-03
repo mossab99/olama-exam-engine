@@ -101,6 +101,20 @@ class Olama_Exam_Questions
         $table = "{$wpdb->prefix}olama_exam_questions";
         $id = intval($data['id'] ?? 0);
 
+        $answers_raw = (string) ($data['answers_json'] ?? '{}');
+        $answers_data = json_decode($answers_raw);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return new WP_Error(
+                'invalid_answers_json',
+                sprintf('Invalid answer data: %s', json_last_error_msg())
+            );
+        }
+
+        $answers_json = wp_json_encode($answers_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($answers_json === false) {
+            return new WP_Error('invalid_answers_json', 'Answer data could not be encoded.');
+        }
+
         $fields = array(
             'category_id' => intval($data['category_id'] ?? 0),
             'unit_id' => intval($data['unit_id'] ?? 0),
@@ -109,7 +123,7 @@ class Olama_Exam_Questions
             'grade_level_id' => isset($data['grade_level_id']) && $data['grade_level_id'] !== '' && intval($data['grade_level_id']) !== 0 ? intval($data['grade_level_id']) : null,
             'type' => sanitize_text_field($data['type'] ?? 'mcq'),
             'question_text' => wp_kses_post($data['question_text'] ?? ''),
-            'answers_json' => wp_unslash($data['answers_json'] ?? '{}'),
+            'answers_json' => $answers_json,
             'difficulty' => sanitize_text_field($data['difficulty'] ?? 'medium'),
             'language' => sanitize_text_field($data['language'] ?? 'ar'),
             'explanation' => sanitize_textarea_field($data['explanation'] ?? ''),

@@ -570,7 +570,7 @@ class Olama_Exam_Shortcodes
                             <?php endif; ?>
 
                             <?php if ($attempt->show_correct_answers && !empty($correct)): ?>
-                                <div class="oe-review-correct-box" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">
+                                <div class="oe-review-correct-box oee-math" style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">
                                     <strong style="color: #166534; font-size: 13px;"><?php echo olama_exam_translate('Correct Answer:'); ?></strong>
                                     <div style="margin-top: 4px; color: #15803d; font-weight: 500;">
                                         <?php echo self::format_correct_answer_php($type, $correct); ?>

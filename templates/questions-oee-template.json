@@ -1,0 +1,23 @@
+{
+  "format": "olama-exam-question-bank",
+  "version": 1,
+  "metadata": {
+    "title": "Math question bank",
+    "language": "ar"
+  },
+  "questions": [
+    {
+      "external_id": "math-001",
+      "type": "mcq",
+      "question": "ما قيمة \\(\\dfrac{1}{2}+\\dfrac{1}{2}\\)؟",
+      "choices": [
+        { "id": "a", "text": "\\(\\dfrac{1}{2}\\)", "correct": false },
+        { "id": "b", "text": "\\(1\\)", "correct": true },
+        { "id": "c", "text": "\\(2\\)", "correct": false }
+      ],
+      "difficulty": "easy",
+      "language": "ar",
+      "explanation": "نجمع البسطين بعد توحيد المقام."
+    }
+  ]
+}

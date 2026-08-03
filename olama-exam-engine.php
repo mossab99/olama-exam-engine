@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Olama Exam Engine
  * Plugin URI: https://olama.online/exam-engine
- * Description: Secure online exam module for the Olama School System. Supports MCQ, True/False, Short Answer, Matching, Ordering, Fill-in-the-Blank, and Essay questions with GIFT/CSV import.
- * Version: 1.1.7
+ * Description: Secure online exam module for the Olama School System. Supports LaTeX mathematics and MCQ, True/False, Short Answer, Matching, Ordering, Fill-in-the-Blank, and Essay questions with structured imports.
+ * Version: 1.2.0
  * Author: Dr. Mossab Al Hunaity !!
  * Text Domain: olama-exam
  * Domain Path: /languages
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 // ── Constants ──────────────────────────────────────────────────
-define('OLAMA_EXAM_VERSION', '1.1.7');
+define('OLAMA_EXAM_VERSION', '1.2.0');
 define('OLAMA_EXAM_PATH', plugin_dir_path(__FILE__));
 define('OLAMA_EXAM_URL', plugin_dir_url(__FILE__));
 define('OLAMA_EXAM_BASENAME', plugin_basename(__FILE__));
@@ -100,6 +100,8 @@ function olama_exam_load_includes()
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-question-images.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-questions.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-gift-parser.php';
+    require_once OLAMA_EXAM_PATH . 'includes/class-exam-json-parser.php';
+    require_once OLAMA_EXAM_PATH . 'includes/class-exam-tex-parser.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-db.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-logger.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-identity.php';
@@ -361,6 +363,8 @@ function olama_exam_enqueue_admin_assets($hook)
         OLAMA_EXAM_VERSION
     );
 
+    olama_exam_enqueue_math_assets();
+
     wp_enqueue_script(
         'olama-exam-admin',
         OLAMA_EXAM_URL . 'assets/js/exam-admin.js',
@@ -414,6 +418,8 @@ function olama_exam_enqueue_frontend_assets($force = false)
         OLAMA_EXAM_VERSION
     );
 
+    olama_exam_enqueue_math_assets();
+
     // Google Fonts for premium typography
     wp_enqueue_style(
         'olama-exam-fonts',
@@ -425,7 +431,7 @@ function olama_exam_enqueue_frontend_assets($force = false)
     wp_enqueue_script(
         'olama-exam-engine',
         OLAMA_EXAM_URL . 'assets/js/exam-engine.js',
-        array('jquery'),
+        array('jquery', 'olama-exam-math'),
         OLAMA_EXAM_VERSION,
         true
     );
@@ -444,6 +450,63 @@ function olama_exam_enqueue_frontend_assets($force = false)
     ));
 }
 add_action('wp_enqueue_scripts', 'olama_exam_enqueue_frontend_assets');
+
+/**
+ * Load a local, scoped MathJax runtime for exam content.
+ *
+ * MathJax is deliberately configured not to scan the whole WordPress page.
+ * assets/js/exam-math.js sends only known exam containers for typesetting.
+ */
+function olama_exam_enqueue_math_assets()
+{
+    if (wp_script_is('olama-exam-math', 'enqueued')) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'olama-exam-mathjax',
+        OLAMA_EXAM_URL . 'assets/vendor/mathjax/tex-chtml.js',
+        array(),
+        '4.1.3',
+        true
+    );
+
+    $mathjax_config = <<<'JS'
+window.MathJax = {
+    loader: {
+        load: ['ui/safe']
+    },
+    startup: {
+        typeset: false
+    },
+    tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']],
+        processEscapes: true
+    },
+    options: {
+        enableMenu: false,
+        safeOptions: {
+            allow: {
+                URLs: 'none',
+                classes: 'none',
+                cssIDs: 'none',
+                styles: 'none'
+            }
+        }
+    }
+};
+JS;
+    wp_add_inline_script('olama-exam-mathjax', $mathjax_config, 'before');
+
+    wp_enqueue_script(
+        'olama-exam-math',
+        OLAMA_EXAM_URL . 'assets/js/exam-math.js',
+        array('olama-exam-mathjax'),
+        OLAMA_EXAM_VERSION,
+        true
+    );
+}
 
 // ── Translation Helper ─────────────────────────────────────────
 function olama_exam_translate($text)
