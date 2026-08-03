@@ -72,6 +72,10 @@
     color: #ffffff;
 }
 
+.olama-exam-table tr.oee-review-missing > td {
+    background: #fffaf0;
+}
+
 .olama-exam-btn-success {
     background: #059669;
     color: #fff;

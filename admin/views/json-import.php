@@ -67,8 +67,12 @@ $has_target = $target['unit_id'] > 0 || $target['profession_id'] > 0 || $target[
         </div>
         <div style="display:flex; gap:10px;">
             <button id="oee-json-preview" class="olama-exam-btn olama-exam-btn-outline">👁 <?php echo olama_exam_translate('Validate & Preview'); ?></button>
-            <button id="oee-json-import" class="olama-exam-btn olama-exam-btn-primary" disabled>📥 <?php echo olama_exam_translate('Import All'); ?></button>
+            <button id="oee-json-import" class="olama-exam-btn olama-exam-btn-primary"
+                data-label="<?php echo esc_attr(olama_exam_translate('Import All')); ?>" disabled>
+                <?php echo olama_exam_translate('Import All'); ?>
+            </button>
         </div>
+        <div id="oee-json-review-status" class="notice notice-warning inline" style="display:none; margin:12px 0 0;" aria-live="polite"><p></p></div>
     </div>
 
     <div id="oee-json-feedback" style="display:none; margin-top:16px;"></div>
@@ -100,12 +104,15 @@ $has_target = $target['unit_id'] > 0 || $target['profession_id'] > 0 || $target[
     let previewQuestions = [];
     let previewErrors = [];
     let previewFormat = 'json';
+    const importButton = $('#oee-json-import');
+    const importLabel = importButton.data('label') || 'Import All';
 
     function invalidatePreview() {
         previewValid = false;
         previewQuestions = [];
         previewErrors = [];
-        $('#oee-json-import').prop('disabled', true);
+        importButton.prop('disabled', true).text(importLabel).removeAttr('title');
+        $('#oee-json-review-status').hide().find('p').empty();
     }
 
     function escapeHtml(value) {
@@ -157,15 +164,47 @@ $has_target = $target['unit_id'] > 0 || $target['profession_id'] > 0 || $target[
     }
 
     function updateImportState() {
-        let complete = hasTarget && previewErrors.length === 0 && previewQuestions.length > 0;
+        const canImport = hasTarget && previewErrors.length === 0 && previewQuestions.length > 0;
+        let complete = canImport;
+        let missingCorrect = 0;
+        let missingMedia = 0;
+
         if (previewFormat === 'tex') {
             $('#oee-json-preview-body tr[data-source-number]').each(function () {
-                if (!$(this).find('.oee-correct-choice:checked').length) complete = false;
-                if ($(this).find('.oee-media-ack').length && !$(this).find('.oee-media-ack').is(':checked')) complete = false;
+                const row = $(this);
+                const needsCorrect = !row.find('.oee-correct-choice:checked').length;
+                const needsMedia = row.find('.oee-media-ack').length && !row.find('.oee-media-ack').is(':checked');
+                if (needsCorrect) missingCorrect++;
+                if (needsMedia) missingMedia++;
+                row.toggleClass('oee-review-missing', needsCorrect || needsMedia);
             });
+            complete = complete && missingCorrect === 0 && missingMedia === 0;
         }
+
         previewValid = complete;
-        $('#oee-json-import').prop('disabled', !complete);
+        importButton.prop('disabled', !complete);
+
+        const status = $('#oee-json-review-status');
+        if (previewFormat !== 'tex' || !previewQuestions.length || !canImport) {
+            status.hide().find('p').empty();
+            importButton.text(importLabel).removeAttr('title');
+            return;
+        }
+
+        if (!complete) {
+            const requirements = [];
+            if (missingCorrect) requirements.push(missingCorrect + ' correct answer' + (missingCorrect === 1 ? '' : 's'));
+            if (missingMedia) requirements.push(missingMedia + ' diagram acknowledgement' + (missingMedia === 1 ? '' : 's'));
+            const message = 'Review required before import: select ' + requirements.join(' and ') + '.';
+            status.removeClass('notice-success').addClass('notice-warning').show().find('p').text(message);
+            const remaining = missingCorrect + missingMedia;
+            importButton.text(importLabel + ' (' + remaining + ' review item' + (remaining === 1 ? '' : 's') + ' remaining)').attr('title', message);
+            return;
+        }
+
+        status.removeClass('notice-warning').addClass('notice-success').show().find('p')
+            .text('Review complete. All ' + previewQuestions.length + ' questions are ready to import.');
+        importButton.text(importLabel).removeAttr('title');
     }
 
     function showErrors(errors) {
@@ -182,7 +221,7 @@ $has_target = $target['unit_id'] > 0 || $target['profession_id'] > 0 || $target[
     $('#oee-json-preview').on('click', function () {
         const button = $(this);
         previewValid = false;
-        $('#oee-json-import').prop('disabled', true);
+        importButton.prop('disabled', true).text(importLabel);
         button.prop('disabled', true).text('⏳ Validating...');
         post('preview', function (response) {
             button.prop('disabled', false).text('👁 Validate & Preview');
@@ -210,13 +249,15 @@ $has_target = $target['unit_id'] > 0 || $target['profession_id'] > 0 || $target[
 
                 if (previewFormat === 'tex') {
                     answerHtml = '<div style="display:grid; gap:6px;">' + (answers.choices || []).map(function (choice, choiceIndex) {
+                        const checked = parseInt(answers.correct, 10) === choiceIndex ? ' checked' : '';
                         return '<label style="display:flex; gap:6px; align-items:flex-start;">' +
-                            '<input class="oee-correct-choice" type="radio" name="correct-' + question.source_number + '" value="' + choiceIndex + '">' +
+                            '<input class="oee-correct-choice" type="radio" name="correct-' + question.source_number + '" value="' + choiceIndex + '"' + checked + '>' +
                             '<span>' + escapeHtml(choice) + '</span></label>';
                     }).join('') + '</div>';
                     if (question.needs_image) {
+                        const acknowledged = question.media_acknowledged ? ' checked' : '';
                         answerHtml += '<label style="display:block; margin-top:10px; color:#b45309; font-size:12px;">' +
-                            '<input type="checkbox" class="oee-media-ack"> TikZ diagram detected — I will attach the exported image after import.</label>';
+                            '<input type="checkbox" class="oee-media-ack"' + acknowledged + '> TikZ diagram detected — I will attach the exported image after import.</label>';
                     }
                 } else {
                     answerHtml = escapeHtml(answerText);
@@ -243,21 +284,22 @@ $has_target = $target['unit_id'] > 0 || $target['profession_id'] > 0 || $target[
 
     $('#oee-json-import').on('click', function () {
         if (!previewValid) return;
-        const button = $(this).prop('disabled', true).text('⏳ Importing...');
+        const button = $(this).prop('disabled', true).text('Importing...');
         post('import', function (response) {
-            button.text('📥 Import All');
             if (!response.success) {
-                button.prop('disabled', false);
                 ExamAdmin.toast(response.data.message || 'Import failed.', 'error');
+                updateImportState();
                 return;
             }
             const data = response.data;
             if (data.errors && data.errors.length) {
                 showErrors(data.errors);
-                button.prop('disabled', false);
+                updateImportState();
                 return;
             }
             previewValid = false;
+            button.text(importLabel).prop('disabled', true);
+            $('#oee-json-review-status').hide();
             ExamAdmin.toast(data.imported + ' question(s) imported.');
             $('#oee-json-feedback').html('<div class="notice notice-success inline"><p>' + data.imported + ' question(s) imported successfully.</p></div>').show();
         });

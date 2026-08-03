@@ -44,4 +44,23 @@ foreach ($parsed['questions'] as $question) {
     }
 }
 
+$review_errors = Olama_Exam_Tex_Parser::validate_review($parsed);
+if (count($review_errors) !== 32) {
+    fwrite(STDERR, 'Expected review to require 30 correct answers and 2 diagram acknowledgements.' . "\n");
+    exit(1);
+}
+
+$review = array();
+for ($number = 1; $number <= 30; $number++) {
+    $review[$number] = array(
+        'correct' => 0,
+        'ack_media' => in_array($number, array(8, 17), true),
+    );
+}
+$reviewed = Olama_Exam_Tex_Parser::parse($content, $review);
+if (Olama_Exam_Tex_Parser::validate_review($reviewed) !== array()) {
+    fwrite(STDERR, 'Expected a complete manual review to unlock the TeX import.' . "\n");
+    exit(1);
+}
+
 echo "TeX adapter checks passed: 30 questions, 2 TikZ flags, no assumed answers.\n";
