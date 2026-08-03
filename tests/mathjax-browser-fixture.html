@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>MathJax worker fixture</title>
+    <script>
+        window.MathJax = {
+            loader: { load: ['ui/safe'] },
+            startup: { typeset: false },
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]']]
+            },
+            options: {
+                enableMenu: false,
+                safeOptions: {
+                    allow: {
+                        URLs: 'none',
+                        classes: 'none',
+                        cssIDs: 'none',
+                        styles: 'none'
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="../assets/vendor/mathjax/tex-chtml.js"></script>
+</head>
+<body>
+    <p id="math">\(x^2 + 1\)</p>
+    <output id="status">pending</output>
+    <script>
+        MathJax.startup.promise
+            .then(function () {
+                return MathJax.typesetPromise([document.getElementById('math')]);
+            })
+            .then(function () {
+                var container = document.querySelector('mjx-container');
+                var status = document.getElementById('status');
+                status.dataset.rendered = container ? 'true' : 'false';
+                status.dataset.speech = container && container.hasAttribute('data-semantic-speech') ? 'true' : 'false';
+                status.dataset.braille = container && container.hasAttribute('data-semantic-braille') ? 'true' : 'false';
+                status.textContent = 'complete';
+            })
+            .catch(function (error) {
+                var status = document.getElementById('status');
+                status.dataset.error = error && error.message ? error.message : String(error);
+                status.textContent = 'failed';
+            });
+    </script>
+</body>
+</html>

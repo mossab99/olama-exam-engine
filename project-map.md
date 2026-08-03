@@ -8,7 +8,7 @@
   - Contains CSS, JS, and image assets for both admin and frontend.
   - `/css`: Includes `exam-admin.css` (primary UI redesign styles) and `exam-student.css`.
   - `/js`: Includes `exam-admin.js` for form logic, `exam-engine.js` for student attempt tracking, and `exam-math.js` for scoped dynamic MathJax rendering.
-  - `/vendor/mathjax`: Pinned local MathJax runtime and license.
+  - `/vendor/mathjax`: Pinned local MathJax runtime, SRE speech/Braille worker assets, and license.
 - `/includes`
   - Core logic and class files. Includes `class-exam-db.php` for schema and migrations, `class-exam-ajax.php` for all server-side interactions, and specialized classes for grading (`class-exam-grader`) and question management.
 - `/languages`
