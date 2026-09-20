@@ -227,6 +227,42 @@ class Olama_Exam_Manager
     }
 
     /**
+     * Update only an exam's display title.
+     *
+     * @return string|WP_Error The sanitized title on success.
+     */
+    public static function update_title($id, $title)
+    {
+        global $wpdb;
+
+        $id = intval($id);
+        $title = sanitize_text_field($title);
+
+        if ($id <= 0 || !self::get_exam($id)) {
+            return new WP_Error('not_found', olama_exam_translate('Exam not found.'));
+        }
+
+        if ($title === '') {
+            return new WP_Error('empty_title', olama_exam_translate('Exam title is required.'));
+        }
+
+        $result = $wpdb->update(
+            "{$wpdb->prefix}olama_exam_exams",
+            array('title' => $title),
+            array('id' => $id),
+            array('%s'),
+            array('%d')
+        );
+
+        if ($result === false) {
+            olama_exam_log('Exam Engine Rename Error (ID ' . $id . '): ' . $wpdb->last_error);
+            return new WP_Error('db_error', olama_exam_translate('Failed to update exam name.'));
+        }
+
+        return $title;
+    }
+
+    /**
      * Delete an exam (only if draft and no attempts)
      */
     public static function delete_exam($id)

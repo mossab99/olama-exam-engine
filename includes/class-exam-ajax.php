@@ -42,6 +42,7 @@ class Olama_Exam_Ajax
 
             // ── Exam Management (Phase 3) ──
             'olama_exam_save_exam',
+            'olama_exam_update_exam_title',
             'olama_exam_delete_exam',
             'olama_exam_update_status',
             'olama_exam_preview',
@@ -1089,6 +1090,28 @@ class Olama_Exam_Ajax
         wp_send_json_success(array(
             'message' => olama_exam_translate('Exam saved successfully.'),
             'id' => $result,
+        ));
+    }
+
+    /**
+     * Rename an exam without submitting or changing the rest of its settings.
+     */
+    public static function handle_update_exam_title()
+    {
+        self::verify_request(array('olama_create_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
+
+        $id = intval($_POST['id'] ?? 0);
+        self::abort_if_no_exam_access($id);
+
+        $result = Olama_Exam_Manager::update_title($id, wp_unslash($_POST['title'] ?? ''));
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array(
+            'message' => olama_exam_translate('Exam name updated.'),
+            'title'   => $result,
         ));
     }
 

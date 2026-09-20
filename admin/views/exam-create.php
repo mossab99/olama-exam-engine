@@ -474,6 +474,32 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 </div>
 
 <!-- ═══════════════════ ADDITIONAL CSS ═══════════════════ -->
+<?php if (!$show_form): ?>
+<div id="edit-exam-name-modal" class="olama-exam-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-exam-name-heading">
+    <div class="olama-exam-modal" style="max-width:520px;">
+        <form id="edit-exam-name-form">
+            <div class="olama-exam-modal-header">
+                <h3 id="edit-exam-name-heading">✏️ <?php echo esc_html(olama_exam_translate('Edit Exam Name')); ?></h3>
+                <button type="button" class="olama-exam-modal-close" aria-label="<?php echo esc_attr(olama_exam_translate('Cancel')); ?>">&times;</button>
+            </div>
+            <div class="olama-exam-modal-body">
+                <input type="hidden" id="edit-exam-name-id" value="">
+                <div class="olama-exam-form-group" style="margin-bottom:0;">
+                    <label for="edit-exam-name-input"><?php echo esc_html(olama_exam_translate('Exam Name')); ?></label>
+                    <input type="text" id="edit-exam-name-input" maxlength="255" required autocomplete="off">
+                </div>
+            </div>
+            <div class="olama-exam-modal-footer">
+                <button type="button" class="olama-exam-btn olama-exam-btn-outline olama-exam-modal-close"><?php echo esc_html(olama_exam_translate('Cancel')); ?></button>
+                <button type="submit" class="olama-exam-btn olama-exam-btn-primary" id="save-exam-name-btn">
+                    <?php echo esc_html(olama_exam_translate('Save Name')); ?>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <style>
 .olama-exam-badge-draft     { background: #f3f4f6; color: #4b5563; }
 .olama-exam-badge-published { background: #dbeafe; color: #1d4ed8; }
@@ -571,6 +597,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                             '<div class="oe-action-group secondary">' +
                                 '<a href="?page=olama-exam-preview&id=' + e.id + '" ' +
                                     'class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" title="<?php echo olama_exam_translate("Teacher Preview"); ?>">👁️</a>' +
+                                '<button type="button" class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-edit-exam-name" data-id="' + e.id + '" data-title="' + escAttr(e.title) + '" title="<?php echo esc_attr(olama_exam_translate("Edit Exam Name")); ?>">🏷️</button>' +
                                 buildStatusBtn(e) +
                                 '<button class="olama-exam-btn olama-exam-btn-danger olama-exam-btn-sm btn-delete-exam" ' +
                                     'data-id="' + e.id + '" title="<?php echo olama_exam_translate("Delete"); ?>">🗑</button>' +
@@ -609,6 +636,52 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         d.textContent = str;
         return d.innerHTML;
     }
+
+    function escAttr(str) {
+        if (!str) return '';
+        var d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    // Rename an exam without opening or submitting the full edit form.
+    $(document).on('click', '.btn-edit-exam-name', function() {
+        $('#edit-exam-name-id').val($(this).data('id'));
+        $('#edit-exam-name-input').val($(this).attr('data-title'));
+        ExamAdmin.openModal('edit-exam-name-modal');
+        window.setTimeout(function() {
+            $('#edit-exam-name-input').trigger('focus').select();
+        }, 0);
+    });
+
+    $('#edit-exam-name-form').on('submit', function(e) {
+        e.preventDefault();
+
+        var $button = $('#save-exam-name-btn');
+        var title = $('#edit-exam-name-input').val().trim();
+        if (!title) {
+            $('#edit-exam-name-input').trigger('focus');
+            return;
+        }
+
+        $button.prop('disabled', true);
+        $.post(olamaExam.ajaxUrl, {
+            action: 'olama_exam_update_exam_title',
+            nonce: olamaExam.nonce,
+            id: $('#edit-exam-name-id').val(),
+            title: title,
+        }, function(res) {
+            ExamAdmin.toast(res.data.message, res.success ? 'success' : 'error');
+            if (res.success) {
+                ExamAdmin.closeModal();
+                loadExams();
+            }
+        }).fail(function() {
+            ExamAdmin.toast(<?php echo wp_json_encode(olama_exam_translate('Failed to update exam name.')); ?>, 'error');
+        }).always(function() {
+            $button.prop('disabled', false);
+        });
+    });
 
     // Copy Public Link
     $(document).on('click', '.btn-copy-link', function() {
