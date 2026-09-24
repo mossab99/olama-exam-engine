@@ -432,7 +432,7 @@ function olama_exam_enqueue_frontend_assets($force = false)
         'olama-exam-engine',
         OLAMA_EXAM_URL . 'assets/js/exam-engine.js',
         array('jquery', 'olama-exam-math'),
-        OLAMA_EXAM_VERSION,
+        filemtime(OLAMA_EXAM_PATH . 'assets/js/exam-engine.js'),
         true
     );
 

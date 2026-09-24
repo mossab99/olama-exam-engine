@@ -173,7 +173,7 @@ class Olama_Exam_Manager
             'show_correct_answers' => intval($data['show_correct_answers'] ?? 0),
             'is_placement' => (isset($data['is_placement']) && ($data['is_placement'] === 'on' || $data['is_placement'] == 1)) ? 1 : 0,
             'exam_type' => sanitize_text_field($data['exam_type'] ?? 'exam'),
-            'password' => sanitize_text_field($data['password'] ?? ''),
+            'password' => sanitize_text_field(wp_unslash($data['password'] ?? '')),
             'question_limit' => !empty($data['question_limit']) ? intval($data['question_limit']) : null,
         );
 

@@ -1370,7 +1370,7 @@ class Olama_Exam_Ajax
         // Password validation (skip if admin override or preview)
         $exam = Olama_Exam_Manager::get_exam($exam_id);
         if ($exam && !empty($exam->password) && !$is_admin_override && !$is_preview) {
-            $provided_password = sanitize_text_field($_POST['password'] ?? '');
+            $provided_password = sanitize_text_field(wp_unslash($_POST['password'] ?? ''));
             if ($provided_password !== $exam->password) {
                 // Check if they already have an active attempt (allow resume without re-entering password)
                 global $wpdb;

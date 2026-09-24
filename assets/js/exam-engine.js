@@ -41,7 +41,18 @@
             exam_type: config.examType,
             student_uid: config.studentUid,
             password: password
-        }, function (data) {
+        }, startExam, function (msg, data) {
+            if (data && data.code === 'PASSWORD_REQUIRED') {
+                showPasswordPrompt();
+                return;
+            }
+            document.getElementById('oe-loading').innerHTML =
+                '<p style="color:#dc2626;">❌ ' + escHtml(msg) + '</p>' +
+                '<a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-outline" style="margin-top:16px;">← Back</a>';
+        });
+    }
+
+    function startExam(data) {
             if (data.resumed) {
                 state.remainingSeconds = data.remaining_seconds;
             }
@@ -90,15 +101,6 @@
 
             // Observe question cards for fade-in
             setTimeout(observeCards, 100);
-        }, function (msg, data) {
-            if (data && data.code === 'PASSWORD_REQUIRED') {
-                showPasswordPrompt();
-                return;
-            }
-            document.getElementById('oe-loading').innerHTML =
-                '<p style="color:#dc2626;">❌ ' + escHtml(msg) + '</p>' +
-                '<a href="?exam_view=dashboard&student_uid=' + config.studentUid + '" class="oe-btn oe-btn-outline" style="margin-top:16px;">← Back</a>';
-        });
     }
 
     function showPasswordPrompt() {
@@ -142,10 +144,13 @@
             }, function (data) {
                 document.querySelector('.oe-password-overlay').remove();
                 document.getElementById('oe-loading').style.display = '';
-                init(pass); // Re-run init with confirmed password
+                startExam(data);
             }, function (msg, data) {
                 btn.disabled = false;
                 btn.textContent = isAr ? 'بدء الاختبار' : 'Start Exam';
+                error.textContent = data && data.code === 'PASSWORD_REQUIRED'
+                    ? (isAr ? '❌ كلمة مرور غير صحيحة' : '❌ Incorrect password')
+                    : '❌ ' + (msg || (isAr ? 'تعذر بدء الاختبار.' : 'Could not start the exam.'));
                 error.style.display = 'block';
             });
         });
