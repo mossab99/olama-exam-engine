@@ -43,6 +43,7 @@ class Olama_Exam_Ajax
             // ── Exam Management (Phase 3) ──
             'olama_exam_save_exam',
             'olama_exam_update_exam_title',
+            'olama_exam_publish_results',
             'olama_exam_delete_exam',
             'olama_exam_update_status',
             'olama_exam_preview',
@@ -1166,6 +1167,24 @@ class Olama_Exam_Ajax
         }
 
         wp_send_json_success($result);
+    }
+
+    public static function handle_publish_results()
+    {
+        self::verify_request(array('olama_create_exams', 'olama_access_supervision', 'manage_options'));
+        if (!self::can_supervise_exams()) {
+            wp_send_json_error(array('message' => 'ليس لديك صلاحية نشر النتائج.'), 403);
+        }
+        list($year, $semester) = olama_exam_get_active_academic_context();
+        $result = Olama_Exam_Manager::publish_results(
+            $year ? absint($year->id) : 0,
+            $semester ? absint($semester->id) : 0,
+            isset($_POST['grade_id']) ? absint($_POST['grade_id']) : 0
+        );
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()), 400);
+        }
+        wp_send_json_success(array('updated' => $result));
     }
 
     public static function handle_get_exams()

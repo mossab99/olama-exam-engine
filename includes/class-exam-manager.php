@@ -10,6 +10,32 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    /** Enable results for school exams in an explicit academic scope. */
+    public static function publish_results($year_id, $semester_id, $grade_id = 0)
+    {
+        global $wpdb;
+        if (!Olama_Exam_Ajax::can_supervise_exams()) {
+            return new WP_Error('forbidden', 'ليس لديك صلاحية نشر النتائج.');
+        }
+        if (!$year_id || !$semester_id) {
+            return new WP_Error('missing_scope', 'يجب تحديد العام والفصل الدراسي النشطين.');
+        }
+        $sql = "UPDATE {$wpdb->prefix}olama_exam_exams e
+                LEFT JOIN {$wpdb->prefix}olama_sections s ON s.id = e.section_id
+                LEFT JOIN {$wpdb->prefix}olama_subjects sub ON sub.id = e.subject_id
+                SET e.show_results = 1
+                WHERE e.academic_year_id = %d AND e.semester_id = %d
+                  AND e.is_placement = 0 AND e.status IN ('published', 'active', 'closed')
+                  AND e.show_results = 0";
+        $params = array(absint($year_id), absint($semester_id));
+        if ($grade_id) {
+            $sql .= ' AND COALESCE(s.grade_id, sub.grade_id) = %d';
+            $params[] = absint($grade_id);
+        }
+        $updated = $wpdb->query($wpdb->prepare($sql, $params));
+        return false === $updated ? new WP_Error('update_failed', 'تعذر نشر النتائج. حاول مرة أخرى.') : (int) $updated;
+    }
+
     /** Published, read-only result summaries for the current principal's student. */
     public static function get_student_results($student_uid, $scope = array())
     {
