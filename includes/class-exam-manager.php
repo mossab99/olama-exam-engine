@@ -10,6 +10,35 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    /** Published, read-only result summaries for the current principal's student. */
+    public static function get_student_results($student_uid, $scope = array())
+    {
+        global $wpdb;
+        $student_uid = sanitize_text_field((string) $student_uid);
+        if (!class_exists('Olama_Exam_Identity') || !Olama_Exam_Identity::can_access_student($student_uid)) {
+            return array();
+        }
+
+        $query = "SELECT a.id AS attempt_id, a.exam_id, a.attempt_number,
+                         a.score, a.max_score, a.percentage, a.result, a.submitted_at,
+                         e.title AS exam_title, sub.subject_name
+                  FROM {$wpdb->prefix}olama_exam_attempts a
+                  JOIN {$wpdb->prefix}olama_exam_exams e ON e.id = a.exam_id
+                  LEFT JOIN {$wpdb->prefix}olama_subjects sub ON sub.id = e.subject_id
+                  WHERE a.student_uid = %s AND a.submitted_at IS NOT NULL
+                    AND a.is_preview = 0 AND a.exam_type = 'school' AND e.is_placement = 0
+                    AND e.show_results = 1 AND e.status IN ('published', 'active', 'closed')";
+        $params = array($student_uid);
+        foreach (array('academic_year_id', 'semester_id') as $key) {
+            if (!empty($scope[$key])) {
+                $query .= " AND e.{$key} = %d";
+                $params[] = absint($scope[$key]);
+            }
+        }
+        $query .= ' ORDER BY a.submitted_at DESC, a.id DESC';
+        return (array) $wpdb->get_results($wpdb->prepare($query, $params));
+    }
+
     /**
      * Valid status transitions
      */
