@@ -538,7 +538,6 @@ class Olama_Exam_Shortcodes
                         // Determine if correct
                         $is_correct = false;
                         if ($type !== 'essay' && $student_answer !== null) {
-                            $earned = Olama_Exam_Grader::grade($attempt_id); // Reuse grading logic indirectly
                             // Simple check for display
                             $is_correct = self::check_answer($type, $student_answer, $correct);
                         }
@@ -578,7 +577,7 @@ class Olama_Exam_Shortcodes
                                 </div>
                             <?php endif; ?>
 
-                            <?php if (!empty($q['explanation'])): ?>
+                            <?php if ($attempt->show_correct_answers && !empty($q['explanation'])): ?>
                                 <div class="oe-review-explanation">📖 <?php echo wp_kses_post($q['explanation']); ?></div>
                             <?php endif; ?>
                         </div>
