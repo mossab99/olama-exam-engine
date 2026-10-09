@@ -47,7 +47,7 @@ class Olama_Exam_Manager
 
         $query = "SELECT a.id AS attempt_id, a.exam_id, a.attempt_number,
                          a.score, a.max_score, a.percentage, a.result, a.submitted_at,
-                         e.title AS exam_title, sub.subject_name
+                         e.title AS exam_title, e.exam_type, sub.subject_name
                   FROM {$wpdb->prefix}olama_exam_attempts a
                   JOIN {$wpdb->prefix}olama_exam_exams e ON e.id = a.exam_id
                   LEFT JOIN {$wpdb->prefix}olama_subjects sub ON sub.id = e.subject_id
