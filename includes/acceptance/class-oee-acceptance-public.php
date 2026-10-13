@@ -12,6 +12,8 @@ class OEE_Acceptance_Public
     public function __construct()
     {
         $this->register_rewrite();
+        add_action('wp_loaded', array($this, 'ensure_rewrite_rule'), 20);
+        add_action('parse_request', array($this, 'resolve_acceptance_route'));
         add_action('template_redirect', array($this, 'handle_acceptance_request'));
     }
 
@@ -31,10 +33,29 @@ class OEE_Acceptance_Public
             return $vars;
         });
 
-        // Flush rewrite rules once to apply the new route automatically
-        if (!get_option('oee_acceptance_rewrite_flushed_v1')) {
+    }
+
+    /**
+     * Repair missing saved rules after all plugins have registered their routes.
+     */
+    public function ensure_rewrite_rule()
+    {
+        $rules = get_option('rewrite_rules', array());
+        $route = '^acceptance/([a-zA-Z0-9]+)/?$';
+        if (!is_array($rules) || !isset($rules[$route]) ||
+            $rules[$route] !== 'index.php?oee_acceptance_token=$matches[1]') {
             flush_rewrite_rules(false);
-            update_option('oee_acceptance_rewrite_flushed_v1', true);
+        }
+    }
+
+    /**
+     * Resolve existing links even when the persisted rewrite rules are stale.
+     * WP::request is already relative to the site's home path.
+     */
+    public function resolve_acceptance_route($wp)
+    {
+        if (preg_match('#^acceptance/([a-zA-Z0-9]+)/?$#', $wp->request, $matches)) {
+            $wp->query_vars = array('oee_acceptance_token' => $matches[1]);
         }
     }
 
@@ -52,6 +73,12 @@ class OEE_Acceptance_Public
         if (empty($token)) {
             return;
         }
+
+        // Virtual exam pages have no WordPress post; clear its default 404.
+        global $wp_query;
+        $wp_query->is_404 = false;
+        status_header(200);
+        nocache_headers();
 
         // 2. Fetch and validate acceptance test
         $test = OEE_Acceptance_Tests::get_by_token($token);
