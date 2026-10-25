@@ -37,6 +37,23 @@
     max-width: 1200px;
 }
 
+/* Clip the gateway's rounded shell without creating a scroll container that
+   traps the exam header and question navigation's sticky positioning. */
+.olama-gateway:has(#oe-exam-container) {
+    overflow: clip;
+}
+
+#oe-exam-container .oe-navigation {
+    top: var(--oe-navigation-top, 142px);
+    max-height: calc(100dvh - var(--oe-navigation-top, 142px) - 16px);
+}
+
+@media screen and (max-width: 900px) {
+    #oe-exam-container .oe-navigation {
+        max-height: min(220px, 35dvh, calc(100dvh - var(--oe-navigation-top, 142px) - 16px));
+    }
+}
+
 .oe-container[dir="rtl"],
 .oe-container:lang(ar) {
     font-family: 'Noto Kufi Arabic', 'Segoe UI', sans-serif;

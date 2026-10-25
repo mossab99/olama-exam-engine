@@ -99,8 +99,25 @@
             document.getElementById('oe-navigation').style.display = '';
             document.getElementById('oe-footer').style.display = '';
 
+            setupStickyNavigation();
+
             // Observe question cards for fade-in
             setTimeout(observeCards, 100);
+    }
+
+    function setupStickyNavigation() {
+        const header = document.getElementById('oe-header');
+        const updateOffset = function () {
+            const headerTop = parseFloat(window.getComputedStyle(header).top) || 0;
+            container.style.setProperty('--oe-navigation-top',
+                (headerTop + header.getBoundingClientRect().height + 12) + 'px');
+        };
+        updateOffset();
+        window.addEventListener('resize', updateOffset);
+        if (typeof ResizeObserver !== 'undefined') {
+            const observer = new ResizeObserver(updateOffset);
+            observer.observe(header);
+        }
     }
 
     function showPasswordPrompt() {
@@ -231,9 +248,12 @@
                 const qId = this.dataset.qid;
                 const el = document.getElementById('q-' + qId);
                 if (el) {
-                    const headerOffset = 150; // Account for sticky header
+                    const navigation = document.getElementById('oe-navigation');
+                    const headerOffset = parseFloat(container.style.getPropertyValue('--oe-navigation-top')) || 150;
+                    const navigationHeight = window.matchMedia('(max-width: 900px)').matches
+                        ? navigation.getBoundingClientRect().height + 12 : 0;
                     const elementPosition = el.getBoundingClientRect().top;
-                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset - navigationHeight;
 
                     window.scrollTo({
                         top: offsetPosition,
