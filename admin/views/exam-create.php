@@ -669,6 +669,9 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                                 '<button class="olama-exam-btn olama-exam-btn-danger olama-exam-btn-sm btn-delete-exam" ' +
                                     'data-id="' + e.id + '" title="<?php echo olama_exam_translate("Delete"); ?>">🗑</button>' +
                             '</div>' +
+                            '<a class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" title="عرض النتائج" href="?page=olama-exam-results&exam_id=' + Number(e.id) +
+                                '&academic_year_id=' + Number(e.academic_year_id) + '&semester_id=' + Number(e.semester_id) +
+                                '&grade_id=' + Number($('#filter-exam-grade').val()) + '&section_id=' + Number(e.section_id) + '">📊 عرض النتائج</a>' +
                         '</div>' +
                     '</td>' +
                 '</tr>';
