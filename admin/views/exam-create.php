@@ -643,6 +643,9 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                     '<div><span>النهاية</span><bdi dir="ltr">' + escHtml(OlamaExamList.dateTime(e.end_time)) + '</bdi></div></div>';
 
                 var placementBadge = e.is_placement == 1 ? '<span class="olama-exam-badge" style="background:#fef3c7; color:#92400e;">Placement</span> ' : '';
+                var resultsLink = '<a class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm oe-summary-results-link" title="عرض النتائج" href="?page=olama-exam-results&exam_id=' + Number(e.id) +
+                    '&academic_year_id=' + Number(e.academic_year_id) + '&semester_id=' + Number(e.semester_id) +
+                    '&grade_id=' + Number($('#filter-exam-grade').val()) + '&section_id=' + Number(e.section_id) + '">📊 عرض النتائج</a>';
                 html += '<tr>' +
                     '<td>' + titleHtml + '</td>' +
                     '<td>' + escHtml((e.grade_name || '') + ' ' + (e.section_name || '')) + '</td>' +
@@ -669,12 +672,13 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                                 '<button class="olama-exam-btn olama-exam-btn-danger olama-exam-btn-sm btn-delete-exam" ' +
                                     'data-id="' + e.id + '" title="<?php echo olama_exam_translate("Delete"); ?>">🗑</button>' +
                             '</div>' +
-                            '<a class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" title="عرض النتائج" href="?page=olama-exam-results&exam_id=' + Number(e.id) +
-                                '&academic_year_id=' + Number(e.academic_year_id) + '&semester_id=' + Number(e.semester_id) +
-                                '&grade_id=' + Number($('#filter-exam-grade').val()) + '&section_id=' + Number(e.section_id) + '">📊 عرض النتائج</a>' +
+                            (isQuizMode ? resultsLink : '') +
                         '</div>' +
                     '</td>' +
                 '</tr>';
+                if (!isQuizMode) {
+                    html += '<tr class="oe-exam-summary-row"><td colspan="8">' + renderExamSummary(e.summary, resultsLink) + '</td></tr>';
+                }
             }
 
             $('#exams-tbody').html(html);
@@ -684,6 +688,28 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
             $('#exams-loading').hide();
             $('#exams-list-error').show();
         });
+    }
+
+    function renderExamSummary(summary, resultsLink) {
+        var s = summary || {};
+        var total = Number(s.attempts) || 0, pending = Number(s.pending) || 0;
+        if (!total) {
+            return '<div class="oe-exam-summary oe-summary-empty">' + resultsLink + '<span>لا توجد محاولات مسلّمة لهذا الاختبار بعد.</span></div>';
+        }
+        function percent(value) {
+            return value == null ? '—' : '<bdi dir="ltr">' + escHtml(String(Number(value))) + '%</bdi>';
+        }
+        function metric(label, value, tone) {
+            return '<div class="oe-summary-metric ' + (tone || '') + '"><strong>' + value + '</strong><span>' + label + '</span></div>';
+        }
+        var rate = Math.max(0, Math.min(100, Number(s.pass_rate) || 0));
+        return '<div class="oe-exam-summary"><div class="oe-summary-action">' + resultsLink + '<small>ملخص النتائج</small></div><div class="oe-summary-body"><div class="oe-summary-metrics">' +
+            metric('محاولات مسلّمة', total, 'oe-summary-blue') + metric('المتوسط', percent(s.average)) +
+            metric('نسبة النجاح', percent(s.pass_rate), 'oe-summary-green') + metric('أعلى درجة', percent(s.highest)) + metric('أدنى درجة', percent(s.lowest)) +
+            '</div><div class="oe-summary-outcomes"><span class="oe-summary-passed">ناجح: ' + (Number(s.passed) || 0) + '</span><span class="oe-summary-failed">راسب: ' + (Number(s.failed) || 0) + '</span>' +
+            (pending ? '<span class="oe-summary-pending">بانتظار التصحيح: ' + pending + '</span>' : '') +
+            '<span class="oe-summary-track" aria-hidden="true"><i style="width:' + rate + '%"></i></span>' +
+            (pending ? '<small>المؤشرات للمحاولات المصححة فقط</small>' : '') + '</div></div></div>';
     }
 
     function buildStatusBtn(e) {

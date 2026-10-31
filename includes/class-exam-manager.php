@@ -10,6 +10,42 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    /** One aggregate query for the visible exams; previews and applicant tests are excluded. */
+    public static function get_exam_summaries($exam_ids)
+    {
+        global $wpdb;
+        $ids = array_values(array_unique(array_filter(array_map('absint', $exam_ids))));
+        if (!$ids) return array();
+        $summaries = array();
+        foreach ($ids as $id) {
+            $summaries[$id] = array('attempts'=>0, 'graded'=>0, 'passed'=>0, 'failed'=>0, 'pending'=>0,
+                'average'=>null, 'highest'=>null, 'lowest'=>null, 'pass_rate'=>null);
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT exam_id, COUNT(*) AS attempts,
+                SUM(CASE WHEN result IN ('pass','fail') THEN 1 ELSE 0 END) AS graded,
+                SUM(CASE WHEN result = 'pass' THEN 1 ELSE 0 END) AS passed,
+                SUM(CASE WHEN result = 'fail' THEN 1 ELSE 0 END) AS failed,
+                SUM(CASE WHEN result IN ('pass','fail') THEN 0 ELSE 1 END) AS pending,
+                AVG(CASE WHEN result IN ('pass','fail') THEN percentage END) AS average,
+                MAX(CASE WHEN result IN ('pass','fail') THEN percentage END) AS highest,
+                MIN(CASE WHEN result IN ('pass','fail') THEN percentage END) AS lowest
+             FROM {$wpdb->prefix}olama_exam_attempts
+             WHERE exam_id IN ($placeholders) AND submitted_at IS NOT NULL
+               AND is_preview = 0 AND exam_type = 'school'
+             GROUP BY exam_id", $ids
+        ));
+        foreach ((array) $rows as $row) {
+            $summary = &$summaries[intval($row->exam_id)];
+            foreach (array('attempts', 'graded', 'passed', 'failed', 'pending') as $key) $summary[$key] = intval($row->$key);
+            foreach (array('average', 'highest', 'lowest') as $key) $summary[$key] = $row->$key === null ? null : round(floatval($row->$key), 1);
+            $summary['pass_rate'] = $summary['graded'] ? round($summary['passed'] / $summary['graded'] * 100, 1) : null;
+            unset($summary);
+        }
+        return $summaries;
+    }
+
     /** Register a clock-based sweep and reconcile overdue exams on every visit. */
     public static function init_lifecycle()
     {

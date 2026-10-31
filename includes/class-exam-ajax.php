@@ -1269,6 +1269,10 @@ class Olama_Exam_Ajax
         if (($filters['exam_type'] ?? '') === 'direct') {
             $exams = array_values(array_filter($exams, array(__CLASS__, 'can_teacher_access_exam')));
         }
+        if (($filters['exam_type'] ?? '') === 'exam' && $section_scope) {
+            $summaries = Olama_Exam_Manager::get_exam_summaries(array_column($exams, 'id'));
+            foreach ($exams as $exam) $exam->summary = $summaries[$exam->id];
+        }
 
         // Compute question_count efficiently without N+1 queries
         foreach ($exams as &$exam) {
