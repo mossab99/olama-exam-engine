@@ -91,7 +91,7 @@ if ($grading_attempt_id) {
     }
 }
 ?>
-<div class="olama-exam-wrap">
+<div class="olama-exam-wrap" dir="rtl">
     <div class="olama-exam-header">
         <h1><?php echo olama_exam_translate('Grade Essays'); ?></h1>
     </div>

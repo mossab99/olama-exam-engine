@@ -27,7 +27,7 @@ if (!$selected_semester_id && $selected_year_id && class_exists('Olama_School_Ac
 // Fetch lists for dropdowns
 $years = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_years() : array();
 $semesters = ($selected_year_id && class_exists('Olama_School_Academic')) ? Olama_School_Academic::get_semesters($selected_year_id) : array();
-$grades = class_exists('Olama_School_Grade') ? Olama_School_Grade::get_grades() : array();
+$grades = Olama_Exam_Manager::get_ordered_grades();
 $sections = ($selected_grade_id && $selected_year_id && class_exists('Olama_School_Section')) ? Olama_School_Section::get_by_grade($selected_grade_id, $selected_year_id) : array();
 
 // Build Exam Query
@@ -227,12 +227,13 @@ if ($selected_exam_id && !$review_attempt_id) {
     }
 }
 ?>
-<div class="olama-exam-wrap">
+<div class="olama-exam-wrap" dir="rtl">
     <div class="olama-exam-header">
         <h1><?php echo olama_exam_translate('Results'); ?></h1>
     </div>
 
     <?php include OLAMA_EXAM_PATH . 'admin/views/school-exams-tabs.php'; ?>
+    <?php include OLAMA_EXAM_PATH . 'admin/views/results-publish.php'; ?>
 
     <?php if ($review_data): ?>
         <!-- ═══════════════════════════════════════════════════════ -->

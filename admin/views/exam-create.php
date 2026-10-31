@@ -13,7 +13,7 @@ global $wpdb;
 
 // Active academic context
 list($active_year, $active_semester) = olama_exam_get_active_academic_context();
-$grades          = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
+$grades = Olama_Exam_Manager::get_ordered_grades();
 
 // Check if showing form (edit param present = show form, even for new exams with edit=0)
 $show_form = isset($_GET['edit']);
@@ -47,7 +47,7 @@ if ($show_form && $edit_id > 0 && $exam) {
 $is_quiz_mode = (isset($_GET['page']) && $_GET['page'] === 'olama-exam-create-quiz');
 $page_title = $show_form 
     ? ($exam ? olama_exam_translate($is_quiz_mode ? 'Edit Quiz' : 'Edit Exam') : ($is_quiz_mode ? olama_exam_translate('Create Quiz') : olama_exam_translate('Create Exam')))
-    : ($is_quiz_mode ? olama_exam_translate('Quizzes') : olama_exam_translate('Exams'));
+    : ($is_quiz_mode ? 'اختبارات قصيرة' : 'اختبارات التقويم');
 if ($is_direct_mode) { $page_title = $exam ? 'تعديل امتحان مباشر' : 'إنشاء امتحان مباشر'; }
 
 $exam_label = $is_quiz_mode ? olama_exam_translate('Quiz') : olama_exam_translate('Exam');
@@ -64,7 +64,7 @@ $list_grade_id   = intval($_GET['filter_grade'] ?? 0);
 $list_section_id = intval($_GET['filter_section'] ?? 0);
 ?>
 
-<div class="olama-exam-wrap">
+<div class="olama-exam-wrap" dir="rtl">
     <!-- Header -->
     <div class="olama-exam-header">
         <div>
@@ -120,24 +120,11 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             placeholder="<?php echo olama_exam_translate('Search'); ?>...">
     </div>
 
-    <?php if (Olama_Exam_Ajax::can_supervise_exams()): ?>
-    <div class="olama-exam-card">
-        <p>نشر نتائج اختبارات التقويم والاختبارات القصيرة المنشورة والنشطة والمغلقة للعام والفصل الدراسي النشطين.</p>
-        <label for="publish-results-grade">الصف</label>
-        <select id="publish-results-grade">
-            <option value="0">جميع الصفوف</option>
-            <?php foreach ($grades as $g): ?>
-                <option value="<?php echo absint($g->id); ?>"><?php echo esc_html($g->grade_name); ?></option>
-            <?php endforeach; ?>
-        </select>
-        <button type="button" id="publish-exam-results" class="olama-exam-btn olama-exam-btn-primary">إظهار كل نتائج الاختبارات</button>
-        <p id="publish-results-feedback" role="status" aria-live="polite"></p>
-    </div>
-    <?php endif; ?>
+
 
     <div class="olama-exam-card">
         <div class="olama-exam-card-header">
-            <h3><?php echo ($is_quiz_mode ? olama_exam_translate('Quizzes') : olama_exam_translate('Exams')); ?> (<span id="exam-count">0</span>)</h3>
+            <h3><?php echo $is_quiz_mode ? 'اختبارات قصيرة' : 'اختبارات التقويم'; ?> (<span id="exam-count">0</span>)</h3>
         </div>
         <div id="exams-loading" style="text-align:center; padding:40px; color:#64748b;">
             ⏳ <?php echo olama_exam_translate('Loading...'); ?>
@@ -565,26 +552,6 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     var directLesson = <?php echo wp_json_encode($direct_lesson); ?>;
 
     // Cached schedule data
-    $('#publish-exam-results').on('click', function() {
-        var button = $(this);
-        var grade = $('#publish-results-grade');
-        var feedback = $('#publish-results-feedback');
-        button.prop('disabled', true);
-        grade.prop('disabled', true);
-        feedback.text('جارٍ نشر النتائج...');
-        $.post(olamaExam.ajaxUrl, {
-            action: 'olama_exam_publish_results', nonce: olamaExam.nonce, grade_id: grade.val()
-        }).done(function(res) {
-            feedback.text(res.success ? 'تم تفعيل إظهار النتائج لـ ' + res.data.updated + ' اختبار.' : (res.data.message || 'تعذر نشر النتائج.'));
-            if (res.success) loadExams();
-        }).fail(function(xhr) {
-            feedback.text(xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : 'تعذر نشر النتائج. حاول مرة أخرى.');
-        }).always(function() {
-            button.prop('disabled', false);
-            grade.prop('disabled', false);
-        });
-    });
-
     var scheduleInfo = null;
     var materialUnits = [];
     var allSubjectUnits = [];

@@ -1,35 +1,19 @@
 <?php
-/**
- * Admin View: School Exams Tabs
- */
-
-if (!defined('ABSPATH')) {
-    exit;
-}
-
+/** Shared school exam navigation, ordered from right to left. */
+if (!defined('ABSPATH')) { exit; }
 $current_page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : '';
+$school_tabs = array(
+    'olama-exam-direct' => 'الامتحانات المباشرة',
+    'olama-exam-create' => 'اختبارات التقويم',
+    'olama-exam-create-quiz' => 'اختبارات قصيرة',
+    'olama-exam-grade-essays' => 'تصحيح المقالات',
+    'olama-exam-results' => 'النتائج',
+);
 ?>
-<div class="olama-exam-tabs" style="margin-bottom: 24px; border-bottom: 1px solid #cbd5e1; display: flex; gap: 24px; padding-bottom: 0;">
-    <a href="<?php echo esc_url(admin_url('admin.php?page=olama-exam-direct')); ?>" class="olama-exam-tab"
-       style="padding:0 4px 12px; font-weight:600; font-size:15px; text-decoration:none; color:<?php echo $current_page === 'olama-exam-direct' ? '#6366f1' : '#64748b'; ?>; border-bottom:2px solid <?php echo $current_page === 'olama-exam-direct' ? '#6366f1' : 'transparent'; ?>;">الامتحانات المباشرة</a>
-    <a href="<?php echo admin_url('admin.php?page=olama-exam-create'); ?>" 
-       class="olama-exam-tab" 
-       style="padding: 0 4px 12px 4px; font-weight: 600; font-size: 15px; text-decoration: none; color: <?php echo $current_page === 'olama-exam-create' ? '#6366f1' : '#64748b'; ?>; border-bottom: 2px solid <?php echo $current_page === 'olama-exam-create' ? '#6366f1' : 'transparent'; ?>; transition: all 0.2s ease;">
-       <?php echo olama_exam_translate('Create Exam'); ?>
-    </a>
-    <a href="<?php echo admin_url('admin.php?page=olama-exam-create-quiz'); ?>" 
-       class="olama-exam-tab" 
-       style="padding: 0 4px 12px 4px; font-weight: 600; font-size: 15px; text-decoration: none; color: <?php echo $current_page === 'olama-exam-create-quiz' ? '#6366f1' : '#64748b'; ?>; border-bottom: 2px solid <?php echo $current_page === 'olama-exam-create-quiz' ? '#6366f1' : 'transparent'; ?>; transition: all 0.2s ease;">
-       <?php echo olama_exam_translate('Create Quiz'); ?>
-    </a>
-    <a href="<?php echo admin_url('admin.php?page=olama-exam-results'); ?>" 
-       class="olama-exam-tab" 
-       style="padding: 0 4px 12px 4px; font-weight: 600; font-size: 15px; text-decoration: none; color: <?php echo $current_page === 'olama-exam-results' ? '#6366f1' : '#64748b'; ?>; border-bottom: 2px solid <?php echo $current_page === 'olama-exam-results' ? '#6366f1' : 'transparent'; ?>; transition: all 0.2s ease;">
-       <?php echo olama_exam_translate('Results'); ?>
-    </a>
-    <a href="<?php echo admin_url('admin.php?page=olama-exam-grade-essays'); ?>" 
-       class="olama-exam-tab" 
-       style="padding: 0 4px 12px 4px; font-weight: 600; font-size: 15px; text-decoration: none; color: <?php echo $current_page === 'olama-exam-grade-essays' ? '#6366f1' : '#64748b'; ?>; border-bottom: 2px solid <?php echo $current_page === 'olama-exam-grade-essays' ? '#6366f1' : 'transparent'; ?>; transition: all 0.2s ease;">
-       <?php echo olama_exam_translate('Grade Essays'); ?>
-    </a>
-</div>
+<nav class="olama-exam-tabs oe-school-tabs" dir="rtl" aria-label="اختبارات المدرسة">
+    <?php foreach ($school_tabs as $tab_page => $tab_label): ?>
+        <a href="<?php echo esc_url(admin_url('admin.php?page=' . $tab_page)); ?>"
+           class="olama-exam-tab<?php echo $current_page === $tab_page ? ' is-active' : ''; ?>"
+           <?php if ($current_page === $tab_page): ?>aria-current="page"<?php endif; ?>><?php echo esc_html($tab_label); ?></a>
+    <?php endforeach; ?>
+</nav>

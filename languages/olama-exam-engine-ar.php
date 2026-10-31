@@ -11,6 +11,11 @@ return array(
     // ── General ──
     'Exam Engine' => 'محرك الاختبارات',
     'Question Bank' => 'بنك الأسئلة',
+    'Academic Question Bank' => 'بنك الأسئلة الأكاديمي',
+    'Professional Question Bank' => 'بنك الأسئلة المهني',
+    'Select Grade & Subject' => 'اختر الصف والمادة',
+    'Select Grade' => 'اختر الصف',
+    'Select Section' => 'اختر الشعبة',
     'Import GIFT' => 'استيراد GIFT',
     'Import CSV' => 'استيراد CSV',
     'Create Exam' => 'إنشاء اختبار',

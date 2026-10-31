@@ -3,7 +3,7 @@
 if (!defined('ABSPATH')) { exit; }
 global $wpdb;
 list($active_year, $active_semester) = olama_exam_get_active_academic_context();
-$grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
+$grades = Olama_Exam_Manager::get_ordered_grades();
 ?>
 <div class="olama-exam-wrap oe-direct-page" dir="rtl">
     <div class="olama-exam-header oe-direct-page-header">

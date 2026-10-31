@@ -12,7 +12,7 @@ global $wpdb;
 
 // Get active year and semester from the SIS
 list($active_year, $active_semester) = olama_exam_get_active_academic_context();
-$grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
+$grades = Olama_Exam_Manager::get_ordered_grades();
 
 $qb_type = isset($_GET['qb_type']) ? sanitize_text_field($_GET['qb_type']) : 'school';
 
@@ -32,7 +32,7 @@ $diff_labels = array(
     'hard' => olama_exam_translate('Hard'),
 );
 ?>
-<div class="olama-exam-wrap">
+<div class="olama-exam-wrap" dir="rtl">
     <!-- Header -->
     <div class="olama-exam-header">
         <div>

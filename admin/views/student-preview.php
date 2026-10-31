@@ -61,7 +61,7 @@ $exit_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-e
     </a>
 </div>
 
-<div class="oe-container" dir="auto" id="oe-exam-container" 
+<div class="oe-container" dir="rtl" id="oe-exam-container" 
     data-exam-id="<?php echo $exam_id; ?>"
     data-ajax-url="<?php echo admin_url('admin-ajax.php'); ?>"
     data-nonce="<?php echo wp_create_nonce('olama_exam_nonce'); ?>"

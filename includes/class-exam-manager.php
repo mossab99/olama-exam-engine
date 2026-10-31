@@ -10,6 +10,17 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    /** Keep every grade selector in the academic system's progression order. */
+    public static function get_ordered_grades()
+    {
+        if (class_exists('Olama_School_Grade')) {
+            return array_values(array_filter((array) Olama_School_Grade::get_grades(), function($grade) {
+                return !isset($grade->is_active) || (int) $grade->is_active === 1;
+            }));
+        }
+        global $wpdb;
+        return (array) $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY CAST(grade_level AS SIGNED) ASC, id ASC");
+    }
     public static function get_direct_lesson($id)
     {
         global $wpdb;
@@ -35,6 +46,7 @@ class Olama_Exam_Manager
                 SET e.show_results = 1
                 WHERE e.academic_year_id = %d AND e.semester_id = %d
                   AND e.is_placement = 0 AND e.status IN ('published', 'active', 'closed')
+                  AND (e.exam_type IN ('exam', 'quiz') OR e.exam_type IS NULL OR e.exam_type = '')
                   AND e.show_results = 0";
         $params = array(absint($year_id), absint($semester_id));
         if ($grade_id) {

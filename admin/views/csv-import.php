@@ -10,9 +10,9 @@ global $wpdb;
 
 // Get active year and semester from the SIS
 list($active_year, $active_semester) = olama_exam_get_active_academic_context();
-$grades = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY grade_name ASC");
+$grades = Olama_Exam_Manager::get_ordered_grades();
 ?>
-<div class="olama-exam-wrap">
+<div class="olama-exam-wrap" dir="rtl">
     <div class="olama-exam-header">
         <div>
             <h1><?php echo olama_exam_translate('Import CSV'); ?></h1>

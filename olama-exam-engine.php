@@ -368,7 +368,7 @@ function olama_exam_enqueue_admin_assets($hook)
         'olama-exam-admin',
         OLAMA_EXAM_URL . 'assets/css/exam-admin.css',
         array(),
-        OLAMA_EXAM_VERSION
+        OLAMA_EXAM_VERSION . '.' . filemtime(OLAMA_EXAM_PATH . 'assets/css/exam-admin.css')
     );
 
     olama_exam_enqueue_math_assets();

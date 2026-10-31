@@ -143,7 +143,7 @@ class Olama_Exam_Shortcodes
 
         ob_start();
         ?>
-        <div class="oe-container oe-dashboard-wrap" dir="auto">
+        <div class="oe-container oe-dashboard-wrap" dir="rtl">
             <header class="oe-dashboard-header">
                 <h2 class="oe-title"><?php echo olama_exam_translate('Student Exams'); ?></h2>
                 <p class="oe-subtitle">
@@ -374,7 +374,7 @@ class Olama_Exam_Shortcodes
         }
 
         ?>
-        <div class="oe-container" dir="auto" id="oe-exam-container" data-exam-id="<?php echo $exam_id; ?>"
+        <div class="oe-container" dir="rtl" id="oe-exam-container" data-exam-id="<?php echo $exam_id; ?>"
             data-exam-type="school"
             data-ajax-url="<?php echo admin_url('admin-ajax.php'); ?>"
             data-nonce="<?php echo wp_create_nonce('olama_exam_nonce'); ?>"
@@ -502,7 +502,7 @@ class Olama_Exam_Shortcodes
 
         ob_start();
         ?>
-        <div class="oe-container" dir="auto">
+        <div class="oe-container" dir="rtl">
             <div class="oe-results-page">
                 <!-- Score Summary -->
                 <div class="oe-score-summary">
@@ -615,7 +615,7 @@ class Olama_Exam_Shortcodes
 
         ob_start();
         ?>
-        <div class="oe-container" dir="auto">
+        <div class="oe-container" dir="rtl">
             <div class="oe-placement-card">
                 <div class="oe-placement-header">
                     <h2><?php echo olama_exam_translate('Grade Placement Test'); ?></h2>

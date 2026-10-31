@@ -98,7 +98,7 @@ wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=I
     .oe-tf-btn.preview-correct { color: #16a34a !important; font-weight: 600; }
 </style>
 
-<div class="olama-exam-preview-header">
+<div class="olama-exam-preview-header" dir="rtl">
     <div class="preview-container">
         <div class="preview-info">
             <span class="preview-badge">👁️ <?php echo olama_exam_translate('Teacher Preview'); ?></span>
@@ -118,7 +118,7 @@ wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=I
     </div>
 </div>
 
-<div class="oe-container" dir="auto" style="margin-top: 100px;">
+<div class="oe-container" dir="rtl" style="margin-top: 100px;">
     <div class="oe-header">
         <div class="oe-header-top">
             <div class="oe-header-info">
