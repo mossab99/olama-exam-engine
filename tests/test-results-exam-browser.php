@@ -45,7 +45,7 @@ class Results_Browser_DB {
             INSERT INTO wp_olama_subjects VALUES (1,1,'الرياضيات'), (2,2,'العلوم');
             CREATE TABLE wp_olama_students (id INTEGER, student_uid TEXT, student_name TEXT);
             CREATE TABLE wp_olama_student_enrollment (student_id INTEGER, section_id INTEGER);
-            CREATE TABLE wp_olama_exam_attempts (id INTEGER, exam_id INTEGER, student_uid TEXT, score REAL, max_score REAL, percentage REAL, result TEXT, submitted_at TEXT, is_preview INTEGER DEFAULT 0, exam_type TEXT DEFAULT 'school');
+            CREATE TABLE wp_olama_exam_attempts (id INTEGER, exam_id INTEGER, student_uid TEXT, score REAL, max_score REAL, percentage REAL, result TEXT, submitted_at TEXT, is_preview INTEGER DEFAULT 0, exam_type TEXT DEFAULT 'school', questions_snapshot_json TEXT, answers_json TEXT);
             INSERT INTO wp_olama_exam_attempts (id,exam_id,student_uid,percentage,result,submitted_at) VALUES
                 (1,2,'S1',80,'pass','2026-10-31'), (2,2,'S2',40,'fail','2026-10-31'),
                 (3,2,'S3',0,'pending','2026-10-31')");

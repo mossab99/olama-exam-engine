@@ -126,7 +126,7 @@ wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=I
             </div>
             <div class="oe-timer">
                 <span class="oe-timer-icon">⏱</span>
-                <span><?php echo $exam->duration_minutes; ?>:00</span>
+                <span><?php echo Olama_Exam_Manager::is_direct($exam) ? 'بلا حد زمني' : esc_html($exam->duration_minutes . ':00'); ?></span>
             </div>
         </div>
         <div class="oe-progress">

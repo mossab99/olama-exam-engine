@@ -12,7 +12,7 @@ $summary_percent = static function($value) {
         <span>لا توجد محاولات مسلّمة لهذا الاختبار بعد.</span>
     <?php else:
         $summary_metrics = array(
-            array('محاولات مسلّمة', $summary_total, 'oe-summary-blue'),
+            array(($selected_exam_type ?? '') === 'direct' ? 'آخر محاولة لكل طالب' : 'محاولات مسلّمة', $summary_total, 'oe-summary-blue'),
             array('المتوسط', $summary_percent($exam_summary['average']), ''),
             array('نسبة النجاح', $summary_percent($exam_summary['pass_rate']), 'oe-summary-green'),
             array('أعلى درجة', $summary_percent($exam_summary['highest']), ''),

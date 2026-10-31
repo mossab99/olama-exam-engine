@@ -85,6 +85,9 @@ $base = array('title'=>'Lesson exam', 'section_id'=>7, 'subject_id'=>3, 'semeste
 $first = Olama_Exam_Manager::save_exam($base);
 $second = Olama_Exam_Manager::save_exam($base);
 check_direct($first === 1 && $second === 2 && $wpdb->exams[1]->direct_lesson_id === 11, 'Multiple exams for one lesson must be supported.');
+check_direct($wpdb->exams[1]->duration_minutes === 0 && $wpdb->exams[1]->max_attempts === 0 &&
+    $wpdb->exams[1]->show_results === 1 && $wpdb->exams[1]->show_correct_answers === 1 &&
+    $wpdb->exams[1]->start_time === '1970-01-01 00:00:00' && $wpdb->exams[1]->end_time === '9999-12-31 23:59:59', 'Direct practice policy must be enforced when saving.');
 expect_direct_error(array_merge($base, array('direct_lesson_id'=>999)), 'invalid_lesson');
 expect_direct_error(array_merge($base, array('subject_id'=>8)), 'invalid_lesson');
 expect_direct_error(array_merge($base, array('semester_id'=>9)), 'invalid_lesson');

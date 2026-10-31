@@ -101,7 +101,7 @@ if (!Olama_Exam_Ajax::can_supervise_exams() && class_exists('Olama_School_Teache
 }
 // ── End Teacher Subject Filter ─────────────────────────────────────────────
 
-$exam_query .= " ORDER BY e.start_time DESC, e.created_at DESC, e.id DESC";
+$exam_query .= $selected_exam_type === 'direct' ? " ORDER BY e.created_at DESC, e.id DESC" : " ORDER BY e.start_time DESC, e.created_at DESC, e.id DESC";
 $exams = $results_scope_ready ? array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam'))) : array();
 $exam_summaries = Olama_Exam_Manager::get_exam_summaries(array_column($exams, 'id'));
 
@@ -214,7 +214,7 @@ if ($selected_exam_id && !$review_attempt_id) {
                     p.old_school as grade_name,
                     p.mobile,
                     p.last_finished_grade,
-                    a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at
+                    a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at, a.questions_snapshot_json, a.answers_json
                  FROM {$wpdb->prefix}olama_exam_attempts a
                  JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id
                  WHERE a.exam_id = %d AND a.submitted_at IS NOT NULL
@@ -222,18 +222,20 @@ if ($selected_exam_id && !$review_attempt_id) {
                 $selected_exam_id
             ));
         } else {
+            $latest_direct = Olama_Exam_Manager::latest_direct_attempt_condition('a', 'exam_scope');
             $attempts = $wpdb->get_results($wpdb->prepare(
                 "SELECT 
                     s.student_name, 
                     s.student_uid,
                     sec.section_name,
                     g.grade_name,
-                    a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at
+                    a.id as attempt_id, a.score, a.max_score, a.percentage, a.result, a.submitted_at, a.questions_snapshot_json, a.answers_json
                  FROM {$wpdb->prefix}olama_student_enrollment e_sis
                  JOIN {$wpdb->prefix}olama_students s ON e_sis.student_id = s.id
                  JOIN {$wpdb->prefix}olama_sections sec ON e_sis.section_id = sec.id
                  JOIN {$wpdb->prefix}olama_grades g ON sec.grade_id = g.id
-                 LEFT JOIN {$wpdb->prefix}olama_exam_attempts a ON (a.student_uid = s.student_uid AND a.exam_id = %d)
+                 JOIN {$wpdb->prefix}olama_exam_exams exam_scope ON exam_scope.id = %d
+                 LEFT JOIN {$wpdb->prefix}olama_exam_attempts a ON (a.student_uid = s.student_uid AND a.exam_id = exam_scope.id AND a.submitted_at IS NOT NULL AND a.exam_type = 'school' AND a.is_preview = 0 $latest_direct)
                  WHERE e_sis.section_id = %d
                  ORDER BY s.student_name ASC",
                 $selected_exam_id,

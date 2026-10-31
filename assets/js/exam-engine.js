@@ -61,6 +61,9 @@
             state.questions = data.questions;
             state.totalQuestions = data.total_questions;
             state.durationMinutes = data.duration_minutes;
+            state.timerMode = data.timer_mode || 'countdown';
+            state.elapsedSeconds = Number(data.elapsed_seconds) || 0;
+            state.elapsedOrigin = Date.now() - state.elapsedSeconds * 1000;
             state.startedAt = data.started_at;
             
             // Force answers to be an object map, ignoring PHP sparse arrays
@@ -610,6 +613,11 @@
     function startTimer() {
         updateTimerDisplay();
         state.timerInterval = setInterval(function () {
+            if (state.timerMode === 'elapsed') {
+                state.elapsedSeconds = Math.floor((Date.now() - state.elapsedOrigin) / 1000);
+                updateTimerDisplay();
+                return;
+            }
             state.remainingSeconds--;
             updateTimerDisplay();
 
@@ -621,7 +629,7 @@
     }
 
     function updateTimerDisplay() {
-        const secs = Math.max(0, state.remainingSeconds);
+        const secs = Math.max(0, state.timerMode === 'elapsed' ? state.elapsedSeconds : state.remainingSeconds);
         const m = Math.floor(secs / 60);
         const s = secs % 60;
         const display = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
@@ -631,6 +639,17 @@
 
         // Timer states
         timerEl.classList.remove('oe-warning', 'oe-critical');
+        if (state.timerMode === 'elapsed') {
+                if (!timerEl.querySelector('.oe-elapsed-label')) {
+                    const label = document.createElement('small');
+                    label.className = 'oe-elapsed-label';
+                    label.textContent = 'الوقت المنقضي';
+                    timerEl.prepend(label);
+                }
+            timerEl.title = 'الوقت المنقضي — لا يوجد حد زمني';
+            timerEl.setAttribute('aria-label', 'الوقت المنقضي');
+            return;
+        }
         if (secs <= 60) {
             timerEl.classList.add('oe-critical');
         } else if (secs <= 300) {

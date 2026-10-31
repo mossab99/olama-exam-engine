@@ -10,7 +10,7 @@ $format_exam_date = static function($value) {
 <section class="olama-exam-card oe-results-exams" aria-labelledby="results-exams-heading">
     <div class="olama-exam-card-header">
         <h3 id="results-exams-heading">اختبارات <?php echo esc_html($result_types[$selected_exam_type]); ?> <span class="oe-results-count"><?php echo count($exams); ?></span></h3>
-        <span class="oe-results-order">الأحدث أولاً حسب تاريخ الامتحان</span>
+        <span class="oe-results-order"><?php echo $selected_exam_type === 'direct' ? 'الأحدث أولاً حسب تاريخ الإنشاء' : 'الأحدث أولاً حسب تاريخ الامتحان'; ?></span>
     </div>
     <p class="oe-results-list-hint">الامتحانات المنشورة والنشطة والمغلقة فقط. افتح «عرض النتائج» للاطلاع على درجات الطلاب.</p>
     <?php if (!$results_scope_ready): ?>
@@ -33,7 +33,7 @@ $format_exam_date = static function($value) {
                     <tr class="<?php echo $is_selected ? 'oe-results-selected' : ''; ?>">
                         <td><div class="oe-exam-title oe-results-exam-title" data-title="<?php echo esc_attr($listed_exam->title); ?>" data-subject="<?php echo esc_attr($listed_exam->subject_name ?? ''); ?>"><strong><?php echo esc_html($listed_exam->subject_name ?: $listed_exam->title); ?></strong><span class="oe-exam-title-detail"><?php echo esc_html($listed_exam->title); ?></span></div></td>
                         <td><div class="oe-results-class"><strong><?php echo esc_html($listed_exam->grade_name ?: '—'); ?></strong><span><?php echo esc_html($listed_exam->section_name ? 'الشعبة ' . $listed_exam->section_name : '—'); ?></span></div></td>
-                        <td><div class="oe-exam-dates"><div><span>البداية</span><bdi dir="ltr"><?php echo esc_html($format_exam_date($listed_exam->start_time)); ?></bdi></div><div><span>النهاية</span><bdi dir="ltr"><?php echo esc_html($format_exam_date($listed_exam->end_time)); ?></bdi></div></div></td>
+                        <td><?php if ($listed_type === 'direct'): ?><span class="oe-results-order">مراجعة مفتوحة · بلا موعد أو حد زمني</span><?php else: ?><div class="oe-exam-dates"><div><span>البداية</span><bdi dir="ltr"><?php echo esc_html($format_exam_date($listed_exam->start_time)); ?></bdi></div><div><span>النهاية</span><bdi dir="ltr"><?php echo esc_html($format_exam_date($listed_exam->end_time)); ?></bdi></div></div><?php endif; ?></td>
                         <td><span class="oe-results-status oe-results-status-<?php echo esc_attr($listed_exam->status); ?>"><?php echo esc_html($result_statuses[$listed_exam->status]); ?></span></td>
                         <td><a class="olama-exam-btn <?php echo $is_selected ? 'olama-exam-btn-primary' : 'olama-exam-btn-outline'; ?> olama-exam-btn-sm" href="<?php echo esc_url($results_url); ?>" <?php if ($is_selected): ?>aria-current="page"<?php endif; ?>>عرض النتائج</a><?php if ($is_selected): ?><small class="oe-results-current">الاختبار المحدد</small><?php endif; ?></td>
                     </tr>

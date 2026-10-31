@@ -9,8 +9,9 @@ class Summary_Test_DB {
     public function __construct() {
         $this->db = new PDO('sqlite::memory:');
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->db->exec('CREATE TABLE wp_olama_exam_attempts (exam_id INTEGER, result TEXT, percentage REAL, submitted_at TEXT, is_preview INTEGER, exam_type TEXT)');
-        $insert = $this->db->prepare('INSERT INTO wp_olama_exam_attempts VALUES (?, ?, ?, ?, ?, ?)');
+        $this->db->exec("CREATE TABLE wp_olama_exam_exams (id INTEGER, exam_type TEXT); INSERT INTO wp_olama_exam_exams VALUES (1,'exam'),(2,'exam'),(3,'exam'),(4,'direct')");
+        $this->db->exec('CREATE TABLE wp_olama_exam_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, exam_id INTEGER, result TEXT, percentage REAL, submitted_at TEXT, is_preview INTEGER, exam_type TEXT)');
+        $insert = $this->db->prepare('INSERT INTO wp_olama_exam_attempts (exam_id,result,percentage,submitted_at,is_preview,exam_type) VALUES (?, ?, ?, ?, ?, ?)');
         foreach (array(
             array(1,'pass',80,'2026-10-31',0,'school'),
             array(1,'pass',100,'2026-10-31',0,'school'),

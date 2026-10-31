@@ -110,7 +110,7 @@ class Olama_Exam_Shortcodes
              LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
              WHERE e.status = 'active'
-               AND e.end_time > %s",
+               AND (e.exam_type = 'direct' OR e.end_time > %s)",
             $family_id,
             $now
         );
@@ -120,13 +120,13 @@ class Olama_Exam_Shortcodes
         }
 
         $sql .= " GROUP BY e.id, st.student_uid 
-                 HAVING (e.max_attempts > attempt_count OR unsubmitted_id IS NOT NULL) 
+                 HAVING (e.exam_type = 'direct' OR e.max_attempts > attempt_count OR unsubmitted_id IS NOT NULL)
                  ORDER BY e.start_time ASC";
         $all_exams = $wpdb->get_results($sql);
 
         // Get completed attempts
         $completed_attempts_query = $wpdb->prepare(
-            "SELECT a.*, e.title as exam_title, st.student_name, e.show_results
+            "SELECT a.*, e.title as exam_title, st.student_name, CASE WHEN e.exam_type = 'direct' THEN 1 ELSE e.show_results END AS show_results
               FROM {$wpdb->prefix}olama_exam_attempts a
               JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
               JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
@@ -135,6 +135,7 @@ class Olama_Exam_Shortcodes
             $family_id
         );
 
+        $completed_attempts_query .= Olama_Exam_Manager::latest_direct_attempt_condition();
         if ($student_filter) {
             $completed_attempts_query .= $wpdb->prepare(" AND a.student_uid = %s", $student_filter);
         }
@@ -196,6 +197,7 @@ class Olama_Exam_Shortcodes
                                 $attempt_count = intval($exam->attempt_count);
                                 $has_unsubmitted = !empty($exam->unsubmitted_id);
 
+                                $is_direct = Olama_Exam_Manager::is_direct($exam);
                                 $remaining_attempts = intval($exam->max_attempts) - intval($attempt_count);
                                 $is_active_status = $exam->status === 'active';
                                 
@@ -205,6 +207,8 @@ class Olama_Exam_Shortcodes
                                     $now_ts = current_time('timestamp');
                                     $in_window = ($now_ts >= strtotime($exam->start_time) && $now_ts <= strtotime($exam->end_time));
                                 }
+
+                                if ($is_direct) { $in_window = true; $remaining_attempts = PHP_INT_MAX; }
 
                                 // Logical status class
                                 if (!$is_active_status) {
@@ -243,14 +247,14 @@ class Olama_Exam_Shortcodes
                                             <div class="oe-meta-row">
                                                 <span>⏱</span>
                                                 <strong><?php echo olama_exam_translate('Duration:'); ?></strong>
-                                                <span dir="ltr"><?php echo $exam->duration_minutes; ?> min</span>
+                                                <span dir="ltr"><?php echo $is_direct ? 'بلا حد زمني' : esc_html($exam->duration_minutes . ' min'); ?></span>
                                             </div>
                                             <div class="oe-meta-row">
                                                 <span>🔢</span>
                                                 <strong><?php echo olama_exam_translate('Attempts:'); ?></strong>
-                                                <span dir="ltr"><?php echo $attempt_count; ?>/<?php echo $exam->max_attempts; ?></span>
+                                                <span dir="ltr"><?php echo $is_direct ? 'غير محدودة' : esc_html($attempt_count . '/' . $exam->max_attempts); ?></span>
                                             </div>
-                                            <?php if ($is_active_status): ?>
+                                            <?php if ($is_active_status && !$is_direct): ?>
                                                 <div class="oe-meta-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
                                                     <div style="display: flex; align-items: center; gap: 8px;">
                                                         <span>📅</span>
@@ -478,11 +482,11 @@ class Olama_Exam_Shortcodes
         $student_uid = sanitize_text_field($_GET['student_uid'] ?? '');
 
         $attempt = $wpdb->get_row($wpdb->prepare(
-            "SELECT a.*, e.title as exam_title, e.show_results, e.show_correct_answers, e.passing_grade, sub.subject_name
+            "SELECT a.*, e.title as exam_title, CASE WHEN e.exam_type = 'direct' THEN 1 ELSE e.show_results END AS show_results, CASE WHEN e.exam_type = 'direct' THEN 1 ELSE e.show_correct_answers END AS show_correct_answers, e.passing_grade, sub.subject_name
              FROM {$wpdb->prefix}olama_exam_attempts a
              JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-             WHERE a.id = %d AND e.status IN ('active', 'closed')",
+             WHERE a.id = %d AND a.submitted_at IS NOT NULL AND e.status IN ('active', 'closed')",
             $attempt_id
         ));
 

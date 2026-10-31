@@ -10,6 +10,22 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    public static function is_direct($exam)
+    {
+        return $exam && ($exam->exam_type ?? '') === 'direct';
+    }
+
+    /** Keep attempts as history, but use the last submitted mark for practice exams. */
+    public static function latest_direct_attempt_condition($attempt = 'a', $exam = 'e')
+    {
+        global $wpdb;
+        return " AND ({$exam}.exam_type IS NULL OR {$exam}.exam_type <> 'direct' OR NOT EXISTS (
+            SELECT 1 FROM {$wpdb->prefix}olama_exam_attempts newer
+            WHERE newer.exam_id = {$attempt}.exam_id AND newer.student_uid = {$attempt}.student_uid
+              AND newer.exam_type = 'school' AND newer.is_preview = 0 AND newer.submitted_at IS NOT NULL
+              AND (newer.submitted_at > {$attempt}.submitted_at OR (newer.submitted_at = {$attempt}.submitted_at AND newer.id > {$attempt}.id))))";
+    }
+
     /** One aggregate query for the visible exams; previews and applicant tests are excluded. */
     public static function get_exam_summaries($exam_ids)
     {
@@ -22,8 +38,9 @@ class Olama_Exam_Manager
                 'average'=>null, 'highest'=>null, 'lowest'=>null, 'pass_rate'=>null);
         }
         $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $latest = self::latest_direct_attempt_condition();
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT exam_id, COUNT(*) AS attempts,
+            "SELECT a.exam_id, COUNT(*) AS attempts,
                 SUM(CASE WHEN result IN ('pass','fail') THEN 1 ELSE 0 END) AS graded,
                 SUM(CASE WHEN result = 'pass' THEN 1 ELSE 0 END) AS passed,
                 SUM(CASE WHEN result = 'fail' THEN 1 ELSE 0 END) AS failed,
@@ -31,10 +48,10 @@ class Olama_Exam_Manager
                 AVG(CASE WHEN result IN ('pass','fail') THEN percentage END) AS average,
                 MAX(CASE WHEN result IN ('pass','fail') THEN percentage END) AS highest,
                 MIN(CASE WHEN result IN ('pass','fail') THEN percentage END) AS lowest
-             FROM {$wpdb->prefix}olama_exam_attempts
-             WHERE exam_id IN ($placeholders) AND submitted_at IS NOT NULL
-               AND is_preview = 0 AND exam_type = 'school'
-             GROUP BY exam_id", $ids
+             FROM {$wpdb->prefix}olama_exam_attempts a JOIN {$wpdb->prefix}olama_exam_exams e ON e.id = a.exam_id
+             WHERE a.exam_id IN ($placeholders) AND a.submitted_at IS NOT NULL
+               AND a.is_preview = 0 AND a.exam_type = 'school' $latest
+             GROUP BY a.exam_id", $ids
         ));
         foreach ((array) $rows as $row) {
             $summary = &$summaries[intval($row->exam_id)];
@@ -68,7 +85,8 @@ class Olama_Exam_Manager
         global $wpdb;
         return $wpdb->query($wpdb->prepare(
             "UPDATE {$wpdb->prefix}olama_exam_exams SET status = 'closed'
-             WHERE status IN ('published', 'active') AND end_time > '0000-00-00 00:00:00' AND end_time <= %s",
+             WHERE status IN ('published', 'active') AND (exam_type IS NULL OR exam_type <> 'direct')
+               AND end_time > '0000-00-00 00:00:00' AND end_time <= %s",
             current_time('mysql')
         ));
     }
@@ -180,7 +198,8 @@ class Olama_Exam_Manager
                   LEFT JOIN {$wpdb->prefix}olama_subjects sub ON sub.id = e.subject_id
                   WHERE a.student_uid = %s AND a.submitted_at IS NOT NULL
                     AND a.is_preview = 0 AND a.exam_type = 'school' AND e.is_placement = 0
-                    AND e.show_results = 1 AND e.status IN ('active', 'closed')";
+                    AND (e.show_results = 1 OR e.exam_type = 'direct') AND e.status IN ('active', 'closed')";
+        $query .= self::latest_direct_attempt_condition();
         $params = array($student_uid);
         foreach (array('academic_year_id', 'semester_id') as $key) {
             if (!empty($scope[$key])) {
@@ -306,7 +325,7 @@ class Olama_Exam_Manager
     public static function get_exam($id)
     {
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare(
+        $exam = $wpdb->get_row($wpdb->prepare(
             "SELECT e.*, s.section_name, g.grade_name, g.id as grade_id, sub.subject_name
              FROM {$wpdb->prefix}olama_exam_exams e
              LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
@@ -315,6 +334,13 @@ class Olama_Exam_Manager
              WHERE e.id = %d",
             intval($id)
         ));
+        if (self::is_direct($exam)) {
+            $exam->duration_minutes = 0;
+            $exam->max_attempts = 0;
+            $exam->show_results = 1;
+            $exam->show_correct_answers = 1;
+        }
+        return $exam;
     }
 
     /**
@@ -401,6 +427,12 @@ class Olama_Exam_Manager
             }
         }
         if ($fields['exam_type'] === 'direct') {
+            $fields['start_time'] = '1970-01-01 00:00:00';
+            $fields['end_time'] = '9999-12-31 23:59:59';
+            $fields['duration_minutes'] = 0;
+            $fields['max_attempts'] = 0;
+            $fields['show_results'] = 1;
+            $fields['show_correct_answers'] = 1;
             $lesson = self::get_direct_lesson(intval($data['direct_lesson_id'] ?? 0));
             if (!$lesson || intval($lesson->subject_id) !== $fields['subject_id'] ||
                 intval($lesson->semester_id) !== $fields['semester_id'] || $fields['is_placement']) {
@@ -545,7 +577,7 @@ class Olama_Exam_Manager
             ));
         }
 
-        if ($new_status === 'active' && (empty($exam->end_time) || $exam->end_time <= current_time('mysql'))) {
+        if ($new_status === 'active' && !self::is_direct($exam) && (empty($exam->end_time) || $exam->end_time <= current_time('mysql'))) {
             return new WP_Error('expired_exam', 'لا يمكن تفعيل امتحان انتهى موعده. حدّث موعد الامتحان أولاً.');
         }
 

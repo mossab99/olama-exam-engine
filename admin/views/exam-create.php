@@ -310,6 +310,9 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                     </div>
                 </div>
 
+                <?php if ($is_direct_mode): ?>
+                <div class="oe-exam-list-message" style="padding:14px; text-align:right; background:#f0fdf4; border-radius:8px;">اختبار مراجعة مفتوح بلا موعد أو حد زمني، بمحاولات غير محدودة. تظهر النتيجة والإجابات الصحيحة بعد التسليم، وتُعتمد آخر محاولة مسلّمة فقط.</div>
+                <?php else: ?>
                 <!-- Timing -->
                 <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr;">
                     <div class="olama-exam-form-group">
@@ -329,6 +332,8 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                     </div>
                 </div>
 
+                <?php endif; ?>
+
                 <!-- Settings -->
                 <div class="olama-exam-form-row" style="grid-template-columns:1fr 1fr 1fr;">
                     <div class="olama-exam-form-group">
@@ -336,6 +341,7 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                         <input type="number" name="passing_grade" value="<?php echo esc_attr($exam->passing_grade ?? 50); ?>" 
                             min="0" max="100">
                     </div>
+                    <?php if (!$is_direct_mode): ?>
                     <div class="olama-exam-form-group">
                         <label><?php echo olama_exam_translate('Max Attempts'); ?></label>
                         <input type="number" name="max_attempts" value="<?php echo esc_attr($exam->max_attempts ?? 1); ?>" min="1" max="10">
@@ -358,6 +364,7 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
                                 <?php echo olama_exam_translate('Yes'); ?></option>
                         </select>
                     </div>
+                    <?php endif; ?>
                     <div class="olama-exam-form-group">
                         <label><?php echo olama_exam_translate('Password'); ?> (<?php echo olama_exam_translate('Optional'); ?>)</label>
                         <input type="password" name="password" value="<?php echo esc_attr($exam->password ?? ''); ?>" 

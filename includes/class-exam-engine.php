@@ -79,7 +79,7 @@ class Olama_Exam_Engine
                 if (!empty($exam->expires_at) && $now > $exam->expires_at) {
                     return new WP_Error('outside_window', olama_exam_translate('This acceptance test has expired.'));
                 }
-            } else {
+            } elseif (!Olama_Exam_Manager::is_direct($exam)) {
                 if ($now < $exam->start_time || $now >= $exam->end_time) {
                     return new WP_Error('outside_window', olama_exam_translate('This exam is outside its scheduled time window.'));
                 }
@@ -104,7 +104,7 @@ class Olama_Exam_Engine
             $exam_id,
             $student_uid
         ));
-        if (!$is_preview && !$is_admin_override && $attempt_count >= $exam->max_attempts) {
+        if (!$is_preview && !$is_admin_override && !Olama_Exam_Manager::is_direct($exam) && $attempt_count >= $exam->max_attempts) {
             return new WP_Error('max_attempts', olama_exam_translate('You have used all your attempts for this exam.'));
         }
 
@@ -217,6 +217,8 @@ class Olama_Exam_Engine
             'exam_title' => $exam->title,
             'student_name' => $student_name,
             'duration_minutes' => intval($exam->duration_minutes),
+            'timer_mode' => Olama_Exam_Manager::is_direct($exam) ? 'elapsed' : 'countdown',
+            'elapsed_seconds' => 0,
             'started_at' => $now,
             'questions' => $display_questions,
             'answers' => new stdClass(),
@@ -287,7 +289,7 @@ class Olama_Exam_Engine
         $allowed_seconds = ($exam->duration_minutes * 60) + 30; // 30s grace
 
         $submit_type = 'manual';
-        if ($elapsed_seconds > $allowed_seconds) {
+        if (!Olama_Exam_Manager::is_direct($exam) && $elapsed_seconds > $allowed_seconds) {
             $submit_type = 'auto_timeout';
         }
 
@@ -355,7 +357,7 @@ class Olama_Exam_Engine
         $elapsed = $now - $started;
         $allowed = ($exam->duration_minutes * 60) + 30;
 
-        if ($elapsed > $allowed) {
+        if (!Olama_Exam_Manager::is_direct($exam) && $elapsed > $allowed) {
             // Auto-submit expired attempt
             return self::submit($attempt_id);
         }
@@ -395,6 +397,8 @@ class Olama_Exam_Engine
             'duration_minutes' => intval($exam->duration_minutes),
             'started_at' => $attempt->started_at,
             'remaining_seconds' => $remaining_seconds,
+            'timer_mode' => Olama_Exam_Manager::is_direct($exam) ? 'elapsed' : 'countdown',
+            'elapsed_seconds' => max(0, $elapsed),
             'questions' => $display_questions,
             'answers' => $answers,
             'total_questions' => count($display_questions),
