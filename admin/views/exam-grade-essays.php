@@ -8,23 +8,27 @@ if (!defined('ABSPATH'))
 
 global $wpdb;
 
-// Get ALL submitted attempts, then filter in PHP for essay questions
+// School attempts use SIS student UIDs, rather than WordPress user IDs.
 $all_attempts = $wpdb->get_results(
-    "SELECT a.id as attempt_id, a.exam_id, a.student_id, a.score, a.max_score, 
+    "SELECT a.id as attempt_id, a.exam_id, a.student_uid, a.score, a.max_score,
             a.percentage, a.result, a.submitted_at,
             a.questions_snapshot_json,
             e.title as exam_title,
-            u.display_name as student_name
+            COALESCE(NULLIF(st.student_name, ''), NULLIF(p.student_name, ''), a.student_uid) as student_name
      FROM {$wpdb->prefix}olama_exam_attempts a
      JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
-     LEFT JOIN {$wpdb->users} u ON a.student_id = u.ID
-     WHERE a.submitted_at IS NOT NULL
+     LEFT JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
+     LEFT JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id AND e.is_placement = 1
+     WHERE a.submitted_at IS NOT NULL AND a.exam_type = 'school' AND a.is_preview = 0
      ORDER BY a.submitted_at DESC"
 );
 
 // Filter to attempts that have essay questions
 $pending_attempts = array();
 foreach ($all_attempts as $pa) {
+    if (!Olama_Exam_Ajax::can_teacher_access_exam($pa->exam_id)) {
+        continue;
+    }
     $snapshot = json_decode($pa->questions_snapshot_json, true) ?: array();
     $has_essay = false;
     $has_ungraded = false;
@@ -56,15 +60,20 @@ $essay_questions = array();
 
 if ($grading_attempt_id) {
     $grading_attempt = $wpdb->get_row($wpdb->prepare(
-        "SELECT a.*, e.title as exam_title, u.display_name as student_name
+        "SELECT a.*, e.title as exam_title,
+                COALESCE(NULLIF(st.student_name, ''), NULLIF(p.student_name, ''), a.student_uid) as student_name
          FROM {$wpdb->prefix}olama_exam_attempts a
          JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
-         LEFT JOIN {$wpdb->users} u ON a.student_id = u.ID
-         WHERE a.id = %d",
+         LEFT JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
+         LEFT JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id AND e.is_placement = 1
+         WHERE a.id = %d AND a.submitted_at IS NOT NULL AND a.exam_type = 'school' AND a.is_preview = 0",
         $grading_attempt_id
     ));
 
     if ($grading_attempt) {
+        if (!Olama_Exam_Ajax::can_teacher_access_exam($grading_attempt->exam_id)) {
+            wp_die(olama_exam_translate('Access Denied'));
+        }
         $snapshot = json_decode($grading_attempt->questions_snapshot_json, true) ?: array();
         $answers = json_decode($grading_attempt->answers_json, true) ?: array();
 
@@ -112,7 +121,7 @@ if ($grading_attempt_id) {
             </div>
             <div style="padding: 16px 20px; display: flex; gap: 30px; flex-wrap: wrap; font-size: 14px; color: #64748b;">
                 <span><strong><?php echo olama_exam_translate('Student'); ?>:</strong>
-                    <?php echo esc_html($grading_attempt->student_name ?? 'ID: ' . $grading_attempt->student_id); ?></span>
+                    <?php echo esc_html($grading_attempt->student_name ?: $grading_attempt->student_uid); ?></span>
                 <span><strong><?php echo olama_exam_translate('Submitted'); ?>:</strong>
                     <?php echo date('d/m/Y H:i', strtotime($grading_attempt->submitted_at)); ?></span>
                 <span><strong><?php echo olama_exam_translate('Current Score'); ?>:</strong>
@@ -230,7 +239,7 @@ if ($grading_attempt_id) {
                                     <?php echo esc_html($pa->exam_title); ?>
                                 </td>
                                 <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9;">
-                                    <?php echo esc_html($pa->student_name ?? 'ID: ' . $pa->student_id); ?>
+                                    <?php echo esc_html($pa->student_name ?: $pa->student_uid); ?>
                                 </td>
                                 <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: center;">
                                     <?php echo ($pa->score ?? 0) . ' / ' . ($pa->max_score ?? 0); ?>
