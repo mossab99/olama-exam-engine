@@ -1379,6 +1379,7 @@
 .olama-exam-wrap .oe-results-selected>td {background:#f5f7ff;}
 .oe-results-current {display:block; margin-top:5px; color:#4f46e5; font-size:11px;}
 .oe-results-exam-table .olama-exam-btn {white-space:nowrap;}
+.oe-results-summary .oe-summary-body {border-inline-start:0; padding-inline-start:0;}
 .oe-results-empty {padding:35px 16px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:9px; color:#64748b; background:#f8fafc; border:1px dashed #dbe3ef; border-radius:10px;}
 .oe-results-empty>.dashicons {font-size:30px; height:30px; width:30px; color:#818cf8;}
 .oe-results-empty strong {color:#475569; font-size:14px;}

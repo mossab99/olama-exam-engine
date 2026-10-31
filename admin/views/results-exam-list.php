@@ -36,6 +36,11 @@ $format_exam_date = static function($value) {
                         <td><span class="oe-results-status oe-results-status-<?php echo esc_attr($listed_exam->status); ?>"><?php echo esc_html($result_statuses[$listed_exam->status]); ?></span></td>
                         <td><a class="olama-exam-btn <?php echo $is_selected ? 'olama-exam-btn-primary' : 'olama-exam-btn-outline'; ?> olama-exam-btn-sm" href="<?php echo esc_url($results_url); ?>" <?php if ($is_selected): ?>aria-current="page"<?php endif; ?>>عرض النتائج</a><?php if ($is_selected): ?><small class="oe-results-current">الاختبار المحدد</small><?php endif; ?></td>
                     </tr>
+                    <tr class="oe-exam-summary-row<?php echo $is_selected ? ' oe-results-selected' : ''; ?>">
+                        <td colspan="5">
+                            <?php $exam_summary = $exam_summaries[$listed_exam->id]; include OLAMA_EXAM_PATH . 'admin/views/exam-summary.php'; ?>
+                        </td>
+                    </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>

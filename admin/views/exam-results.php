@@ -93,6 +93,7 @@ if (!Olama_Exam_Ajax::can_supervise_exams() && class_exists('Olama_School_Teache
 
 $exam_query .= " ORDER BY e.start_time DESC, e.created_at DESC, e.id DESC";
 $exams = array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam')));
+$exam_summaries = Olama_Exam_Manager::get_exam_summaries(array_column($exams, 'id'));
 
 $review_attempt_id = intval($_GET['review_attempt'] ?? 0);
 $selected_exam = null;
