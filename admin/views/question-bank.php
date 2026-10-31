@@ -46,9 +46,6 @@ $diff_labels = array(
     </div>
 
     <h2 class="nav-tab-wrapper" style="margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 0;">
-        <?php if (current_user_can('olama_create_exams') || current_user_can('manage_options')): ?>
-        <a href="<?php echo esc_url(admin_url('admin.php?page=olama-exam-direct')); ?>" class="nav-tab">الامتحانات المباشرة</a>
-        <?php endif; ?>
         <a href="?page=olama-exam" class="nav-tab <?php echo ($qb_type !== 'profession' && $qb_type !== 'grade_level') ? 'nav-tab-active' : ''; ?>">
             <?php echo olama_exam_translate('Academic Question Bank'); ?>
         </a>
