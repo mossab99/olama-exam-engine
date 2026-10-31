@@ -1310,3 +1310,14 @@
     .oe-publish-controls .olama-exam-form-group,
     .oe-publish-controls .olama-exam-btn {width: 100%;}
 }
+/* School exam list: clear subject hierarchy and the complete exam window. */
+.oe-exam-list-message {padding:40px 20px; text-align:center; color:#64748b; line-height:1.8;}
+#exams-list-error {color:#b91c1c;}
+.oe-exam-title {display:flex; flex-direction:column; gap:5px; min-width:210px; max-width:360px;}
+.oe-exam-title strong {color:#1e293b; font-size:15px; font-weight:700;}
+.oe-exam-title-detail {font-size:13px; font-weight:500; color:#475569; line-height:1.8;}
+.oe-exam-title-academic {font-size:12px; color:#64748b; font-weight:400;}
+.oe-exam-dates {display:flex; flex-direction:column; gap:7px; min-width:168px; font-size:12px;}
+.oe-exam-dates>div {display:flex; align-items:center; gap:8px; white-space:nowrap;}
+.oe-exam-dates span {min-width:37px; color:#64748b; font-size:11px;}
+.oe-exam-dates bdi {font-variant-numeric:tabular-nums; color:#334155;}

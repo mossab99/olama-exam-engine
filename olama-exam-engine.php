@@ -374,6 +374,14 @@ function olama_exam_enqueue_admin_assets($hook)
     olama_exam_enqueue_math_assets();
 
     wp_enqueue_script(
+        'olama-exam-list',
+        OLAMA_EXAM_URL . 'assets/js/exam-list.js',
+        array(),
+        OLAMA_EXAM_VERSION . '.' . filemtime(OLAMA_EXAM_PATH . 'assets/js/exam-list.js'),
+        false
+    );
+
+    wp_enqueue_script(
         'olama-exam-admin',
         OLAMA_EXAM_URL . 'assets/js/exam-admin.js',
         array('jquery'),
