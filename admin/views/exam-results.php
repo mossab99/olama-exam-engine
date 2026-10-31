@@ -13,6 +13,17 @@ $selected_year_id = intval($_GET['academic_year_id'] ?? 0);
 $selected_semester_id = intval($_GET['semester_id'] ?? 0);
 $selected_grade_id = intval($_GET['grade_id'] ?? 0);
 $selected_section_id = intval($_GET['section_id'] ?? 0);
+$selected_exam_id = intval($_GET['exam_id'] ?? 0);
+$linked_exam = $selected_exam_id ? Olama_Exam_Manager::get_exam($selected_exam_id) : null;
+$results_selection_error = false;
+if ($selected_exam_id && (!$linked_exam || !in_array($linked_exam->status, array('published', 'active', 'closed'), true) || !Olama_Exam_Ajax::can_teacher_access_exam($linked_exam))) {
+    $selected_exam_id = 0;
+    $linked_exam = null;
+    $results_selection_error = true;
+}
+$result_types = array('exam' => 'تقويم', 'quiz' => 'قصير', 'direct' => 'مباشر');
+$selected_exam_type = sanitize_text_field($_GET['exam_type'] ?? ($linked_exam->exam_type ?? 'exam'));
+if (!isset($result_types[$selected_exam_type])) $selected_exam_type = 'exam';
 
 // Default to active year/semester if not set
 if (!$selected_year_id && class_exists('Olama_School_Academic')) {
@@ -31,12 +42,21 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
 $sections = ($selected_grade_id && $selected_year_id && class_exists('Olama_School_Section')) ? Olama_School_Section::get_by_grade($selected_grade_id, $selected_year_id) : array();
 
 // Build Exam Query
-$exam_query = "SELECT e.id, e.title, sub.subject_name, s.section_name, e.is_placement
+$exam_query = "SELECT e.id, e.title, e.status, e.exam_type, e.start_time, e.end_time,
+                      e.academic_year_id, e.semester_id, e.section_id, e.subject_id,
+                      COALESCE(s.grade_id, sub.grade_id) AS grade_id, g.grade_name,
+                      sub.subject_name, s.section_name, e.is_placement
                FROM {$wpdb->prefix}olama_exam_exams e
                LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
                LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
-               WHERE 1=1";
+               LEFT JOIN {$wpdb->prefix}olama_grades g ON g.id = COALESCE(s.grade_id, sub.grade_id)
+               WHERE e.status IN ('published', 'active', 'closed')";
 $exam_query_params = array();
+if ($selected_exam_type === 'exam') {
+    $exam_query .= " AND (e.exam_type = 'exam' OR e.exam_type IS NULL OR e.exam_type = '')";
+} else {
+    $exam_query .= $wpdb->prepare(' AND e.exam_type = %s', $selected_exam_type);
+}
 
 if ($selected_year_id) {
     $exam_query .= $wpdb->prepare(" AND e.academic_year_id = %d", $selected_year_id);
@@ -47,6 +67,9 @@ if ($selected_semester_id) {
 
 if ($selected_section_id) {
     $exam_query .= $wpdb->prepare(" AND e.section_id = %d", $selected_section_id);
+}
+if ($selected_grade_id) {
+    $exam_query .= $wpdb->prepare(' AND COALESCE(s.grade_id, sub.grade_id) = %d', $selected_grade_id);
 }
 
 // ── Teacher Subject Filter ──────────────────────────────────────────────────
@@ -68,10 +91,9 @@ if (!Olama_Exam_Ajax::can_supervise_exams() && class_exists('Olama_School_Teache
 }
 // ── End Teacher Subject Filter ─────────────────────────────────────────────
 
-$exam_query .= " ORDER BY e.created_at DESC";
-$exams = $wpdb->get_results($exam_query);
+$exam_query .= " ORDER BY e.start_time DESC, e.created_at DESC, e.id DESC";
+$exams = array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam')));
 
-$selected_exam_id = intval($_GET['exam_id'] ?? 0);
 $review_attempt_id = intval($_GET['review_attempt'] ?? 0);
 $selected_exam = null;
 $attempts = array();
@@ -91,11 +113,12 @@ if ($review_attempt_id) {
          LEFT JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id
          LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
          LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
-         WHERE a.id = %d",
+         WHERE a.id = %d AND a.exam_type = 'school' AND a.is_preview = 0
+           AND e.status IN ('published', 'active', 'closed')",
         $review_attempt_id
     ));
 
-    if ($review_attempt) {
+    if ($review_attempt && Olama_Exam_Ajax::can_teacher_access_exam($review_attempt->exam_id)) {
         $snapshot = json_decode($review_attempt->questions_snapshot_json, true) ?: array();
         $answers = json_decode($review_attempt->answers_json, true) ?: array();
         $selected_exam_id = intval($review_attempt->exam_id);
@@ -159,7 +182,7 @@ if ($selected_exam_id && !$review_attempt_id) {
          LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
          LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
          LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
-         WHERE e.id = %d",
+         WHERE e.id = %d AND e.status IN ('published', 'active', 'closed')",
         $selected_exam_id
     ));
 
@@ -234,6 +257,7 @@ if ($selected_exam_id && !$review_attempt_id) {
 
     <?php include OLAMA_EXAM_PATH . 'admin/views/school-exams-tabs.php'; ?>
     <?php include OLAMA_EXAM_PATH . 'admin/views/results-publish.php'; ?>
+    <?php if ($results_selection_error): ?><div class="notice notice-warning"><p>الاختبار غير متاح لعرض النتائج أو ليس لديك صلاحية الوصول إليه.</p></div><?php endif; ?>
 
     <?php if ($review_data): ?>
         <!-- ═══════════════════════════════════════════════════════ -->
@@ -459,7 +483,7 @@ if ($selected_exam_id && !$review_attempt_id) {
         <!-- Exam Selector -->
         <div class="olama-exam-card" style="margin-bottom: 20px;">
             <div class="olama-exam-card-header">
-                <h3>📊 <?php echo olama_exam_translate('Select Exam'); ?></h3>
+                <h3>📊 تصفية نتائج الاختبارات</h3>
             </div>
             <div style="padding: 16px 20px;">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
@@ -527,28 +551,21 @@ if ($selected_exam_id && !$review_attempt_id) {
                         </select>
                     </div>
 
-                    <!-- Exam -->
+                    <!-- Exam type replaces the individual-exam dropdown. -->
                     <div>
-                        <label
-                            style="display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px;">
-                            📝 <?php echo olama_exam_translate('Select Exam'); ?>
-                        </label>
-                        <select id="exam-select" class="olama-exam-select" style="width: 100%;" <?php echo empty($exams) ? 'disabled' : ''; ?>>
-                            <option value=""><?php echo olama_exam_translate('Select Exam'); ?></option>
-                            <?php foreach ($exams as $e): ?>
-                                <option value="<?php echo $e->id; ?>" <?php selected($selected_exam_id, $e->id); ?>>
-                                    <?php
-                                    echo esc_html($e->title);
-                                    if ($e->subject_name) echo ' — ' . esc_html($e->subject_name);
-                                    if ($e->section_name) echo ' (' . esc_html($e->section_name) . ')';
-                                    ?>
-                                </option>
+                        <label for="exam-type-filter" style="display:block; font-size:13px; font-weight:600; color:#64748b; margin-bottom:8px;">نوع الاختبار</label>
+                        <select id="exam-type-filter" class="olama-exam-select" style="width:100%;">
+                            <?php foreach ($result_types as $type_key => $type_label): ?>
+                                <option value="<?php echo esc_attr($type_key); ?>" <?php selected($selected_exam_type, $type_key); ?>><?php echo esc_html($type_label); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
             </div>
         </div>
+
+        <?php include OLAMA_EXAM_PATH . 'admin/views/results-exam-list.php'; ?>
+        <div id="exam-results-detail"></div>
 
         <?php if ($selected_exam && $stats): ?>
             <!-- Statistics Cards -->
@@ -874,12 +891,6 @@ if ($selected_exam_id && !$review_attempt_id) {
                     <?php echo olama_exam_translate('No results yet for this exam.'); ?>
                 </p>
             </div>
-        <?php elseif (!$selected_exam_id): ?>
-            <div class="olama-exam-card">
-                <p style="color: #64748b; text-align: center; padding: 40px;">
-                    <?php echo olama_exam_translate('Select an exam to view results.'); ?>
-                </p>
-            </div>
         <?php endif; ?>
     <?php endif; /* end review_data else */ ?>
 </div>
@@ -889,6 +900,8 @@ if ($selected_exam_id && !$review_attempt_id) {
         // Hierarchical Filters Logic
         function updateFilters(params) {
             var url = new URL(window.location.href);
+            url.hash = '';
+            url.searchParams.delete('review_attempt');
             Object.keys(params).forEach(key => {
                 if (params[key]) {
                     url.searchParams.set(key, params[key]);
@@ -930,10 +943,16 @@ if ($selected_exam_id && !$review_attempt_id) {
             });
         });
 
-        $('#exam-select').on('change', function () {
-            updateFilters({
-                exam_id: $(this).val()
-            });
+        $('#exam-type-filter').on('change', function () {
+            updateFilters({exam_type: $(this).val(), exam_id: ''});
+        });
+
+        $('.oe-results-exam-title').each(function() {
+            var cell = $(this);
+            var parts = OlamaExamList.titleParts({title:cell.attr('data-title'), subject_name:cell.attr('data-subject')});
+            cell.empty().append($('<strong>').text(parts.subject));
+            if (parts.detail) cell.append($('<span class="oe-exam-title-detail">').text(parts.detail));
+            if (parts.academic) cell.append($('<small class="oe-exam-title-academic">').append($('<bdi>').text('(' + parts.academic + ')')));
         });
 
         // CSV Export

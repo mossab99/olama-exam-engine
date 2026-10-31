@@ -1362,3 +1362,25 @@
     .oe-summary-body {border-inline-start:0; padding-inline-start:0;}
     .oe-summary-metrics {grid-template-columns:repeat(3,minmax(0,1fr));}
 }
+/* Results browser: chronological exams replace the crowded exam dropdown. */
+.oe-results-count {display:inline-flex; align-items:center; justify-content:center; min-width:27px; padding:2px 8px; margin-inline-start:7px; font-size:12px; font-weight:600; border-radius:99px; background:#eef2ff; color:#4f46e5;}
+.oe-results-order,.oe-results-list-hint {color:#64748b; font-size:12px;}
+.oe-results-list-hint {margin:0 0 18px; line-height:1.8;}
+.oe-results-table-scroll {overflow:auto; max-height:460px;}
+.oe-results-exam-table thead th {position:sticky; top:0; z-index:1;}
+.oe-results-exam-table {min-width:700px;}
+.oe-results-exam-table .oe-exam-title {max-width:420px;}
+.oe-results-class {display:flex; flex-direction:column; gap:3px; min-width:95px; font-size:13px;}
+.oe-results-class span {color:#64748b; font-size:12px;}
+.oe-results-status {display:inline-flex; padding:4px 11px; border-radius:99px; font-size:12px; font-weight:600; white-space:nowrap;}
+.oe-results-status-published {color:#1d4ed8; background:#dbeafe;}
+.oe-results-status-active {color:#047857; background:#dcfce7;}
+.oe-results-status-closed {color:#64748b; background:#f1f5f9;}
+.olama-exam-wrap .oe-results-selected>td {background:#f5f7ff;}
+.oe-results-current {display:block; margin-top:5px; color:#4f46e5; font-size:11px;}
+.oe-results-exam-table .olama-exam-btn {white-space:nowrap;}
+.oe-results-empty {padding:35px 16px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:9px; color:#64748b; background:#f8fafc; border:1px dashed #dbe3ef; border-radius:10px;}
+.oe-results-empty>.dashicons {font-size:30px; height:30px; width:30px; color:#818cf8;}
+.oe-results-empty strong {color:#475569; font-size:14px;}
+.oe-results-empty p {margin:0; font-size:13px;}
+@media(max-width:600px) {.oe-results-order {display:none;}}
