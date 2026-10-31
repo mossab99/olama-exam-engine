@@ -19,6 +19,15 @@ $grades          = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades
 $show_form = isset($_GET['edit']);
 $edit_id   = intval($_GET['edit'] ?? 0);
 $exam      = $edit_id > 0 ? Olama_Exam_Manager::get_exam($edit_id) : null;
+$is_direct_mode = ($_GET['page'] ?? '') === 'olama-exam-direct' || ($exam && $exam->exam_type === 'direct');
+$direct_lesson = $is_direct_mode ? Olama_Exam_Manager::get_direct_lesson($exam->direct_lesson_id ?? intval($_GET['lesson_id'] ?? 0)) : null;
+if ($is_direct_mode && (!$direct_lesson || ($edit_id > 0 && (!$exam || $exam->exam_type !== 'direct')))) {
+    wp_die('الدرس أو الامتحان المباشر غير موجود.');
+}
+$return_url = admin_url('admin.php?page=' . ($is_direct_mode ? 'olama-exam-direct' : (($_GET['page'] ?? '') === 'olama-exam-create-quiz' ? 'olama-exam-create-quiz' : 'olama-exam-create')));
+if ($direct_lesson) {
+    $return_url = add_query_arg(array('filter_grade' => $direct_lesson->grade_id, 'filter_subject' => $direct_lesson->subject_id), $return_url);
+}
 $exam_questions = ($exam && $exam->question_mode === 'manual' && $exam->manual_question_ids) 
     ? json_decode($exam->manual_question_ids, true) : array();
 
@@ -27,7 +36,7 @@ $exam_questions = ($exam && $exam->question_mode === 'manual' && $exam->manual_q
 // assigned to that exam's subject+section. Supervisors/Admins always pass.
 if ($show_form && $edit_id > 0 && $exam) {
     if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
-        $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+        $list_page = $is_direct_mode ? 'olama-exam-direct' : (($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create');
         echo '<script>window.location.href="' . admin_url('admin.php?page=' . $list_page . '&access_denied=1') . '";</script>';
         exit;
     }
@@ -39,6 +48,7 @@ $is_quiz_mode = (isset($_GET['page']) && $_GET['page'] === 'olama-exam-create-qu
 $page_title = $show_form 
     ? ($exam ? olama_exam_translate($is_quiz_mode ? 'Edit Quiz' : 'Edit Exam') : ($is_quiz_mode ? olama_exam_translate('Create Quiz') : olama_exam_translate('Create Exam')))
     : ($is_quiz_mode ? olama_exam_translate('Quizzes') : olama_exam_translate('Exams'));
+if ($is_direct_mode) { $page_title = $exam ? 'تعديل امتحان مباشر' : 'إنشاء امتحان مباشر'; }
 
 $exam_label = $is_quiz_mode ? olama_exam_translate('Quiz') : olama_exam_translate('Exam');
 
@@ -62,7 +72,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         </div>
         <div class="actions">
             <?php if ($show_form): ?>
-                <a href="<?php echo admin_url('admin.php?page=' . ($is_quiz_mode ? 'olama-exam-create-quiz' : 'olama-exam-create')); ?>" class="olama-exam-btn olama-exam-btn-outline">
+                <a href="<?php echo esc_url($return_url); ?>" class="olama-exam-btn olama-exam-btn-outline">
                     ← <?php echo olama_exam_translate('Back to List'); ?>
                 </a>
             <?php else: ?>
@@ -156,15 +166,19 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     <!-- ═══════════════════ EXAM FORM VIEW ═══════════════════ -->
 
     <form id="exam-form">
+        <?php if ($is_direct_mode): ?>
+        <input type="hidden" name="direct_lesson_id" value="<?php echo absint($direct_lesson->id); ?>">
+        <div class="olama-exam-card" style="padding:20px;" dir="rtl"><strong><?php echo esc_html($direct_lesson->unit_name . ' — ' . $direct_lesson->lesson_title); ?></strong><p>أسئلة هذا الاختبار محصورة ببنك هذا الدرس فقط.</p></div>
+        <?php endif; ?>
         <input type="hidden" name="id" value="<?php echo $exam ? $exam->id : 0; ?>">
-        <input type="hidden" name="exam_type" value="<?php echo $exam ? $exam->exam_type : ($is_quiz_mode ? 'quiz' : 'exam'); ?>">
+        <input type="hidden" name="exam_type" value="<?php echo $is_direct_mode ? 'direct' : ($exam ? $exam->exam_type : ($is_quiz_mode ? 'quiz' : 'exam')); ?>">
 
         <!-- Info Card -->
         <div class="olama-exam-card">
             <div class="olama-exam-card-header" style="justify-content: space-between; display: flex;">
                 <h3>📋 <?php echo sprintf(olama_exam_translate('%s Details'), $exam_label); ?></h3>
                 <div style="display: flex; gap: 15px; align-items: center;">
-                    <?php if (!$is_quiz_mode): ?>
+                    <?php if (!$is_quiz_mode && !$is_direct_mode): ?>
                     <label class="oe-toggle-option" style="margin: 0;">
                         <span style="font-size: 13px; font-weight: 600; color: #1e293b; margin: 0 10px;"><?php echo olama_exam_translate('Grade Placement Test'); ?></span>
                         <div class="oe-toggle-switch">
@@ -181,7 +195,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 </div>
             </div>
             
-            <?php if (!$is_quiz_mode): ?>
+            <?php if (!$is_quiz_mode && !$is_direct_mode): ?>
             <!-- SIS Exam Info Banner -->
             <div id="sis-exam-info" style="display:none; background:#f0fdf4; border-bottom:1px solid #dcfce7; padding:12px 20px;">
                 <div style="display:flex; align-items:center; gap:12px; color:#166534; font-size:13px; font-weight:600;">
@@ -198,7 +212,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 <!-- Title (auto-generated) -->
                 <div class="olama-exam-form-group">
                     <label><?php echo sprintf(olama_exam_translate('%s Title'), $exam_label); ?></label>
-                    <input type="text" name="title" id="exam-title-input" value="<?php echo esc_attr($exam->title ?? ''); ?>" required
+                    <input type="text" name="title" id="exam-title-input" value="<?php echo esc_attr($exam->title ?? ($direct_lesson ? 'اختبار — ' . $direct_lesson->lesson_title : '')); ?>" required
                         placeholder="<?php echo olama_exam_translate('Auto-generated after selecting grade, section & subject'); ?>">
                     <small id="exam-title-hint" style="color:#64748b; font-size:12px; display:none;">
                         💡 <?php echo olama_exam_translate('Title auto-generated. You can edit it.'); ?>
@@ -477,7 +491,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
         <!-- Save Bar -->
         <div style="padding:20px 0; display:flex; gap:12px; justify-content:flex-end;">
-            <a href="<?php echo admin_url('admin.php?page=olama-exam-create'); ?>" 
+            <a href="<?php echo esc_url($return_url); ?>"
                 class="olama-exam-btn olama-exam-btn-outline"><?php echo olama_exam_translate('Cancel'); ?></a>
             <button type="submit" class="olama-exam-btn olama-exam-btn-primary" style="min-width:160px;">
                 💾 <?php echo olama_exam_translate('Save Exam'); ?>
@@ -548,6 +562,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     var statusClasses = <?php echo json_encode(array_map(function($s){ return $s['class']; }, $status_labels)); ?>;
     var selectedIds = <?php echo json_encode($exam_questions); ?>;
     var isQuizMode = <?php echo $is_quiz_mode ? 'true' : 'false'; ?>;
+    var directLesson = <?php echo wp_json_encode($direct_lesson); ?>;
 
     // Cached schedule data
     $('#publish-exam-results').on('click', function() {
@@ -887,6 +902,11 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                     html += '<option value="' + s2.id + '" ' + sel2 + '>' + s2.subject_name + '</option>';
                 }
                 subjectSel.html(html).prop('disabled', false);
+                if (directLesson) {
+                    subjectSel.val(directLesson.subject_id);
+                    // Keep the fixed subject in the submitted form.
+                    subjectSel.find('option').filter(function() { return this.value != directLesson.subject_id; }).remove();
+                }
             }
             checkReady();
         });
@@ -894,6 +914,12 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
 
     // ── Fetch Exam Schedule Info when all 3 are selected ──
     function fetchScheduleInfo() {
+        if (directLesson) {
+            populateUnitDropdowns();
+            searchQuestions();
+            updateSelectedUI();
+            return;
+        }
         var gradeId   = $('#exam-grade-select').val();
         var sectionId = $('#exam-section-select').val();
         var subjectId = $('#exam-subject-select').val();
@@ -967,6 +993,13 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     }
 
     function populateUnitDropdowns() {
+        if (directLesson) {
+            var option = $('<option>').val('l_' + directLesson.id).text(directLesson.lesson_title);
+            $('#q-filter-unit, #random-unit-select').empty().append(option).prop('disabled', true);
+            $('#q-show-all-units').closest('.oe-toggle-option').hide();
+            $('#q-show-all-units').closest('.oe-toggle-row').hide();
+            return;
+        }
         var showAll = $('#q-show-all-units').is(':checked');
         var units = showAll ? allSubjectUnits : materialUnits;
         var currentRandomUnit = <?php echo intval($exam->random_unit_id ?? 0); ?>;
@@ -1011,9 +1044,13 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     $('#exam-subject-select').on('change', fetchScheduleInfo);
 
     // Auto-trigger grade cascade on edit
-    <?php if ($exam && isset($exam->grade_id) && $exam->grade_id > 0): ?>
+    <?php if ($direct_lesson || ($exam && isset($exam->grade_id) && $exam->grade_id > 0)): ?>
     $(document).ready(function() {
-        $('#exam-grade-select').val(<?php echo $exam->grade_id; ?>).trigger('change');
+        var initialGrade = <?php echo intval($direct_lesson->grade_id ?? $exam->grade_id); ?>;
+        if (directLesson) {
+            $('#exam-grade-select option').filter(function() { return this.value != initialGrade; }).remove();
+        }
+        $('#exam-grade-select').val(initialGrade).trigger('change');
     });
     <?php endif; ?>
 
@@ -1078,8 +1115,8 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             nonce: olamaExam.nonce,
             grade_id: $('#exam-grade-select').val(),
             subject_id: $('#exam-subject-select').val(),
-            unit_id: filterUnit,
-            lesson_id: filterLesson,
+            unit_id: directLesson ? directLesson.unit_id : filterUnit,
+            lesson_id: directLesson ? directLesson.id : filterLesson,
             type: $('#q-filter-type').val(),
             search: $('#q-filter-search').val(),
         }, function(res) {
@@ -1174,6 +1211,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             nonce: olamaExam.nonce,
             grade_id: $('#exam-grade-select').val(),
             subject_id: $('#exam-subject-select').val(),
+            lesson_id: directLesson ? directLesson.id : '',
         }, function(res) {
             if (!res.success) return;
             var all = res.data;
@@ -1228,6 +1266,12 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             }
         }
         data.action = 'olama_exam_save_exam';
+        if (directLesson) {
+            data.direct_lesson_id = directLesson.id;
+            data.exam_type = 'direct';
+            data.random_lesson_id = directLesson.id;
+            data.random_unit_id = directLesson.unit_id;
+        }
         data.nonce = olamaExam.nonce;
 
         $.post(olamaExam.ajaxUrl, data, function(res) {
@@ -1235,7 +1279,8 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 ExamAdmin.toast(res.data.message);
                 var gradeId = $('#exam-grade-select').val();
                 var sectionId = $('#exam-section-select').val();
-                var url = '?page=' + (isQuizMode ? 'olama-exam-create-quiz' : 'olama-exam-create');
+                var url = '?page=' + (directLesson ? 'olama-exam-direct' : (isQuizMode ? 'olama-exam-create-quiz' : 'olama-exam-create'));
+                if (directLesson) url += '&filter_subject=' + directLesson.subject_id;
                 if (gradeId && gradeId != '0') url += '&filter_grade=' + gradeId;
                 if (sectionId && sectionId != '0') url += '&filter_section=' + sectionId;
                 window.location = url;

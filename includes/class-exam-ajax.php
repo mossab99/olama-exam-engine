@@ -1082,6 +1082,11 @@ class Olama_Exam_Ajax
             self::abort_if_no_exam_access($check_obj);
         }
 
+        // Also validate the destination assignment when an existing exam changes scope.
+        self::abort_if_no_exam_access((object) array(
+            'subject_id' => intval($_POST['subject_id'] ?? 0),
+            'section_id' => intval($_POST['section_id'] ?? 0),
+        ));
         $result = Olama_Exam_Manager::save_exam($_POST);
 
         if (is_wp_error($result)) {
@@ -1252,6 +1257,9 @@ class Olama_Exam_Ajax
             $filters['exam_type'] = sanitize_text_field($_POST['exam_type'] ?? '');
 
         $exams = Olama_Exam_Manager::get_exams($filters, true);
+        if (($filters['exam_type'] ?? '') === 'direct') {
+            $exams = array_values(array_filter($exams, array(__CLASS__, 'can_teacher_access_exam')));
+        }
 
         // Compute question_count efficiently without N+1 queries
         foreach ($exams as &$exam) {

@@ -104,6 +104,7 @@ class Olama_Exam_DB
             show_correct_answers TINYINT(1) NOT NULL DEFAULT 0,
             is_placement TINYINT(1) NOT NULL DEFAULT 0,
             exam_type VARCHAR(20) NOT NULL DEFAULT 'exam',
+            direct_lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             password VARCHAR(255) NULL,
             status VARCHAR(15) NOT NULL DEFAULT 'draft',
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

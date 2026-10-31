@@ -10,6 +10,15 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    public static function get_direct_lesson($id)
+    {
+        global $wpdb;
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT l.*, u.subject_id, u.grade_id, u.semester_id, u.unit_name
+             FROM {$wpdb->prefix}olama_curriculum_lessons l
+             JOIN {$wpdb->prefix}olama_curriculum_units u ON u.id = l.unit_id WHERE l.id = %d", intval($id)
+        ));
+    }
     /** Enable results for school exams in an explicit academic scope. */
     public static function publish_results($year_id, $semester_id, $grade_id = 0)
     {
@@ -89,7 +98,7 @@ class Olama_Exam_Manager
                     e.start_time, e.end_time, e.duration_minutes, e.passing_grade,
                     e.max_attempts, e.question_mode, e.random_count,
                     e.random_category_id, e.random_unit_id, e.random_lesson_id,
-                    e.random_difficulty, e.manual_question_ids, e.question_limit, e.show_results, e.is_placement, e.exam_type, e.password, e.status, e.created_at,
+                    e.random_difficulty, e.manual_question_ids, e.question_limit, e.show_results, e.is_placement, e.exam_type, e.direct_lesson_id, e.password, e.status, e.created_at,
                     s.section_name, COALESCE(g.grade_name, g2.grade_name) as grade_name, sub.subject_name,
                     u.display_name as teacher_name";
 
@@ -254,12 +263,68 @@ class Olama_Exam_Manager
             if (is_string($ids)) {
                 $ids = json_decode($ids, true) ?: array();
             }
+            if (!is_array($ids)) {
+                return new WP_Error('invalid_questions', 'قائمة الأسئلة غير صالحة.');
+            }
             $fields['manual_question_ids'] = json_encode(array_map('intval', $ids));
             $fields['random_count'] = null;
             $fields['random_category_id'] = null;
             $fields['random_unit_id'] = null;
             $fields['random_lesson_id'] = null;
             $fields['random_difficulty'] = null;
+        }
+
+        if ($id > 0) {
+            // The stored lesson binding cannot be removed by submitting a different exam type.
+            $existing = self::get_exam($id);
+            if ($existing && !empty($existing->direct_lesson_id)) {
+                $data['direct_lesson_id'] = $existing->direct_lesson_id;
+                $fields['exam_type'] = 'direct';
+            }
+        }
+        if ($fields['exam_type'] === 'direct') {
+            $lesson = self::get_direct_lesson(intval($data['direct_lesson_id'] ?? 0));
+            if (!$lesson || intval($lesson->subject_id) !== $fields['subject_id'] ||
+                intval($lesson->semester_id) !== $fields['semester_id'] || $fields['is_placement']) {
+                return new WP_Error('invalid_lesson', 'يجب اختيار درس من المادة والفصل الدراسي المحددين.');
+            }
+            $section_grade = $wpdb->get_var($wpdb->prepare("SELECT grade_id FROM {$wpdb->prefix}olama_sections WHERE id = %d", $fields['section_id']));
+            if (intval($section_grade) !== intval($lesson->grade_id)) {
+                return new WP_Error('invalid_section', 'الشعبة المحددة لا تتبع صف الدرس.');
+            }
+            $fields['direct_lesson_id'] = intval($lesson->id);
+            if (!in_array($fields['question_mode'], array('manual', 'random'), true)) {
+                return new WP_Error('invalid_mode', 'طريقة اختيار الأسئلة غير صالحة.');
+            }
+            if ($fields['question_mode'] === 'random') {
+                $fields['random_lesson_id'] = intval($lesson->id);
+                $fields['random_unit_id'] = intval($lesson->unit_id);
+                $fields['random_category_id'] = 0;
+                $count_sql = "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions WHERE lesson_id = %d AND unit_id = %d";
+                $count_params = array($lesson->id, $lesson->unit_id);
+                if ($fields['random_difficulty'] !== '') {
+                    $count_sql .= ' AND difficulty = %s';
+                    $count_params[] = $fields['random_difficulty'];
+                }
+                $available = intval($wpdb->get_var($wpdb->prepare($count_sql, $count_params)));
+                if ($fields['random_count'] < 1 || $fields['random_count'] > $available) {
+                    return new WP_Error('invalid_count', 'عدد الأسئلة المطلوب يتجاوز الأسئلة المتاحة لهذا الدرس.');
+                }
+            } else {
+                $ids = array_values(array_unique(array_map('intval', json_decode($fields['manual_question_ids'], true))));
+                if (empty($ids)) {
+                    return new WP_Error('no_questions', 'اختر سؤالاً واحداً على الأقل من هذا الدرس.');
+                }
+                $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+                $valid = intval($wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->prefix}olama_exam_questions WHERE lesson_id = %d AND unit_id = %d AND id IN ($placeholders)",
+                    array_merge(array($lesson->id, $lesson->unit_id), $ids)
+                )));
+                if ($valid !== count($ids)) {
+                    return new WP_Error('outside_lesson', 'يمكن اختيار الأسئلة من بنك هذا الدرس فقط.');
+                }
+                $fields['manual_question_ids'] = json_encode($ids);
+            }
         }
 
         if ($id > 0) {
@@ -389,11 +454,26 @@ class Olama_Exam_Manager
         if (!$exam)
             return array();
 
+        if (!empty($exam->direct_lesson_id)) {
+            $lesson = self::get_direct_lesson($exam->direct_lesson_id);
+            if (!$lesson || intval($lesson->subject_id) !== intval($exam->subject_id)) {
+                return array();
+            }
+            $exam = clone $exam;
+            $exam->random_lesson_id = $lesson->id;
+            $exam->random_unit_id = $lesson->unit_id;
+        }
         if ($exam->question_mode === 'random') {
             return self::resolve_random_questions($exam);
         }
 
-        return self::resolve_manual_questions($exam);
+        $questions = self::resolve_manual_questions($exam);
+        if (!empty($exam->direct_lesson_id)) {
+            $questions = array_values(array_filter($questions, function($question) use ($lesson) {
+                return intval($question->lesson_id) === intval($lesson->id) && intval($question->unit_id) === intval($lesson->unit_id);
+            }));
+        }
+        return $questions;
     }
 
     /**
@@ -440,6 +520,10 @@ class Olama_Exam_Manager
         if (!empty($exam->random_lesson_id)) {
             $id_query .= " AND q.lesson_id = %d";
             $params[] = intval($exam->random_lesson_id);
+            if (!empty($exam->direct_lesson_id)) {
+                $id_query .= " AND q.unit_id = %d";
+                $params[] = intval($exam->random_unit_id);
+            }
         } elseif (!empty($exam->random_unit_id)) {
             $id_query .= " AND q.unit_id = %d";
             $params[] = intval($exam->random_unit_id);

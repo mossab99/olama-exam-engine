@@ -217,6 +217,14 @@ function olama_exam_init()
     }
 
     // One-time migrations
+    if (!get_option('olama_exam_direct_lessons_v1')) {
+        global $wpdb;
+        $direct_table = $wpdb->prefix . 'olama_exam_exams';
+        $direct_column = $wpdb->get_var("SHOW COLUMNS FROM {$direct_table} LIKE 'direct_lesson_id'");
+        if ($direct_column || false !== $wpdb->query("ALTER TABLE {$direct_table} ADD COLUMN direct_lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0")) {
+            update_option('olama_exam_direct_lessons_v1', true);
+        }
+    }
     olama_exam_migrate_unit_id();
     olama_exam_migrate_preview_support();
     olama_exam_migrate_student_uid();

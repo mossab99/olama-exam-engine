@@ -18,7 +18,7 @@ if (!$exam) {
 // ── Teacher Access Guard ────────────────────────────────────────────────────
 // Prevent teachers from previewing exams outside their subject/section assignment.
 if (!Olama_Exam_Ajax::can_teacher_access_exam($exam)) {
-    $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+    $list_page = ($exam->exam_type === 'direct') ? 'olama-exam-direct' : (($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create');
     echo '<script>window.location.href="' . admin_url('admin.php?page=' . $list_page . '&access_denied=1') . '";</script>';
     exit;
 }
@@ -105,7 +105,7 @@ wp_enqueue_style('olama-exam-fonts', 'https://fonts.googleapis.com/css2?family=I
             <h2><?php echo esc_html($exam->title); ?></h2>
         </div>
         <?php 
-        $list_page = ($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create';
+        $list_page = ($exam->exam_type === 'direct') ? 'olama-exam-direct' : (($exam->exam_type === 'quiz') ? 'olama-exam-create-quiz' : 'olama-exam-create');
         ?>
         <div class="preview-actions">
             <a href="?page=<?php echo $list_page; ?>" class="olama-exam-btn olama-exam-btn-outline">

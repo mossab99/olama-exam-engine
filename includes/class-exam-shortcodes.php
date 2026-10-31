@@ -224,7 +224,9 @@ class Olama_Exam_Shortcodes
                                         <div class="oe-card-top">
                                             <div style="display:flex; gap:6px; align-items:center;">
                                                 <div class="oe-subject-tag" style="background: <?php echo $subject_color; ?>20; color: <?php echo $subject_color; ?>;"><?php echo esc_html($exam->subject_name ?: olama_exam_translate('General')); ?></div>
-                                                <?php if ($exam->exam_type === 'quiz'): ?>
+                                                <?php if ($exam->exam_type === 'direct'): ?>
+                                                    <span class="oe-status-badge" style="background:#e0e7ff; color:#4338ca;">امتحان مباشر</span>
+                                                <?php elseif ($exam->exam_type === 'quiz'): ?>
                                                     <span class="oe-status-badge" style="background:#fef3c7; color:#d97706;"><?php echo olama_exam_translate('Quiz'); ?></span>
                                                 <?php endif; ?>
                                             </div>

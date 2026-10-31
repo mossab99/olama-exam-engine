@@ -32,7 +32,7 @@ class Olama_Exam_Admin
     public function highlight_school_exams_menu($submenu_file)
     {
         global $plugin_page;
-        if (in_array($plugin_page, array('olama-exam-create-quiz', 'olama-exam-results', 'olama-exam-grade-essays'))) {
+        if (in_array($plugin_page, array('olama-exam-direct', 'olama-exam-create-quiz', 'olama-exam-results', 'olama-exam-grade-essays'))) {
             $submenu_file = 'olama-exam-create';
         }
         return $submenu_file;
@@ -57,6 +57,8 @@ class Olama_Exam_Admin
      */
     public function register_menus()
     {
+        add_submenu_page(null, 'الامتحانات المباشرة', 'الامتحانات المباشرة',
+            $this->get_capability('olama_create_exams'), 'olama-exam-direct', array($this, 'render_direct_exams'));
         // Top-level menu
         add_menu_page(
             olama_exam_translate('Exam Engine'),
@@ -236,6 +238,15 @@ class Olama_Exam_Admin
     public function render_question_bank()
     {
         include OLAMA_EXAM_PATH . 'admin/views/question-bank.php';
+    }
+
+    public function render_direct_exams()
+    {
+        if (isset($_GET['edit'])) {
+            include OLAMA_EXAM_PATH . 'admin/views/exam-create.php';
+        } else {
+            include OLAMA_EXAM_PATH . 'admin/views/direct-exams.php';
+        }
     }
 
     public function render_gift_import()
