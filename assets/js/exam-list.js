@@ -3,7 +3,8 @@
     'use strict';
     const list = {
         hasFilters(filters) {
-            return Boolean(filters.status || Number(filters.grade_id) > 0 || Number(filters.section_id) > 0 || String(filters.search || '').trim());
+            return Number(filters.academic_year_id) > 0 && Number(filters.semester_id) > 0 &&
+                Number(filters.grade_id) > 0 && Number(filters.section_id) > 0;
         },
         titleParts(exam) {
             const title = String(exam.title || '').trim();

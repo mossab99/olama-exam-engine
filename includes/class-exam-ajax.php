@@ -1196,6 +1196,13 @@ class Olama_Exam_Ajax
     {
         self::verify_request(array('olama_create_exams', 'olama_view_exam_results', 'olama_grade_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
 
+        $section_scope = array();
+        if (($_POST['list_scope'] ?? '') === 'section') {
+            $section_scope = Olama_Exam_Manager::get_section_list_scope($_POST);
+            if (is_wp_error($section_scope)) {
+                wp_send_json_error(array('message' => $section_scope->get_error_message()), 400);
+            }
+        }
         $filters = array();
 
         // Role-based filtering: Teachers only see their assigned subjects, while Admins/Supervisors see all.
@@ -1256,6 +1263,8 @@ class Olama_Exam_Ajax
         if (!empty($_POST['exam_type']))
             $filters['exam_type'] = sanitize_text_field($_POST['exam_type'] ?? '');
 
+        // The visible academic year is fixed by the system, never by request data.
+        $filters = array_merge($filters, $section_scope);
         $exams = Olama_Exam_Manager::get_exams($filters, true);
         if (($filters['exam_type'] ?? '') === 'direct') {
             $exams = array_values(array_filter($exams, array(__CLASS__, 'can_teacher_access_exam')));

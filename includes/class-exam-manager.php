@@ -21,6 +21,37 @@ class Olama_Exam_Manager
         global $wpdb;
         return (array) $wpdb->get_results("SELECT * FROM {$wpdb->prefix}olama_grades WHERE is_active = 1 ORDER BY CAST(grade_level AS SIGNED) ASC, id ASC");
     }
+    /** Validate the mandatory class/section scope for the school exam list. */
+    public static function get_section_list_scope($request)
+    {
+        global $wpdb;
+        list($year) = olama_exam_get_active_academic_context();
+        $grade_id = absint($request['grade_id'] ?? 0);
+        $section_id = absint($request['section_id'] ?? 0);
+        $semester_id = absint($request['semester_id'] ?? 0);
+        if (!$year || !$grade_id || !$section_id || !$semester_id) {
+            return new WP_Error('missing_scope', 'اختر الفصل الدراسي والصف والشعبة لعرض الاختبارات.');
+        }
+        $semesters = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_semesters($year->id) : array();
+        if (!in_array($semester_id, array_map('intval', array_column($semesters, 'id')), true)) {
+            return new WP_Error('invalid_semester', 'الفصل الدراسي لا يتبع العام الأكاديمي النشط.');
+        }
+        $section = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}olama_sections WHERE id = %d AND grade_id = %d AND academic_year_id = %d",
+            $section_id, $grade_id, $year->id
+        ));
+        if (!$section) {
+            return new WP_Error('invalid_section', 'الشعبة لا تتبع الصف والعام الأكاديمي المحددين.');
+        }
+        $subject_id = absint($request['subject_id'] ?? 0);
+        if ($subject_id && !$wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}olama_subjects WHERE id = %d AND grade_id = %d AND is_active = 1", $subject_id, $grade_id
+        ))) {
+            return new WP_Error('invalid_subject', 'المادة لا تتبع الصف المحدد.');
+        }
+        return array('academic_year_id' => intval($year->id), 'semester_id' => $semester_id, 'grade_id' => $grade_id, 'section_id' => $section_id);
+    }
+
     public static function get_direct_lesson($id)
     {
         global $wpdb;

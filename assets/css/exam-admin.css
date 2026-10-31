@@ -1321,3 +1321,11 @@
 .oe-exam-dates>div {display:flex; align-items:center; gap:8px; white-space:nowrap;}
 .oe-exam-dates span {min-width:37px; color:#64748b; font-size:11px;}
 .oe-exam-dates bdi {font-variant-numeric:tabular-nums; color:#334155;}
+/* The school list is scoped to one academic year, semester, grade and section. */
+.olama-exam-wrap .oe-school-list-filters {display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px 16px; align-items:end;}
+.oe-school-list-filters .olama-exam-form-group {margin:0; min-width:0;}
+.oe-school-list-filters input,.oe-school-list-filters select {width:100%; max-width:none; box-sizing:border-box;}
+.oe-school-list-filters .oe-filter-search {grid-column:span 2;}
+.oe-filter-required {color:#dc2626; margin-inline-start:3px;}
+@media(max-width:1000px) {.olama-exam-wrap .oe-school-list-filters {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:600px) {.olama-exam-wrap .oe-school-list-filters {grid-template-columns:1fr;} .oe-school-list-filters .oe-filter-search {grid-column:auto;}}

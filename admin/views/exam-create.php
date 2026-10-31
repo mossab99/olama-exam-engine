@@ -62,6 +62,12 @@ $status_labels = array(
 // Pre-filter list by URL params
 $list_grade_id   = intval($_GET['filter_grade'] ?? 0);
 $list_section_id = intval($_GET['filter_section'] ?? 0);
+$list_subject_id = intval($_GET['filter_subject'] ?? 0);
+$list_semesters = ($active_year && class_exists('Olama_School_Academic')) ? Olama_School_Academic::get_semesters($active_year->id) : array();
+$list_semester_id = intval($_GET['filter_semester'] ?? ($active_semester->id ?? 0));
+if (!in_array($list_semester_id, array_map('intval', array_column($list_semesters, 'id')), true)) {
+    $list_semester_id = 0;
+}
 ?>
 
 <div class="olama-exam-wrap" dir="rtl">
@@ -98,26 +104,51 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     <?php endif; ?>
 
     <!-- Filters -->
-    <div class="olama-exam-filters">
+    <div class="olama-exam-filters oe-school-list-filters">
+        <div class="olama-exam-form-group">
+            <label for="filter-exam-year">العام الأكاديمي</label>
+            <input type="text" id="filter-exam-year" value="<?php echo esc_attr($active_year->year_name ?? '—'); ?>" readonly data-id="<?php echo absint($active_year->id ?? 0); ?>">
+        </div>
+        <div class="olama-exam-form-group">
+            <label for="filter-exam-semester">الفصل الدراسي</label>
+            <select id="filter-exam-semester" required>
+                <option value="">— اختر الفصل الدراسي —</option>
+                <?php foreach ($list_semesters as $semester): ?>
+                    <option value="<?php echo absint($semester->id); ?>" <?php echo $list_semester_id === intval($semester->id) ? 'selected' : ''; ?>><?php echo esc_html($semester->semester_name); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="olama-exam-form-group">
+        <label for="filter-exam-grade">الصف <span class="oe-filter-required">*</span></label>
+        <select id="filter-exam-grade" required>
+            <option value="">— اختر الصف —</option>
+            <?php foreach ($grades as $g): ?>
+                <option value="<?php echo $g->id; ?>" <?php echo ($list_grade_id == $g->id) ? 'selected' : ''; ?>><?php echo esc_html($g->grade_name); ?></option>
+            <?php endforeach; ?>
+        </select>
+        </div>
+        <div class="olama-exam-form-group">
+            <label for="filter-exam-section">الشعبة <span class="oe-filter-required">*</span></label>
+            <select id="filter-exam-section" required disabled><option value="">— اختر الصف أولاً —</option></select>
+        </div>
+        <div class="olama-exam-form-group">
+            <label for="filter-exam-subject">المادة</label>
+            <select id="filter-exam-subject" disabled><option value="">— اختر الصف أولاً —</option></select>
+        </div>
+        <div class="olama-exam-form-group">
+        <label for="filter-exam-status">الحالة</label>
         <select id="filter-exam-status">
             <option value=""><?php echo olama_exam_translate('All'); ?> — <?php echo olama_exam_translate('Status'); ?></option>
             <?php foreach ($status_labels as $key => $sl): ?>
                 <option value="<?php echo $key; ?>"><?php echo $sl['label']; ?></option>
             <?php endforeach; ?>
         </select>
-        <select id="filter-exam-grade">
-            <option value=""><?php echo olama_exam_translate('All'); ?> — <?php echo olama_exam_translate('Grade'); ?></option>
-            <?php foreach ($grades as $g): ?>
-                <option value="<?php echo $g->id; ?>" <?php echo ($list_grade_id == $g->id) ? 'selected' : ''; ?>>
-                    <?php echo esc_html($g->grade_name); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <select id="filter-exam-section" <?php echo $list_grade_id ? '' : 'disabled'; ?>>
-            <option value=""><?php echo olama_exam_translate('All'); ?> — <?php echo olama_exam_translate('Section'); ?></option>
-        </select>
+        </div>
+        <div class="olama-exam-form-group oe-filter-search">
+        <label for="filter-exam-search">البحث</label>
         <input type="search" id="filter-exam-search" class="olama-exam-search"
             placeholder="<?php echo olama_exam_translate('Search'); ?>...">
+        </div>
     </div>
 
 
@@ -126,7 +157,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         <div class="olama-exam-card-header">
             <h3><?php echo $is_quiz_mode ? 'اختبارات قصيرة' : 'اختبارات التقويم'; ?> (<span id="exam-count">0</span>)</h3>
         </div>
-        <div id="exams-filter-prompt" class="oe-exam-list-message" role="status">حدد الصف أو الحالة أو أدخل كلمة بحث لعرض الاختبارات.</div>
+        <div id="exams-filter-prompt" class="oe-exam-list-message" role="status">اختر الفصل الدراسي والصف والشعبة لعرض الاختبارات.</div>
         <div id="exams-list-error" class="oe-exam-list-message" role="alert" style="display:none;">تعذر تحميل الاختبارات. حاول مجدداً بتعديل الفلتر.</div>
         <div id="exams-loading" style="display:none; text-align:center; padding:40px; color:#64748b;">
             ⏳ <?php echo olama_exam_translate('Loading...'); ?>
@@ -571,6 +602,10 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
             search: ($('#filter-exam-search').val() || '').trim(),
             grade_id: $('#filter-exam-grade').val(),
             section_id: $('#filter-exam-section').val(),
+            subject_id: $('#filter-exam-subject').val(),
+            academic_year_id: $('#filter-exam-year').attr('data-id'),
+            semester_id: $('#filter-exam-semester').val(),
+            list_scope: 'section',
             exam_type: isQuizMode ? 'quiz' : 'exam',
         };
 
@@ -756,23 +791,40 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
         searchTimer = setTimeout(loadExams, 300);
     });
 
-    // List filter: Grade → Section cascade
-    $('#filter-exam-grade').on('change', function() {
-        var gradeId = $(this).val();
-        $('#filter-exam-section').html('<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>').prop('disabled', true);
+    // A grade owns both the required section and the optional subject filter.
+    var listFilterGeneration = 0;
+    function loadGradeFilters(gradeId, restoreSection, restoreSubject) {
+        var token = ++listFilterGeneration;
+        var sectionsReady = false, subjectsReady = false;
+        var section = $('#filter-exam-section'), subject = $('#filter-exam-subject');
+        section.empty().append($('<option>').val('').text('— اختر الشعبة —')).prop('disabled', true);
+        subject.empty().append($('<option>').val('').text('كل المواد')).prop('disabled', true);
         loadExams();
-        if (!gradeId) return;
-        $.post(olamaExam.ajaxUrl, { action: 'olama_exam_get_sections_by_grade', nonce: olamaExam.nonce, grade_id: gradeId }, function(res) {
-            if ($('#filter-exam-grade').val() !== gradeId || !res.success) return;
-            var html = '<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>';
-            var sections = res.data || [];
-            for (var i = 0; i < sections.length; i++) {
-                html += '<option value="' + sections[i].id + '">' + sections[i].section_name + '</option>';
-            }
-            $('#filter-exam-section').html(html).prop('disabled', false);
-        });
-    });
-    $('#filter-exam-section').on('change', loadExams);
+        if (!Number(gradeId)) return;
+        function current() { return token === listFilterGeneration; }
+        function refresh() { if (sectionsReady && subjectsReady) loadExams(); }
+        function failed() { if (current()) ExamAdmin.toast('تعذر تحميل قوائم الصف. أعد اختيار الصف للمحاولة مجدداً.', 'error'); }
+        $.post(olamaExam.ajaxUrl, {action:'olama_exam_get_sections_by_grade', nonce:olamaExam.nonce, grade_id:gradeId}).done(function(res) {
+            if (!current()) return;
+            if (!res.success) { failed(); return; }
+            (res.data || []).forEach(function(item) { section.append($('<option>').val(item.id).text(item.section_name)); });
+            section.prop('disabled', false).val(String(restoreSection || ''));
+            if (!section.val()) section.val('');
+            sectionsReady = true;
+            refresh();
+        }).fail(failed);
+        $.post(olamaExam.ajaxUrl, {action:'olama_exam_get_subjects_by_grade', nonce:olamaExam.nonce, grade_id:gradeId}).done(function(res) {
+            if (!current()) return;
+            if (!res.success) { failed(); return; }
+            (res.data || []).forEach(function(item) { subject.append($('<option>').val(item.id).text(item.subject_name)); });
+            subject.prop('disabled', false).val(String(restoreSubject || ''));
+            if (!subject.val()) subject.val('');
+            subjectsReady = true;
+            refresh();
+        }).fail(failed);
+    }
+    $('#filter-exam-grade').on('change', function() { loadGradeFilters($(this).val(), 0, 0); });
+    $('#filter-exam-section, #filter-exam-semester, #filter-exam-subject').on('change', loadExams);
 
     // New Exam button → redirect to form
     $('#btn-new-exam').on('click', function() {
@@ -1040,21 +1092,9 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
     });
     <?php endif; ?>
 
-    <?php if ($list_grade_id > 0): ?>
+    <?php if (!$show_form && $list_grade_id > 0): ?>
     $(document).ready(function() {
-        var gradeId = <?php echo $list_grade_id; ?>;
-        $.post(olamaExam.ajaxUrl, { action: 'olama_exam_get_sections_by_grade', nonce: olamaExam.nonce, grade_id: gradeId }, function(res) {
-            if ($('#filter-exam-grade').val() !== String(gradeId) || !res.success) return;
-            var html = '<option value=""><?php echo olama_exam_translate("All"); ?> — <?php echo olama_exam_translate("Section"); ?></option>';
-            var sections = res.data || [];
-            for (var i = 0; i < sections.length; i++) {
-                var s = sections[i];
-                var sel = (<?php echo $list_section_id; ?> == s.id) ? 'selected' : '';
-                html += '<option value="' + s.id + '" ' + sel + '>' + s.section_name + '</option>';
-            }
-            $('#filter-exam-section').html(html).prop('disabled', false);
-            if (<?php echo $list_section_id; ?> > 0) loadExams();
-        });
+        loadGradeFilters(<?php echo $list_grade_id; ?>, <?php echo $list_section_id; ?>, <?php echo $list_subject_id; ?>);
     });
     <?php endif; ?>
 
@@ -1269,6 +1309,7 @@ $list_section_id = intval($_GET['filter_section'] ?? 0);
                 var sectionId = $('#exam-section-select').val();
                 var url = '?page=' + (directLesson ? 'olama-exam-direct' : (isQuizMode ? 'olama-exam-create-quiz' : 'olama-exam-create'));
                 if (directLesson) url += '&filter_subject=' + directLesson.subject_id;
+                else url += '&filter_subject=' + $('#exam-subject-select').val() + '&filter_semester=' + data.semester_id;
                 if (gradeId && gradeId != '0') url += '&filter_grade=' + gradeId;
                 if (sectionId && sectionId != '0') url += '&filter_section=' + sectionId;
                 window.location = url;

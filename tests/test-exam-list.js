@@ -2,9 +2,13 @@
 const assert = require('node:assert/strict');
 const list = require('../assets/js/exam-list.js');
 assert.equal(list.hasFilters({exam_type:'exam', search:'   ', grade_id:'0'}), false);
-for (const filters of [{grade_id:'2'}, {status:'active'}, {section_id:4}, {search:'  تقويم  '}]) {
-    assert.equal(list.hasFilters(filters), true);
+for (const filters of [{grade_id:'2'}, {status:'active'}, {section_id:4}, {search:'  تقويم  '}, {grade_id:2,section_id:4}]) {
+    assert.equal(list.hasFilters(filters), false);
 }
+const scope = {academic_year_id:8, semester_id:2, grade_id:3, section_id:7};
+assert.equal(list.hasFilters(scope), true);
+assert.equal(list.hasFilters({...scope, subject_id:9, status:'published'}), true);
+for (const key of Object.keys(scope)) assert.equal(list.hasFilters({...scope,[key]:''}), false);
 const exam = {
     subject_name:'اللغة الانجليزية',
     title:'2026-2027 - First Semester - امتحان التقويم الثاني - أول ثانوي - أ - اللغة الانجليزية'
