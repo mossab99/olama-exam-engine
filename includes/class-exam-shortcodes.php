@@ -109,8 +109,8 @@ class Olama_Exam_Shortcodes
              LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
              LEFT JOIN {$wpdb->prefix}olama_grades g ON s.grade_id = g.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-             WHERE e.status IN ('active', 'published')
-               AND e.end_time >= %s",
+             WHERE e.status = 'active'
+               AND e.end_time > %s",
             $family_id,
             $now
         );
@@ -130,7 +130,8 @@ class Olama_Exam_Shortcodes
               FROM {$wpdb->prefix}olama_exam_attempts a
               JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
               JOIN {$wpdb->prefix}olama_students st ON a.student_uid = st.student_uid
-              WHERE st.family_id = %s AND a.submitted_at IS NOT NULL",
+             WHERE st.family_id = %s AND a.submitted_at IS NOT NULL
+               AND a.exam_type = 'school' AND a.is_preview = 0 AND e.status IN ('active', 'closed')",
             $family_id
         );
 
@@ -196,7 +197,7 @@ class Olama_Exam_Shortcodes
                                 $has_unsubmitted = !empty($exam->unsubmitted_id);
 
                                 $remaining_attempts = intval($exam->max_attempts) - intval($attempt_count);
-                                $is_active_status = in_array($exam->status, array('active', 'published'));
+                                $is_active_status = $exam->status === 'active';
                                 
                                 $now = current_time('mysql');
                                 $in_window = ($now >= $exam->start_time && $now <= $exam->end_time);
@@ -481,7 +482,7 @@ class Olama_Exam_Shortcodes
              FROM {$wpdb->prefix}olama_exam_attempts a
              JOIN {$wpdb->prefix}olama_exam_exams e ON a.exam_id = e.id
              LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
-             WHERE a.id = %d",
+             WHERE a.id = %d AND e.status IN ('active', 'closed')",
             $attempt_id
         ));
 
@@ -609,7 +610,7 @@ class Olama_Exam_Shortcodes
         global $wpdb;
         $exam = $wpdb->get_row($wpdb->prepare("SELECT e.*, g.grade_name FROM {$wpdb->prefix}olama_exam_exams e LEFT JOIN {$wpdb->prefix}olama_grades g ON e.section_id = g.id WHERE e.id = %d", $exam_id));
 
-        if (!$exam || !$exam->is_placement) {
+        if (!$exam || !$exam->is_placement || $exam->status !== 'active' || $exam->end_time <= current_time('mysql')) {
             return '<div class="oe-error">' . olama_exam_translate('This is not a placement test.') . '</div>';
         }
 

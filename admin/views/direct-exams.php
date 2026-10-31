@@ -213,7 +213,7 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
             $('#direct-ready-count').text(readyLessons + ' / ' + totalLessons);
             $('#direct-exam-count').text(totalExams);
             $('#direct-overview').prop('hidden', !units.length);
-            feedback(units.length ? 'يمكنك إنشاء أكثر من اختبار لكل درس. اختر «إنشاء اختبار» للبدء من أسئلة الدرس.' : 'لا توجد وحدات لهذه المادة في الفصل الدراسي النشط.', units.length ? 'info' : 'empty');
+            feedback(units.length ? 'يمكنك إنشاء أكثر من اختبار لكل درس. يظهر الامتحان للطلاب بعد تفعيله فقط، ويُغلق تلقائيًا عند انتهاء موعده.' : 'لا توجد وحدات لهذه المادة في الفصل الدراسي النشط.', units.length ? 'info' : 'empty');
         }).fail(function() { if (token === generation) fail(); }).always(function() { if (token === generation) $('#direct-units').attr('aria-busy', 'false'); });
     }
     $('#direct-grade').on('change', function() {

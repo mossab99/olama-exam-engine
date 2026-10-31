@@ -168,7 +168,7 @@ register_activation_hook(__FILE__, 'olama_exam_activate');
 // ── Plugin Deactivation ────────────────────────────────────────
 function olama_exam_deactivate()
 {
-// Clean up scheduled events if any
+    wp_clear_scheduled_hook('olama_exam_close_expired');
 }
 register_deactivation_hook(__FILE__, 'olama_exam_deactivate');
 
@@ -233,6 +233,8 @@ function olama_exam_init()
     olama_exam_sync_db_columns();
     olama_exam_migrate_grade_level_id();
     Olama_Exam_DB::migrate_legacy_attempt_student_uids();
+
+    Olama_Exam_Manager::init_lifecycle();
 
     // Suppress system noise (WPvivid, etc.)
     Olama_Exam_Logger::suppress_noise();

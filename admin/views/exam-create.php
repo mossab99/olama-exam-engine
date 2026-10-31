@@ -93,6 +93,7 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
 
     <?php if (!$show_form): ?>
     <!-- ═══════════════════ EXAM LIST VIEW ═══════════════════ -->
+    <p class="oe-exam-list-message" style="padding:0 4px 16px; margin:0; text-align:right;">نشر الامتحان يجهّزه فقط. يظهر للطلاب بعد التفعيل، ويُغلق تلقائيًا عند انتهاء موعده.</p>
 
     <?php
     // Show access-denied notice if redirected from a denied exam
@@ -686,10 +687,10 @@ if (!in_array($list_semester_id, array_map('intval', array_column($list_semester
         switch (e.status) {
             case 'draft':
                 return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
-                    'data-id="' + e.id + '" data-status="published" title="Publish">📢</button>';
+                    'data-id="' + e.id + '" data-status="published" title="نشر وتجهيز الامتحان">📢</button>';
             case 'published':
                 return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
-                    'data-id="' + e.id + '" data-status="active" title="Activate">▶️</button>';
+                    'data-id="' + e.id + '" data-status="active" title="تفعيل وإتاحة الامتحان للطلاب">▶️</button>';
             case 'active':
                 return '<button class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm btn-status" ' +
                     'data-id="' + e.id + '" data-status="closed" title="Close">⏹️</button>';

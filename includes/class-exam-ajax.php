@@ -1333,9 +1333,14 @@ class Olama_Exam_Ajax
         }
 
         $exam = Olama_Exam_Manager::get_exam($exam_id);
-        $is_accessible = $exam && in_array($exam->status, array('active', 'published'));
+        $is_accessible = $exam && $exam->status === 'active';
         if (!$exam || !$exam->is_placement || !$is_accessible) {
             wp_send_json_error(array('message' => 'Invalid or inactive placement test.'));
+        }
+
+        $now = current_time('mysql');
+        if ($now < $exam->start_time || $now >= $exam->end_time) {
+            wp_send_json_error(array('message' => olama_exam_translate('This exam is outside its scheduled time window.')));
         }
 
         // Generate a unique UID for this placement session

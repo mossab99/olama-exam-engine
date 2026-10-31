@@ -67,7 +67,7 @@ class Olama_Exam_Engine
         }
 
         // Check exam is active (unless preview or override)
-        $is_accessible = in_array($exam->status, array('active', 'published'));
+        $is_accessible = $exam->status === 'active';
         if (!$is_accessible && !$is_preview && !$is_admin_override) {
             return new WP_Error('not_active', olama_exam_translate('This exam is not currently active.'));
         }
@@ -80,7 +80,7 @@ class Olama_Exam_Engine
                     return new WP_Error('outside_window', olama_exam_translate('This acceptance test has expired.'));
                 }
             } else {
-                if ($now < $exam->start_time || $now > $exam->end_time) {
+                if ($now < $exam->start_time || $now >= $exam->end_time) {
                     return new WP_Error('outside_window', olama_exam_translate('This exam is outside its scheduled time window.'));
                 }
             }
@@ -338,6 +338,15 @@ class Olama_Exam_Engine
             }
         } else {
             $exam = Olama_Exam_Manager::get_exam($attempt->exam_id);
+        }
+
+        // Existing attempts may finish after closing; unpublished exams stay private.
+        if (!$exam) {
+            return new WP_Error('not_found', 'Exam not found.');
+        }
+        if ($attempt->exam_type === 'school' && empty($attempt->is_preview) &&
+            !in_array($exam->status, array('active', 'closed'), true)) {
+            return new WP_Error('not_active', olama_exam_translate('This exam is not currently active.'));
         }
 
         // Check if time has expired

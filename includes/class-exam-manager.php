@@ -10,6 +10,33 @@ if (!defined('ABSPATH')) {
 
 class Olama_Exam_Manager
 {
+    /** Register a clock-based sweep and reconcile overdue exams on every visit. */
+    public static function init_lifecycle()
+    {
+        add_filter('cron_schedules', array(__CLASS__, 'lifecycle_schedules'));
+        add_action('olama_exam_close_expired', array(__CLASS__, 'close_expired_exams'));
+        if (!wp_next_scheduled('olama_exam_close_expired')) {
+            wp_schedule_event(time() + 60, 'olama_exam_minute', 'olama_exam_close_expired');
+        }
+        self::close_expired_exams();
+    }
+
+    public static function lifecycle_schedules($schedules)
+    {
+        $schedules['olama_exam_minute'] = array('interval' => 60, 'display' => 'Olama exam expiry (every minute)');
+        return $schedules;
+    }
+
+    public static function close_expired_exams()
+    {
+        global $wpdb;
+        return $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->prefix}olama_exam_exams SET status = 'closed'
+             WHERE status IN ('published', 'active') AND end_time > '0000-00-00 00:00:00' AND end_time <= %s",
+            current_time('mysql')
+        ));
+    }
+
     /** Keep every grade selector in the academic system's progression order. */
     public static function get_ordered_grades()
     {
@@ -105,7 +132,7 @@ class Olama_Exam_Manager
                   LEFT JOIN {$wpdb->prefix}olama_subjects sub ON sub.id = e.subject_id
                   WHERE a.student_uid = %s AND a.submitted_at IS NOT NULL
                     AND a.is_preview = 0 AND a.exam_type = 'school' AND e.is_placement = 0
-                    AND e.show_results = 1 AND e.status IN ('published', 'active', 'closed')";
+                    AND e.show_results = 1 AND e.status IN ('active', 'closed')";
         $params = array($student_uid);
         foreach (array('academic_year_id', 'semester_id') as $key) {
             if (!empty($scope[$key])) {
@@ -468,6 +495,10 @@ class Olama_Exam_Manager
                 $current,
                 $new_status
             ));
+        }
+
+        if ($new_status === 'active' && (empty($exam->end_time) || $exam->end_time <= current_time('mysql'))) {
+            return new WP_Error('expired_exam', 'لا يمكن تفعيل امتحان انتهى موعده. حدّث موعد الامتحان أولاً.');
         }
 
         // Validate exam has questions before publishing
