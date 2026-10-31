@@ -30,12 +30,23 @@ check_admin($wpdb->params === array(8, 9, 2), 'Publishing must preserve explicit
 foreach (array("e.exam_type IN ('exam', 'quiz')", "e.status IN ('published', 'active', 'closed')", 'e.is_placement = 0', 'e.academic_year_id = %d', 'e.semester_id = %d', 'COALESCE(s.grade_id, sub.grade_id) = %d') as $condition) {
     check_admin(strpos($wpdb->sql, $condition) !== false, 'Publishing scope missing: ' . $condition);
 }
+check_admin(Olama_Exam_Manager::hide_results(8, 9, 2) === 3, 'Hiding must return updated count.');
+check_admin($wpdb->params === array(8, 9, 2) && strpos($wpdb->sql, 'SET e.show_results = 0') !== false && strpos($wpdb->sql, 'AND e.show_results = 1') !== false, 'Hiding must reverse publication within the same academic and grade scope.');
+foreach (array("e.exam_type IN ('exam', 'quiz')", "e.status IN ('published', 'active', 'closed')", 'e.is_placement = 0') as $condition) {
+    check_admin(strpos($wpdb->sql, $condition) !== false, 'Hiding scope missing: ' . $condition);
+}
+Olama_Exam_Manager::hide_results(8, 9);
+check_admin($wpdb->params === array(8, 9) && strpos($wpdb->sql, 'COALESCE(s.grade_id') === false, 'All-grade hiding must stay within the year and semester.');
 Olama_Exam_Ajax::$supervisor = false;
 $denied = Olama_Exam_Manager::publish_results(8, 9);
 check_admin($denied instanceof WP_Error && $denied->code === 'forbidden', 'Only supervisors can publish results.');
+$denied = Olama_Exam_Manager::hide_results(8, 9);
+check_admin($denied instanceof WP_Error && $denied->code === 'forbidden', 'Only supervisors can hide results.');
 Olama_Exam_Ajax::$supervisor = true;
 $missing = Olama_Exam_Manager::publish_results(0, 9);
 check_admin($missing instanceof WP_Error && $missing->code === 'missing_scope', 'Publishing must require an academic year.');
+$missing = Olama_Exam_Manager::hide_results(8, 0);
+check_admin($missing instanceof WP_Error && $missing->code === 'missing_scope', 'Hiding must require a semester.');
 
 // Load the source-system branch only after verifying the fallback branch.
 require __DIR__ . '/fixtures/school-grade-source.php';
