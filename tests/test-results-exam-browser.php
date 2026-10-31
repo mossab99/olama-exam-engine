@@ -77,7 +77,7 @@ require OLAMA_EXAM_PATH . 'includes/class-exam-manager.php';
 $wpdb = new Results_Browser_DB();
 function render_results_browser($params) {
     global $wpdb;
-    $_GET = array_merge(array('page'=>'olama-exam-results','grade_id'=>1), $params);
+    $_GET = array_merge(array('page'=>'olama-exam-results','grade_id'=>1,'section_id'=>1), $params);
     ob_start();
     try {
         include OLAMA_EXAM_PATH . 'admin/views/exam-results.php';
@@ -94,8 +94,15 @@ foreach (array('60%', '50%', 'بانتظار التصحيح: 1', 'ناجح: 1', 
 }
 check_browser(render_results_browser(array('exam_type'=>'quiz'))['ids'] === array(5), 'Quiz filter is incorrect.');
 check_browser(render_results_browser(array('exam_type'=>'direct'))['ids'] === array(6), 'Direct filter is incorrect.');
-check_browser(render_results_browser(array('grade_id'=>2))['ids'] === array(8), 'Grade selection must filter even without a section.');
+check_browser(render_results_browser(array('grade_id'=>2,'section_id'=>2))['ids'] === array(8), 'Grade and section selection must filter the list.');
 check_browser(render_results_browser(array('section_id'=>2))['ids'] === array(), 'Grade and section must both constrain the list.');
+foreach (array(array('grade_id'=>0), array('section_id'=>0), array('grade_id'=>0,'section_id'=>0), array('section_id'=>99)) as $scope) {
+    $empty = render_results_browser($scope);
+    check_browser($empty['ids'] === array() && strpos($empty['html'], 'اختر الصف والشعبة لعرض نتائج الامتحانات.') !== false && strpos($empty['html'], 'oe-exam-summary-row') === false, 'Both a valid grade and its section are mandatory before displaying exams and statistics.');
+}
+check_browser(render_results_browser(array('exam_id'=>2,'section_id'=>0))['selected'] === 0, 'An exam link must not bypass mandatory class selection.');
+check_browser(render_results_browser(array('exam_id'=>8))['selected'] === 0, 'Result detail must belong to the selected section.');
+check_browser(strpos($view['html'], 'oe-results-table-scroll') === false, 'Results must flow with the page rather than inside a nested scrolling container.');
 check_browser(render_results_browser(array('exam_id'=>4))['selected'] === 0, 'Draft result links must be rejected.');
 check_browser(render_results_browser(array('exam_id'=>9))['selected'] === 0, 'Unauthorized result links must be rejected.');
 check_browser(render_results_browser(array('exam_id'=>6))['type'] === 'direct', 'Direct links must infer the proper exam type.');

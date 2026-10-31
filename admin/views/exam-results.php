@@ -40,6 +40,16 @@ $years = class_exists('Olama_School_Academic') ? Olama_School_Academic::get_year
 $semesters = ($selected_year_id && class_exists('Olama_School_Academic')) ? Olama_School_Academic::get_semesters($selected_year_id) : array();
 $grades = Olama_Exam_Manager::get_ordered_grades();
 $sections = ($selected_grade_id && $selected_year_id && class_exists('Olama_School_Section')) ? Olama_School_Section::get_by_grade($selected_grade_id, $selected_year_id) : array();
+$results_scope_ready = $selected_year_id > 0 && $selected_grade_id > 0 && $selected_section_id > 0 &&
+    in_array($selected_section_id, array_map('intval', array_column($sections, 'id')), true);
+if (!$results_scope_ready) {
+    $selected_exam_id = 0;
+} elseif ($selected_exam_id && ((int) $linked_exam->section_id !== $selected_section_id ||
+    (int) $linked_exam->academic_year_id !== $selected_year_id ||
+    ($selected_semester_id && (int) $linked_exam->semester_id !== $selected_semester_id))) {
+    $selected_exam_id = 0;
+    $results_selection_error = true;
+}
 
 // Build Exam Query
 $exam_query = "SELECT e.id, e.title, e.status, e.exam_type, e.start_time, e.end_time,
@@ -92,14 +102,21 @@ if (!Olama_Exam_Ajax::can_supervise_exams() && class_exists('Olama_School_Teache
 // ── End Teacher Subject Filter ─────────────────────────────────────────────
 
 $exam_query .= " ORDER BY e.start_time DESC, e.created_at DESC, e.id DESC";
-$exams = array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam')));
+$exams = $results_scope_ready ? array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam'))) : array();
 $exam_summaries = Olama_Exam_Manager::get_exam_summaries(array_column($exams, 'id'));
 
-$review_attempt_id = intval($_GET['review_attempt'] ?? 0);
+$review_attempt_id = $results_scope_ready ? intval($_GET['review_attempt'] ?? 0) : 0;
 $selected_exam = null;
 $attempts = array();
 $stats = null;
 $review_data = null;
+$result_detail_url = static function($exam_id, $attempt_id = 0) use ($selected_year_id, $selected_semester_id, $selected_grade_id, $selected_section_id, $selected_exam_type) {
+    $params = array('page'=>'olama-exam-results', 'exam_id'=>$exam_id,
+        'academic_year_id'=>$selected_year_id, 'semester_id'=>$selected_semester_id,
+        'grade_id'=>$selected_grade_id, 'section_id'=>$selected_section_id, 'exam_type'=>$selected_exam_type);
+    if ($attempt_id) $params['review_attempt'] = $attempt_id;
+    return add_query_arg($params, admin_url('admin.php'));
+};
 
 // ── Handle Attempt Review ─────────────────────────────
 if ($review_attempt_id) {
@@ -115,8 +132,8 @@ if ($review_attempt_id) {
          LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
          LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
          WHERE a.id = %d AND a.exam_type = 'school' AND a.is_preview = 0
-           AND e.status IN ('published', 'active', 'closed')",
-        $review_attempt_id
+           AND e.status IN ('published', 'active', 'closed') AND e.section_id = %d",
+        $review_attempt_id, $selected_section_id
     ));
 
     if ($review_attempt && Olama_Exam_Ajax::can_teacher_access_exam($review_attempt->exam_id)) {
@@ -268,7 +285,7 @@ if ($selected_exam_id && !$review_attempt_id) {
         $rqs = $review_data['questions']; ?>
 
         <div style="margin-bottom: 16px;">
-            <a href="<?php echo admin_url('admin.php?page=olama-exam-results&exam_id=' . $selected_exam_id); ?>"
+            <a href="<?php echo esc_url($result_detail_url($selected_exam_id)); ?>"
                 class="button">
                 ← <?php echo olama_exam_translate('Back'); ?>
             </a>
@@ -470,7 +487,7 @@ if ($selected_exam_id && !$review_attempt_id) {
 
         <!-- Back to results button -->
         <div style="text-align: center; margin: 24px 0;">
-            <a href="<?php echo admin_url('admin.php?page=olama-exam-results&exam_id=' . $selected_exam_id); ?>"
+            <a href="<?php echo esc_url($result_detail_url($selected_exam_id)); ?>"
                 class="button button-primary" style="padding: 8px 28px; font-size: 14px;">
                 ← <?php echo olama_exam_translate('Back to Results'); ?>
             </a>
@@ -522,11 +539,12 @@ if ($selected_exam_id && !$review_attempt_id) {
 
                     <!-- Grade -->
                     <div>
-                        <label
+                        <label for="grade-filter"
                             style="display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px;">
                             🎓 <?php echo olama_exam_translate('Grade'); ?>
+                            <span class="oe-filter-required">*</span>
                         </label>
-                        <select id="grade-filter" class="olama-exam-select" style="width: 100%;">
+                        <select id="grade-filter" class="olama-exam-select" style="width: 100%;" required>
                             <option value=""><?php echo olama_exam_translate('Select Grade'); ?></option>
                             <?php foreach ($grades as $g): ?>
                                 <option value="<?php echo $g->id; ?>" <?php selected($selected_grade_id, $g->id); ?>>
@@ -538,11 +556,12 @@ if ($selected_exam_id && !$review_attempt_id) {
 
                     <!-- Section -->
                     <div>
-                        <label
+                        <label for="section-filter"
                             style="display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px;">
                             🏫 <?php echo olama_exam_translate('Section'); ?>
+                            <span class="oe-filter-required">*</span>
                         </label>
-                        <select id="section-filter" class="olama-exam-select" style="width: 100%;" <?php echo empty($sections) ? 'disabled' : ''; ?>>
+                        <select id="section-filter" class="olama-exam-select" style="width: 100%;" required <?php echo empty($sections) ? 'disabled' : ''; ?>>
                             <option value=""><?php echo olama_exam_translate('Select Section'); ?></option>
                             <?php foreach ($sections as $sec): ?>
                                 <option value="<?php echo $sec->id; ?>" <?php selected($selected_section_id, $sec->id); ?>>
@@ -740,7 +759,7 @@ if ($selected_exam_id && !$review_attempt_id) {
                                     <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: center;">
                                         <?php if ($a->attempt_id): ?>
                                         <div style="display: flex; gap: 4px; justify-content: center;">
-                                            <a href="<?php echo admin_url('admin.php?page=olama-exam-results&exam_id=' . $selected_exam_id . '&review_attempt=' . $a->attempt_id); ?>"
+                                            <a href="<?php echo esc_url($result_detail_url($selected_exam_id, $a->attempt_id)); ?>"
                                                 class="button" style="padding: 2px 8px; font-size: 12px;" title="<?php echo olama_exam_translate('Preview Attempt'); ?>">
                                                 🔍
                                             </a>

@@ -13,10 +13,11 @@ $format_exam_date = static function($value) {
         <span class="oe-results-order">الأحدث أولاً حسب تاريخ الامتحان</span>
     </div>
     <p class="oe-results-list-hint">الامتحانات المنشورة والنشطة والمغلقة فقط. افتح «عرض النتائج» للاطلاع على درجات الطلاب.</p>
-    <?php if (!$exams): ?>
+    <?php if (!$results_scope_ready): ?>
+        <div class="oe-results-empty" role="status"><strong>اختر الصف والشعبة لعرض نتائج الامتحانات.</strong><p>اختيار الصف والشعبة إلزامي لعرض الاختبارات وإحصاءاتها.</p></div>
+    <?php elseif (!$exams): ?>
         <div class="oe-results-empty"><span class="dashicons dashicons-chart-bar" aria-hidden="true"></span><strong>لا توجد امتحانات مطابقة</strong><p>غيّر نوع الاختبار أو الفلاتر لعرض امتحانات أخرى.</p></div>
     <?php else: ?>
-        <div class="oe-results-table-scroll">
             <table class="olama-exam-table oe-results-exam-table">
                 <thead><tr><th>الامتحان</th><th>الصف والشعبة</th><th>تاريخ الامتحان</th><th>الحالة</th><th>الإجراء</th></tr></thead>
                 <tbody>
@@ -44,6 +45,5 @@ $format_exam_date = static function($value) {
                 <?php endforeach; ?>
                 </tbody>
             </table>
-        </div>
     <?php endif; ?>
 </section>
