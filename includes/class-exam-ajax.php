@@ -42,6 +42,7 @@ class Olama_Exam_Ajax
 
             // ── Exam Management (Phase 3) ──
             'olama_exam_save_exam',
+            'olama_exam_direct_bulk',
             'olama_exam_update_exam_title',
             'olama_exam_publish_results',
             'olama_exam_hide_results',
@@ -1063,6 +1064,18 @@ class Olama_Exam_Ajax
     }
 
     // ── Exam Management Handlers (Phase 3) ────────────────────
+
+    public static function handle_direct_bulk()
+    {
+        self::verify_request(array('olama_create_exams', 'olama_access_exams_mgmt', 'olama_access_supervision'));
+        $operation = sanitize_text_field($_POST['operation'] ?? 'plan');
+        $result = $operation === 'plan' ? Olama_Exam_Direct_Bulk::plan($_POST) : Olama_Exam_Direct_Bulk::execute($_POST, $operation);
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()), 400);
+        }
+        unset($result['_jobs'], $result['_exams']);
+        wp_send_json_success($result);
+    }
 
     public static function handle_save_exam()
     {

@@ -32,7 +32,18 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
         <div class="oe-direct-stat"><span class="oe-direct-stat-icon oe-direct-blue"><span class="dashicons dashicons-clipboard" aria-hidden="true"></span></span><div><strong id="direct-exam-count">0</strong><span>امتحانات مباشرة</span></div></div>
     </div>
     <div id="direct-feedback" class="oe-direct-feedback" role="status" aria-live="polite" data-state="empty"><span class="dashicons dashicons-info-outline" aria-hidden="true"></span><span id="direct-feedback-text">اختر الصف والمادة لعرض الوحدات والدروس.</span></div>
+    <section id="direct-bulk" class="olama-exam-card oe-direct-bulk" hidden aria-labelledby="direct-bulk-title">
+        <div class="oe-direct-bulk-copy"><span class="oe-direct-page-icon"><span class="dashicons dashicons-performance" aria-hidden="true"></span></span><div><h3 id="direct-bulk-title">جهّز تدريبات المادة بضغطة واحدة</h3><p>امتحان لكل درس ولكل شعبة متاحة لك · أسئلة عشوائية بنسبة 40% · تفعيل فوري</p><span id="direct-bulk-summary"></span></div></div>
+        <div class="oe-direct-bulk-actions"><button type="button" id="direct-bulk-create" class="olama-exam-btn olama-exam-btn-primary" disabled><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> إنشاء وتفعيل جميع الدروس</button><button type="button" id="direct-bulk-delete" class="olama-exam-btn olama-exam-btn-outline oe-direct-danger" disabled><span class="dashicons dashicons-trash" aria-hidden="true"></span> حذف جميع الامتحانات المباشرة</button></div>
+        <p class="oe-direct-bulk-note">يُحسب عدد الأسئلة عند الإنشاء، بحد أدنى سؤال واحد. تُسحب أسئلة عشوائية في كل محاولة جديدة. تُتجاوز الامتحانات المنشأة جماعيًا سابقًا، وتبقى الامتحانات اليدوية كما هي عند الإنشاء.</p>
+    </section>
+    <div id="direct-bulk-result" class="oe-direct-feedback" role="status" aria-live="polite" hidden></div>
     <div id="direct-units"></div>
+    <dialog id="direct-bulk-dialog" class="oe-direct-dialog" aria-labelledby="direct-bulk-dialog-title" aria-describedby="direct-bulk-dialog-text" dir="rtl">
+        <div class="oe-direct-dialog-icon"><span class="dashicons dashicons-clipboard" aria-hidden="true"></span></div>
+        <h2 id="direct-bulk-dialog-title"></h2><p id="direct-bulk-dialog-scope"></p><p id="direct-bulk-dialog-text"></p>
+        <div class="oe-direct-dialog-actions"><button type="button" id="direct-bulk-confirm" class="olama-exam-btn olama-exam-btn-primary">تنفيذ</button><button type="button" id="direct-bulk-cancel" class="olama-exam-btn olama-exam-btn-outline" autofocus>إلغاء</button></div>
+    </dialog>
 </div>
 <style>
 .oe-direct-page .dashicons {flex-shrink:0; font-size:18px; width:18px; height:18px;}
@@ -110,6 +121,28 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
 .oe-direct-status-published {background:#dbeafe; color:#1d4ed8;}
 .oe-direct-status-active {background:#dcfce7; color:#15803d;}
 .oe-direct-status-closed {background:#fef2f2; color:#b91c1c;}
+.oe-direct-bulk[hidden],#direct-bulk-result[hidden] {display:none;}
+.oe-direct-page .oe-direct-bulk {padding:22px; border:1px solid #dce3ff; background:linear-gradient(120deg,#fff,#f5f7ff); margin-bottom:18px;}
+.oe-direct-bulk-copy {display:flex; gap:14px; align-items:center;}
+.oe-direct-bulk h3 {margin:0 0 6px; font-size:16px; color:#1e293b;}
+.oe-direct-bulk p {margin:0; color:#64748b; line-height:1.9; font-size:13px;}
+#direct-bulk-summary {display:block; margin-top:8px; color:#4f46e5; font-size:13px; font-weight:600;}
+.oe-direct-bulk-actions {display:flex; flex-wrap:wrap; gap:10px; margin-top:18px;}
+.oe-direct-page .oe-direct-danger {color:#b91c1c; border-color:#fecaca; background:#fff;}
+.oe-direct-page .oe-direct-danger:hover {background:#fef2f2;}
+.oe-direct-page .oe-direct-bulk-note {margin-top:15px; padding-top:13px; border-top:1px solid #e2e8f0; font-size:12px;}
+.oe-direct-bulk-actions button:disabled {opacity:.5; cursor:not-allowed;}
+.oe-direct-dialog {box-sizing:border-box; width:min(520px,calc(100% - 32px)); border:1px solid #e2e8f0; border-radius:16px; padding:28px; color:#1e293b; box-shadow:0 24px 80px #0f172a33;}
+.oe-direct-dialog::backdrop {background:#0f172a66;}
+.oe-direct-dialog h2 {font-size:20px; margin:16px 0 10px;}
+.oe-direct-dialog p {font-size:14px; line-height:2; white-space:pre-line;}
+.oe-direct-dialog-icon {display:grid; place-items:center; width:48px; height:48px; border-radius:12px; color:#4f46e5; background:#eef2ff;}
+.oe-direct-dialog[data-operation="delete"] .oe-direct-dialog-icon {color:#b91c1c; background:#fef2f2;}
+.oe-direct-page .oe-direct-dialog .oe-direct-danger {background:#dc2626; color:white; border:1px solid #dc2626;}
+.oe-direct-page .oe-direct-dialog .oe-direct-danger:hover {background:#b91c1c;}
+.oe-direct-dialog-actions {display:flex; flex-wrap:wrap; gap:10px; margin-top:22px;}
+.oe-direct-page[aria-busy="true"] #direct-units {pointer-events:none; opacity:.6;}
+@media(max-width:480px) {.oe-direct-bulk-actions {flex-direction:column;} .oe-direct-bulk-actions button {width:100%; justify-content:center;} .oe-direct-bulk-copy {align-items:flex-start;}}
 @media(max-width:1100px) {
     .oe-direct-unit summary {flex-wrap:wrap; gap:12px;}
     .oe-direct-unit-title {flex-basis:calc(100% - 60px);}
@@ -145,6 +178,7 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
     var yearId = <?php echo absint($active_year->id ?? 0); ?>;
     var semesterId = <?php echo absint($active_semester->id ?? 0); ?>;
     var generation = 0;
+    var bulkPlan = null, bulkScope = null, bulkBusy = false, bulkOperation = '';
     var statuses = {draft:'مسودة', published:'منشور', active:'نشط', closed:'مغلق'};
     function esc(value) { return $('<div>').text(value == null ? '' : value).html(); }
     function icon(name) { return '<span class="dashicons dashicons-' + name + '" aria-hidden="true"></span>'; }
@@ -157,6 +191,9 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
     function load() {
         var openUnits = $('#direct-units details[open]').map(function() { return Number($(this).data('unit')); }).get();
         var token = ++generation;
+        bulkPlan = null;
+        $('#direct-bulk').prop('hidden', true);
+        $('#direct-bulk-create, #direct-bulk-delete').prop('disabled', true);
         var grade = $('#direct-grade').val(), subject = $('#direct-subject').val();
         $('#direct-units').empty().attr('aria-busy', 'true');
         $('#direct-overview').prop('hidden', true);
@@ -164,6 +201,18 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
         if (!yearId || !semesterId) { $('#direct-units').attr('aria-busy', 'false'); feedback('يجب تحديد العام والفصل الدراسي النشطين أولاً.', 'error'); return; }
         feedback('جارٍ تحميل الوحدات والدروس...', 'loading');
         var scope = {grade_id:grade, subject_id:subject, academic_year_id:yearId, semester_id:semesterId};
+        request('olama_exam_direct_bulk', $.extend({}, scope, {operation:'plan'})).done(function(res) {
+            if (token !== generation || !res.success) return;
+            bulkPlan = res.data; bulkScope = scope;
+            $('#direct-bulk').prop('hidden', false);
+            $('#direct-bulk-summary').text('دروس بأسئلة: ' + bulkPlan.ready_lessons + ' · الشعب: ' + bulkPlan.sections + ' · امتحانات جديدة: ' + bulkPlan.create_count + ' · منشأة سابقًا: ' + bulkPlan.skip_count);
+            $('#direct-bulk-create').prop('disabled', !bulkPlan.create_count);
+            $('#direct-bulk-delete').prop('disabled', !bulkPlan.delete_count);
+        }).fail(function(xhr) {
+            if (token !== generation) return;
+            $('#direct-bulk').prop('hidden', false);
+            $('#direct-bulk-summary').text(xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : 'تعذر تحميل ملخص العمليات الجماعية. أعد اختيار المادة.');
+        });
         $.when(request('olama_exam_get_units_by_subject', scope), request('olama_exam_get_exams', $.extend({}, scope, {exam_type:'direct'})))
         .done(function(unitsResponse, examsResponse) {
             if (token !== generation) return;
@@ -214,13 +263,16 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
             $('#direct-ready-count').text(readyLessons + ' / ' + totalLessons);
             $('#direct-exam-count').text(totalExams);
             $('#direct-overview').prop('hidden', !units.length);
-            feedback(units.length ? 'يمكنك إنشاء أكثر من اختبار لكل درس. يظهر الامتحان للطلاب بعد تفعيله فقط، ويُغلق تلقائيًا عند انتهاء موعده.' : 'لا توجد وحدات لهذه المادة في الفصل الدراسي النشط.', units.length ? 'info' : 'empty');
+            feedback(units.length ? 'يمكنك إنشاء أكثر من اختبار لكل درس. يظهر الامتحان للطلاب بعد تفعيله، بمحاولات غير محدودة ودون موعد انتهاء.' : 'لا توجد وحدات لهذه المادة في الفصل الدراسي النشط.', units.length ? 'info' : 'empty');
         }).fail(function() { if (token === generation) fail(); }).always(function() { if (token === generation) $('#direct-units').attr('aria-busy', 'false'); });
     }
     $('#direct-grade').on('change', function() {
         var grade = $(this).val(), token = ++generation;
         $('#direct-units').empty();
         $('#direct-overview').prop('hidden', true);
+        $('#direct-bulk').prop('hidden', true);
+        $('#direct-bulk-result').prop('hidden', true);
+        bulkPlan = null;
         $('#direct-subject').html('<option value="0">— اختر —</option>').prop('disabled', true);
         feedback('اختر المادة لعرض الوحدات والدروس.', 'empty');
         if (!Number(grade)) return;
@@ -231,7 +283,39 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
             $('#direct-subject').prop('disabled', false).val(<?php echo absint($_GET['filter_subject'] ?? 0); ?>).trigger('change');
         }).fail(fail);
     });
-    $('#direct-subject').on('change', load);
+    $('#direct-subject').on('change', function() { $('#direct-bulk-result').prop('hidden', true); load(); });
+    $('#direct-bulk-create, #direct-bulk-delete').on('click', function() {
+        if (!bulkPlan || bulkBusy) return;
+        bulkOperation = this.id === 'direct-bulk-delete' ? 'delete' : 'create';
+        var deleting = bulkOperation === 'delete';
+        $('#direct-bulk-dialog').attr('data-operation', bulkOperation);
+        $('#direct-bulk-dialog-title').text(deleting ? 'حذف جميع الامتحانات المباشرة؟' : 'إنشاء وتفعيل امتحانات الدروس؟');
+        $('#direct-bulk-dialog-scope').text($('#direct-grade option:selected').text() + ' · ' + $('#direct-subject option:selected').text() + ' · ' + $('#direct-year').val() + ' · ' + $('#direct-semester').val());
+        $('#direct-bulk-dialog-text').text(deleting ? 'سيُحذف ' + bulkPlan.delete_count + ' امتحان مباشر، بما فيها الامتحانات اليدوية، و' + bulkPlan.attempt_count + ' محاولة ونتائجها، ضمن ' + bulkPlan.sections + ' شعبة متاحة لك.\nهذا الحذف نهائي. سيبقى بنك الأسئلة محفوظًا.' : 'سيُنشأ ويُفعّل ' + bulkPlan.create_count + ' امتحان لـ' + bulkPlan.ready_lessons + ' درس ضمن ' + bulkPlan.sections + ' شعبة متاحة لك.\nأسئلة عشوائية بنسبة 40%، ومحاولات غير محدودة. ستظهر الامتحانات فورًا في بوابة الطالب.\nسيُتجاوز ' + bulkPlan.skip_count + ' امتحان منشأ جماعيًا سابقًا و' + bulkPlan.empty_lessons + ' درس دون أسئلة.');
+        $('#direct-bulk-confirm').text(deleting ? 'حذف الامتحانات ونتائجها نهائيًا' : 'إنشاء وتفعيل الآن').toggleClass('oe-direct-danger', deleting);
+        document.getElementById('direct-bulk-dialog').showModal();
+    });
+    $('#direct-bulk-cancel').on('click', function() { document.getElementById('direct-bulk-dialog').close(); });
+    $('#direct-bulk-confirm').on('click', function() {
+        if (bulkBusy || !bulkPlan) return;
+        document.getElementById('direct-bulk-dialog').close();
+        bulkBusy = true;
+        $('.oe-direct-page').attr('aria-busy', 'true');
+        $('#direct-units').prop('inert', true);
+        $('#direct-grade, #direct-subject, #direct-bulk-create, #direct-bulk-delete').prop('disabled', true);
+        $('#direct-bulk-result').prop('hidden', false).attr('data-state', 'loading').text(bulkOperation === 'delete' ? 'جارٍ حذف الامتحانات ومحاولاتها...' : 'جارٍ إنشاء الامتحانات وتفعيلها...');
+        request('olama_exam_direct_bulk', $.extend({}, bulkScope, {operation:bulkOperation, fingerprint:bulkPlan.fingerprint})).done(function(res) {
+            $('#direct-bulk-result').attr('data-state', res.success ? 'info' : 'error').text(res.data.message);
+        }).fail(function(xhr) {
+            $('#direct-bulk-result').attr('data-state', 'error').text(xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : 'تعذر التأكد من إتمام العملية. راجع القائمة قبل إعادة المحاولة.');
+        }).always(function() {
+            bulkBusy = false;
+            $('.oe-direct-page').attr('aria-busy', 'false');
+            $('#direct-units').prop('inert', false);
+            $('#direct-grade, #direct-subject').prop('disabled', false);
+            load();
+        });
+    });
     $('#direct-units').on('click', '.oe-direct-status, .oe-direct-delete', function() {
         var button = $(this), deleting = button.hasClass('oe-direct-delete');
         if (deleting && !confirm('حذف هذا الاختبار؟')) return;

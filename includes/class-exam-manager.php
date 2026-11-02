@@ -346,7 +346,7 @@ class Olama_Exam_Manager
     /**
      * Save (create or update) an exam
      */
-    public static function save_exam($data)
+    public static function save_exam($data, $direct_bulk_key = null)
     {
         global $wpdb;
         $table = "{$wpdb->prefix}olama_exam_exams";
@@ -424,6 +424,10 @@ class Olama_Exam_Manager
             if ($existing && !empty($existing->direct_lesson_id)) {
                 $data['direct_lesson_id'] = $existing->direct_lesson_id;
                 $fields['exam_type'] = 'direct';
+                if (!empty($existing->direct_bulk_key) &&
+                    ((int) $existing->section_id !== $fields['section_id'] || (int) $existing->academic_year_id !== $fields['academic_year_id'])) {
+                    $fields['direct_bulk_key'] = null;
+                }
             }
         }
         if ($fields['exam_type'] === 'direct') {
@@ -486,6 +490,10 @@ class Olama_Exam_Manager
             return $id;
         } else {
             $fields['status'] = 'draft';
+            // Internal bulk identity is never accepted from request data.
+            if ($fields['exam_type'] === 'direct' && $direct_bulk_key !== null) {
+                $fields['direct_bulk_key'] = $direct_bulk_key;
+            }
             $fields['created_at'] = current_time('mysql');
             $result = $wpdb->insert($table, $fields);
             if ($result === false) {
@@ -589,12 +597,14 @@ class Olama_Exam_Manager
             }
         }
 
-        $wpdb->update(
+        $updated = $wpdb->update(
             "{$wpdb->prefix}olama_exam_exams",
             array('status' => $new_status),
             array('id' => intval($id))
         );
-
+        if ($updated === false) {
+            return new WP_Error('db_error', 'تعذر تغيير حالة الاختبار.');
+        }
         return true;
     }
 
@@ -806,6 +816,7 @@ class Olama_Exam_Manager
 
         // Prepare for duplication
         unset($exam['id']);
+        unset($exam['direct_bulk_key']);
         $exam['title'] = $exam['title'] . ' (' . olama_exam_translate('Copy') . ')';
         $exam['status'] = 'draft';
         $exam['created_at'] = current_time('mysql');

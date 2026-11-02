@@ -106,6 +106,7 @@ function olama_exam_load_includes()
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-logger.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-identity.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-manager.php';
+    require_once OLAMA_EXAM_PATH . 'includes/class-exam-direct-bulk.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-engine.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-grader.php';
     require_once OLAMA_EXAM_PATH . 'includes/class-exam-ajax.php';
@@ -223,6 +224,17 @@ function olama_exam_init()
         $direct_column = $wpdb->get_var("SHOW COLUMNS FROM {$direct_table} LIKE 'direct_lesson_id'");
         if ($direct_column || false !== $wpdb->query("ALTER TABLE {$direct_table} ADD COLUMN direct_lesson_id BIGINT UNSIGNED NOT NULL DEFAULT 0")) {
             update_option('olama_exam_direct_lessons_v1', true);
+        }
+    }
+    if (!get_option('olama_exam_direct_bulk_v1')) {
+        global $wpdb;
+        $bulk_table = $wpdb->prefix . 'olama_exam_exams';
+        $column = $wpdb->get_var("SHOW COLUMNS FROM {$bulk_table} LIKE 'direct_bulk_key'");
+        if ($column || false !== $wpdb->query("ALTER TABLE {$bulk_table} ADD COLUMN direct_bulk_key VARCHAR(64) NULL DEFAULT NULL")) {
+            $index = $wpdb->get_var("SHOW INDEX FROM {$bulk_table} WHERE Key_name = 'idx_direct_bulk'");
+            if ($index || false !== $wpdb->query("ALTER TABLE {$bulk_table} ADD UNIQUE KEY idx_direct_bulk (direct_bulk_key)")) {
+                update_option('olama_exam_direct_bulk_v1', true);
+            }
         }
     }
     olama_exam_migrate_unit_id();
