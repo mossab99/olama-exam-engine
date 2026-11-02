@@ -481,8 +481,10 @@ class Olama_Exam_Ajax
             wp_send_json_success(array());
         }
 
+        // The question bank follows the SIS student gateway visibility setting.
+        $visibility_sql = !empty($_POST['question_bank']) ? ' AND appear_in_student_gateway = 1' : '';
         $subjects = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, subject_name FROM {$wpdb->prefix}olama_subjects WHERE grade_id = %d AND is_active = 1 ORDER BY subject_name ASC",
+            "SELECT id, subject_name FROM {$wpdb->prefix}olama_subjects WHERE grade_id = %d AND is_active = 1{$visibility_sql} ORDER BY subject_name ASC",
             $grade_id
         ));
 

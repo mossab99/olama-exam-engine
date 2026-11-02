@@ -594,6 +594,7 @@ $diff_labels = array(
                 action: 'olama_exam_get_subjects_by_grade',
                 nonce: olamaExam.nonce,
                 grade_id: gradeId,
+                question_bank: 1,
             }, function (res) {
                 if (!res.success) return;
                 let html = '<option value="0">— <?php echo olama_exam_translate("Select"); ?> —</option>';
