@@ -481,12 +481,22 @@ class Olama_Exam_Ajax
             wp_send_json_success(array());
         }
 
-        // The question bank follows the SIS student gateway visibility setting.
-        $visibility_sql = !empty($_POST['question_bank']) ? ' AND appear_in_student_gateway = 1' : '';
-        $subjects = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, subject_name FROM {$wpdb->prefix}olama_subjects WHERE grade_id = %d AND is_active = 1{$visibility_sql} ORDER BY subject_name ASC",
-            $grade_id
-        ));
+        $question_bank = !empty($_POST['question_bank']);
+        if (class_exists('Olama_School_Subject')) {
+            // Use Academic Management's current-year Oracle subjects and stable School IDs.
+            $subjects = $question_bank
+                ? Olama_School_Subject::get_for_student_gateway($grade_id)
+                : Olama_School_Subject::get_by_grade($grade_id, true);
+            $subjects = array_values(array_map(static function ($subject) {
+                return (object) array('id' => $subject->id, 'subject_name' => $subject->subject_name);
+            }, $subjects));
+        } else {
+            $visibility_sql = $question_bank ? ' AND appear_in_student_gateway = 1' : '';
+            $subjects = $wpdb->get_results($wpdb->prepare(
+                "SELECT id, subject_name FROM {$wpdb->prefix}olama_subjects WHERE grade_id = %d AND is_active = 1{$visibility_sql} ORDER BY subject_name ASC",
+                $grade_id
+            ));
+        }
 
         wp_send_json_success($subjects);
     }
