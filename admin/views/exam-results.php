@@ -105,7 +105,7 @@ $exam_query .= $selected_exam_type === 'direct' ? " ORDER BY e.created_at DESC, 
 $exams = $results_scope_ready ? array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam'))) : array();
 $exam_summaries = Olama_Exam_Manager::get_exam_summaries(array_column($exams, 'id'));
 
-$review_attempt_id = $results_scope_ready ? intval($_GET['review_attempt'] ?? 0) : 0;
+$review_attempt_id = $results_scope_ready && empty($print_results) ? intval($_GET['review_attempt'] ?? 0) : 0;
 $selected_exam = null;
 $attempts = array();
 $stats = null;
@@ -268,6 +268,15 @@ if ($selected_exam_id && !$review_attempt_id) {
             );
         }
     }
+}
+?>
+<?php
+if (!empty($print_results)) {
+    if (!$selected_exam || $results_selection_error || !in_array($selected_exam_id, array_map('intval', array_column($exams, 'id')), true)) {
+        wp_die('الاختبار غير متاح لطباعة النتائج أو ليس لديك صلاحية الوصول إليه.', '', array('response' => 403));
+    }
+    include OLAMA_EXAM_PATH . 'admin/views/exam-results-print.php';
+    return;
 }
 ?>
 <div class="olama-exam-wrap" dir="rtl">

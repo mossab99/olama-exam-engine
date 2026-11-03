@@ -15,6 +15,7 @@ class Olama_Exam_Admin
         add_action('admin_post_oee_export_acceptance_csv', array($this, 'export_acceptance_csv'));
         add_action('admin_post_oee_export_student_acceptance_csv', array($this, 'export_student_acceptance_csv'));
         add_action('admin_post_oee_export_questions_json', array($this, 'export_questions_json'));
+        add_action('admin_post_oee_print_exam_results', array($this, 'print_exam_results'));
         add_filter('submenu_file', array($this, 'highlight_job_apps_menu'));
         add_filter('submenu_file', array($this, 'highlight_student_acceptance_menu'));
         add_filter('submenu_file', array($this, 'highlight_school_exams_menu'));
@@ -307,6 +308,19 @@ class Olama_Exam_Admin
     public function render_results()
     {
         include OLAMA_EXAM_PATH . 'admin/views/exam-results.php';
+    }
+
+    public function print_exam_results()
+    {
+        if (!current_user_can($this->get_capability('olama_view_exam_results'))) {
+            wp_die('ليس لديك صلاحية طباعة النتائج.', '', array('response' => 403));
+        }
+        check_admin_referer('oee_print_exam_results_' . absint($_GET['exam_id'] ?? 0));
+        nocache_headers();
+        header('Content-Type: text/html; charset=utf-8');
+        $print_results = true;
+        include OLAMA_EXAM_PATH . 'admin/views/exam-results.php';
+        exit;
     }
 
     public static function render_grade_essays()

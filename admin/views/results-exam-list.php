@@ -29,13 +29,19 @@ $format_exam_date = static function($value) {
                         'grade_id'=>$selected_grade_id, 'section_id'=>$selected_section_id,
                     ), admin_url('admin.php')) . '#exam-results-detail';
                     $is_selected = intval($listed_exam->id) === $selected_exam_id;
+                    $print_url = add_query_arg(array(
+                        'action'=>'oee_print_exam_results', 'exam_id'=>$listed_exam->id, 'exam_type'=>$listed_type,
+                        'academic_year_id'=>$selected_year_id, 'semester_id'=>$selected_semester_id,
+                        'grade_id'=>$selected_grade_id, 'section_id'=>$selected_section_id,
+                        '_wpnonce'=>wp_create_nonce('oee_print_exam_results_' . $listed_exam->id),
+                    ), admin_url('admin-post.php'));
                 ?>
                     <tr class="<?php echo $is_selected ? 'oe-results-selected' : ''; ?>">
                         <td><div class="oe-exam-title oe-results-exam-title" data-title="<?php echo esc_attr($listed_exam->title); ?>" data-subject="<?php echo esc_attr($listed_exam->subject_name ?? ''); ?>"><strong><?php echo esc_html($listed_exam->subject_name ?: $listed_exam->title); ?></strong><span class="oe-exam-title-detail"><?php echo esc_html($listed_exam->title); ?></span></div></td>
                         <td><div class="oe-results-class"><strong><?php echo esc_html($listed_exam->grade_name ?: '—'); ?></strong><span><?php echo esc_html($listed_exam->section_name ? 'الشعبة ' . $listed_exam->section_name : '—'); ?></span></div></td>
                         <td><?php if ($listed_type === 'direct'): ?><span class="oe-results-order">مراجعة مفتوحة · بلا موعد أو حد زمني</span><?php else: ?><div class="oe-exam-dates"><div><span>البداية</span><bdi dir="ltr"><?php echo esc_html($format_exam_date($listed_exam->start_time)); ?></bdi></div><div><span>النهاية</span><bdi dir="ltr"><?php echo esc_html($format_exam_date($listed_exam->end_time)); ?></bdi></div></div><?php endif; ?></td>
                         <td><span class="oe-results-status oe-results-status-<?php echo esc_attr($listed_exam->status); ?>"><?php echo esc_html($result_statuses[$listed_exam->status]); ?></span></td>
-                        <td><a class="olama-exam-btn <?php echo $is_selected ? 'olama-exam-btn-primary' : 'olama-exam-btn-outline'; ?> olama-exam-btn-sm" href="<?php echo esc_url($results_url); ?>" <?php if ($is_selected): ?>aria-current="page"<?php endif; ?>>عرض النتائج</a><?php if ($is_selected): ?><small class="oe-results-current">الاختبار المحدد</small><?php endif; ?></td>
+                        <td><div class="oe-results-actions"><a class="olama-exam-btn <?php echo $is_selected ? 'olama-exam-btn-primary' : 'olama-exam-btn-outline'; ?> olama-exam-btn-sm" href="<?php echo esc_url($results_url); ?>" <?php if ($is_selected): ?>aria-current="page"<?php endif; ?>>عرض النتائج</a><a class="olama-exam-btn olama-exam-btn-outline olama-exam-btn-sm" href="<?php echo esc_url($print_url); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr('طباعة نتائج ' . $listed_exam->title); ?>">طباعة النتائج</a></div><?php if ($is_selected): ?><small class="oe-results-current">الاختبار المحدد</small><?php endif; ?></td>
                     </tr>
                     <tr class="oe-exam-summary-row<?php echo $is_selected ? ' oe-results-selected' : ''; ?>">
                         <td colspan="5">

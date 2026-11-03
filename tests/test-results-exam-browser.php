@@ -14,6 +14,9 @@ function admin_url($v) { return '/wp-admin/' . $v; }
 function add_query_arg($args, $url) { return $url . '?' . http_build_query($args); }
 function selected($a, $b) { if ((string) $a === (string) $b) echo 'selected'; }
 function wp_create_nonce($v) { return 'fixture'; }
+function get_bloginfo($v) { return 'مدرسة الاختبار'; }
+function current_time($v) { return '03/11/2026 12:00'; }
+function wp_die($message, $title = '', $args = array()) { throw new RuntimeException($message, $args['response'] ?? 500); }
 class Olama_Exam_Ajax {
     public static function can_supervise_exams() { return true; }
     public static function can_teacher_access_exam($exam) { return is_object($exam) && !empty($exam->subject_id) && (int) $exam->id !== 9; }
@@ -75,7 +78,7 @@ class Results_Browser_DB {
 }
 require OLAMA_EXAM_PATH . 'includes/class-exam-manager.php';
 $wpdb = new Results_Browser_DB();
-function render_results_browser($params) {
+function render_results_browser($params, $print_results = false) {
     global $wpdb;
     $_GET = array_merge(array('page'=>'olama-exam-results','grade_id'=>1,'section_id'=>1), $params);
     ob_start();
@@ -106,4 +109,21 @@ check_browser(strpos($view['html'], 'oe-results-table-scroll') === false, 'Resul
 check_browser(render_results_browser(array('exam_id'=>4))['selected'] === 0, 'Draft result links must be rejected.');
 check_browser(render_results_browser(array('exam_id'=>9))['selected'] === 0, 'Unauthorized result links must be rejected.');
 check_browser(render_results_browser(array('exam_id'=>6))['type'] === 'direct', 'Direct links must infer the proper exam type.');
+
+check_browser(substr_count($view['html'], 'action=oee_print_exam_results') === 5, 'Every listed exam needs a print link.');
+$wpdb->db->exec("INSERT INTO wp_olama_students VALUES (1,'S1','طالب ناجح'), (2,'S2','طالب راسب'), (3,'S3','طالب قيد التصحيح'), (4,'S4','طالب غائب');
+    INSERT INTO wp_olama_student_enrollment VALUES (1,1), (2,1), (3,1), (4,1)");
+$printed = render_results_browser(array('exam_id'=>2), true)['html'];
+foreach (array('<!doctype html>', 'dir="rtl"', '@media print', 'display:table-header-group', 'window.print()', 'طالب ناجح', 'طالب راسب', 'بانتظار التصحيح', 'لم يتقدم') as $expected) {
+    check_browser(strpos($printed, $expected) !== false, 'Print report missing: ' . $expected);
+}
+check_browser(strpos($printed, 'id="year-filter"') === false && strpos($printed, 'delete-attempt-btn') === false, 'Print report must omit dashboard controls.');
+foreach (array(array('exam_id'=>4), array('exam_id'=>9), array('exam_id'=>8), array('exam_id'=>2,'section_id'=>0), array('exam_id'=>2,'exam_type'=>'quiz')) as $invalid_print) {
+    try {
+        render_results_browser($invalid_print, true);
+        check_browser(false, 'Invalid print scope must be denied.');
+    } catch (RuntimeException $e) {
+        check_browser($e->getCode() === 403, 'Invalid print scope must return forbidden.');
+    }
+}
 echo "Results browser type filters, status exclusions, chronological ordering and access checks passed.\n";
