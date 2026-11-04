@@ -363,57 +363,53 @@ class Olama_Exam_Grader
     }
 
     /**
-     * Apply the blank-answer rule to existing submissions for one school exam.
+     * Apply the blank-answer rule to one batch of submitted school attempts.
      */
-    public static function apply_unanswered_zero($exam)
+    public static function apply_unanswered_zero($last_id = 0)
     {
         global $wpdb;
         $table = "{$wpdb->prefix}olama_exam_attempts";
-        $last_id = 0;
         $updated = 0;
 
-        do {
-            $attempts = $wpdb->get_results($wpdb->prepare(
-                "SELECT id, exam_id, exam_type, score, max_score, percentage, result, questions_snapshot_json, answers_json
-                 FROM {$table}
-                 WHERE exam_id = %d AND exam_type = 'school' AND is_preview = 0
-                   AND submitted_at IS NOT NULL AND id > %d
-                 ORDER BY id LIMIT 100",
-                $exam->id,
-                $last_id
-            ));
-            if ($wpdb->last_error) {
-                return new WP_Error('grading_read_failed', 'تعذرت قراءة المحاولات. أعد المحاولة.');
+        $attempts = $wpdb->get_results($wpdb->prepare(
+            "SELECT a.*, e.passing_grade
+             FROM {$table} a
+             JOIN {$wpdb->prefix}olama_exam_exams e ON e.id = a.exam_id
+             WHERE a.exam_type = 'school' AND a.is_preview = 0
+               AND a.submitted_at IS NOT NULL AND a.id > %d
+             ORDER BY a.id LIMIT 100",
+            $last_id
+        ));
+        if ($wpdb->last_error) {
+            return new WP_Error('grading_read_failed', 'تعذرت قراءة المحاولات. أعد المحاولة.');
+        }
+
+        foreach ($attempts as $attempt) {
+            $last_id = $attempt->id;
+            $answers = json_decode($attempt->answers_json ?? '', true) ?: array();
+            $result = self::calculate_attempt_result($attempt, $answers, $attempt->passing_grade ?? 50);
+            if ($result === null) {
+                continue;
             }
 
-            foreach ($attempts as $attempt) {
-                $last_id = $attempt->id;
-                $answers = json_decode($attempt->answers_json ?? '', true) ?: array();
-                $result = self::calculate_attempt_result($attempt, $answers, $exam->passing_grade ?? 50);
-                if ($result === null) {
-                    continue;
-                }
-
-                $previous_result = array(
-                    'score' => $attempt->score,
-                    'max_score' => $attempt->max_score,
-                    'percentage' => $attempt->percentage,
-                    'result' => $attempt->result,
-                );
-                if ($previous_result == $result && !in_array(null, $previous_result, true)) {
-                    continue;
-                }
-
-                // A concurrent essay grade may have already recalculated this result.
-                $changed = $wpdb->update($table, $result, array('id' => $attempt->id) + $previous_result);
-                if ($changed === false) {
-                    return new WP_Error('grading_update_failed', 'تعذر تحديث جميع النتائج. أعد المحاولة.');
-                }
-                $updated += $changed;
+            $previous_result = array(
+                'score' => $attempt->score,
+                'max_score' => $attempt->max_score,
+                'percentage' => $attempt->percentage,
+                'result' => $attempt->result,
+            );
+            if ($previous_result == $result && !in_array(null, $previous_result, true)) {
+                continue;
             }
-        } while (count($attempts) === 100);
 
-        return $updated;
+            // A concurrent essay grade may have already recalculated this result.
+            $changed = $wpdb->update($table, $result, array('id' => $attempt->id) + $previous_result);
+            if ($changed === false) {
+                return new WP_Error('grading_update_failed', 'تعذر تحديث جميع النتائج. أعد المحاولة.');
+            }
+            $updated += $changed;
+        }
+        return array('updated' => $updated, 'next_id' => count($attempts) === 100 ? (int) $last_id : 0);
     }
 
     /**

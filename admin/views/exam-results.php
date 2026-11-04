@@ -131,7 +131,7 @@ if ($review_attempt_id) {
          LEFT JOIN {$wpdb->prefix}olama_exam_placement_info p ON a.id = p.attempt_id
          LEFT JOIN {$wpdb->prefix}olama_subjects sub ON e.subject_id = sub.id
          LEFT JOIN {$wpdb->prefix}olama_sections s ON e.section_id = s.id
-         WHERE a.id = %d AND a.exam_type = 'school' AND a.is_preview = 0
+         WHERE a.id = %d AND a.submitted_at IS NOT NULL AND a.exam_type = 'school' AND a.is_preview = 0
            AND e.status IN ('published', 'active', 'closed') AND e.section_id = %d",
         $review_attempt_id, $selected_section_id
     ));
@@ -658,15 +658,12 @@ if (!empty($print_results)) {
                 </div>
             </div>
 
+            <?php $manual_exam_url = olama_exam_get_shortcode_page_url(); ?>
             <!-- Results Table + Export -->
             <div class="olama-exam-card">
                 <div class="olama-exam-card-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <h3>📋 <?php echo esc_html($selected_exam->title); ?></h3>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <?php if (Olama_Exam_Ajax::can_perform('olama_grade_exams')): ?>
-                            <button type="button" class="button button-primary" id="apply-unanswered-zero-btn"
-                                data-exam-id="<?php echo $selected_exam_id; ?>">اعتماد صفر للاسئلة غير مجابة</button>
-                        <?php endif; ?>
                         <button type="button" class="button" id="export-csv-btn" data-exam-id="<?php echo $selected_exam_id; ?>">
                             📥 <?php echo olama_exam_translate('Export CSV'); ?>
                         </button>
@@ -765,8 +762,8 @@ if (!empty($print_results)) {
                                         <span style="color: #94a3b8;">—</span>
                                     <?php endif; ?>
                                     <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: center;">
-                                        <?php if (!$a->attempt_id): ?>
-                                            <a href="<?php echo home_url('/exams/?exam_view=take&exam_id=' . $selected_exam_id . '&manual_student_uid=' . $a->student_uid); ?>" 
+                                        <?php if (!$a->attempt_id && $manual_exam_url): ?>
+                                            <a href="<?php echo esc_url(add_query_arg(array('exam_view' => 'take', 'exam_id' => $selected_exam_id, 'manual_student_uid' => $a->student_uid), $manual_exam_url)); ?>"
                                                target="_blank"
                                                class="button button-small" 
                                                style="background: #2563eb; color: #fff; border: none; padding: 4px 8px; font-size: 11px; text-decoration: none; border-radius: 4px;">
@@ -992,32 +989,6 @@ if (!empty($print_results)) {
             cell.empty().append($('<strong>').text(parts.subject));
             if (parts.detail) cell.append($('<span class="oe-exam-title-detail">').text(parts.detail));
             if (parts.academic) cell.append($('<small class="oe-exam-title-academic">').append($('<bdi>').text('(' + parts.academic + ')')));
-        });
-
-        $('#apply-unanswered-zero-btn').on('click', function () {
-            var btn = $(this);
-            if (!confirm('هل تريد اعتماد صفر للأسئلة غير المجابة في جميع المحاولات المسلّمة لهذا الامتحان؟')) {
-                return;
-            }
-
-            btn.prop('disabled', true);
-            $.post(ajaxurl, {
-                action: 'olama_exam_apply_unanswered_zero',
-                nonce: '<?php echo wp_create_nonce('olama_exam_nonce'); ?>',
-                exam_id: btn.data('exam-id')
-            }).done(function (response) {
-                if (response.success) {
-                    alert('عدد النتائج المحدّثة: ' + response.data.updated);
-                    location.reload();
-                } else {
-                    btn.prop('disabled', false);
-                    alert('تعذر تحديث النتائج. أعد المحاولة.');
-                }
-            }).fail(function (xhr) {
-                btn.prop('disabled', false);
-                var response = xhr.responseJSON;
-                alert(response && response.data && response.data.message || 'تعذر تحديث النتائج. أعد المحاولة.');
-            });
         });
 
         // CSV Export

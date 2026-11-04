@@ -16,12 +16,52 @@ if (!defined('ABSPATH')) { exit; }
         </select></div>
         <button type="button" id="publish-exam-results" class="olama-exam-btn olama-exam-btn-primary">إظهار كل نتائج الاختبارات</button>
         <button type="button" id="hide-exam-results" class="olama-exam-btn olama-exam-btn-outline">إخفاء جميع نتائج الاختبارات</button>
+        <button type="button" id="apply-unanswered-zero-btn" class="olama-exam-btn olama-exam-btn-outline">اعتماد صفر للاسئلة غير مجابة</button>
         </div>
         <p id="publish-results-feedback" role="status" aria-live="polite"></p>
     </div>
     <?php endif; ?>
 <script>
 jQuery(function($) {
+    $('#apply-unanswered-zero-btn').on('click', function() {
+        if (!confirm('اعتماد صفر للأسئلة غير المجابة لجميع الطلاب في كل الامتحانات، بما فيها الامتحانات القديمة؟ لا تتأثر العملية بالفلاتر.')) {
+            return;
+        }
+
+        var button = $(this).prop('disabled', true);
+        var feedback = $('#publish-results-feedback');
+        var updated = 0;
+        feedback.text('جارٍ تحديث نتائج جميع الامتحانات...');
+
+        function failed() {
+            button.prop('disabled', false);
+            feedback.text('توقّف التحديث. أعد المحاولة لإكمال تحديث النتائج.');
+        }
+
+        function runBatch(afterId) {
+            $.post(olamaExam.ajaxUrl, {
+                action: 'olama_exam_apply_unanswered_zero',
+                nonce: olamaExam.nonce,
+                after_id: afterId
+            }).done(function(response) {
+                if (!response.success) {
+                    failed();
+                    return;
+                }
+                updated += response.data.updated;
+                if (response.data.next_id) {
+                    feedback.text('عدد النتائج المحدّثة حتى الآن: ' + updated);
+                    runBatch(response.data.next_id);
+                } else {
+                    alert('عدد النتائج المحدّثة: ' + updated);
+                    location.reload();
+                }
+            }).fail(failed);
+        }
+
+        runBatch(0);
+    });
+
     $('#publish-exam-results, #hide-exam-results').on('click', function() {
         var hiding = this.id === 'hide-exam-results';
         var buttons = $('#publish-exam-results, #hide-exam-results');

@@ -12,6 +12,7 @@ function esc_js($v) { return addslashes((string) $v); }
 function olama_exam_translate($v) { return $v; }
 function admin_url($v) { return '/wp-admin/' . $v; }
 function home_url($v) { return $v; }
+function olama_exam_get_shortcode_page_url() { return '/configured-exam-page/'; }
 function add_query_arg($args, $url) { return $url . '?' . http_build_query($args); }
 function selected($a, $b) { if ((string) $a === (string) $b) echo 'selected'; }
 function wp_create_nonce($v) { return 'fixture'; }
@@ -19,9 +20,8 @@ function get_bloginfo($v) { return 'مدرسة الاختبار'; }
 function current_time($v) { return '03/11/2026 12:00'; }
 function wp_die($message, $title = '', $args = array()) { throw new RuntimeException($message, $args['response'] ?? 500); }
 class Olama_Exam_Ajax {
-    public static $can_grade = true;
-    public static function can_perform($capability) { return self::$can_grade && $capability === 'olama_grade_exams'; }
-    public static function can_supervise_exams() { return true; }
+    public static $can_supervise = true;
+    public static function can_supervise_exams() { return self::$can_supervise; }
     public static function can_teacher_access_exam($exam) { return is_object($exam) && !empty($exam->subject_id) && (int) $exam->id !== 9; }
 }
 class Olama_School_Academic {
@@ -117,10 +117,11 @@ check_browser(substr_count($view['html'], 'action=oee_print_exam_results') === 5
 $wpdb->db->exec("INSERT INTO wp_olama_students VALUES (1,'S1','طالب ناجح'), (2,'S2','طالب راسب'), (3,'S3','طالب قيد التصحيح'), (4,'S4','طالب غائب');
     INSERT INTO wp_olama_student_enrollment VALUES (1,1), (2,1), (3,1), (4,1)");
 $detail = render_results_browser(array('exam_id'=>2))['html'];
-check_browser(strpos($detail, 'id="apply-unanswered-zero-btn"') !== false && strpos($detail, 'اعتماد صفر للاسئلة غير مجابة') !== false, 'Selected exam results must show the bulk grading button.');
-Olama_Exam_Ajax::$can_grade = false;
-check_browser(strpos(render_results_browser(array('exam_id'=>2))['html'], 'id="apply-unanswered-zero-btn"') === false, 'Read-only results must hide the bulk grading button.');
-Olama_Exam_Ajax::$can_grade = true;
+check_browser(strpos($detail, '/configured-exam-page/?exam_view=take') !== false, 'Manual entry must link to the configured shortcode page.');
+check_browser(strpos($view['html'], 'id="apply-unanswered-zero-btn"') > strpos($view['html'], 'id="hide-exam-results"') && strpos($view['html'], 'اعتماد صفر للاسئلة غير مجابة') !== false, 'Bulk grading must appear beside Hide Results without selecting an exam.');
+Olama_Exam_Ajax::$can_supervise = false;
+check_browser(strpos(render_results_browser(array())['html'], 'id="apply-unanswered-zero-btn"') === false, 'Non-supervisors must not see the global grading button.');
+Olama_Exam_Ajax::$can_supervise = true;
 $printed = render_results_browser(array('exam_id'=>2), true)['html'];
 foreach (array('<!doctype html>', 'dir="rtl"', '@media print', 'display:table-header-group', 'window.print()', 'طالب ناجح', 'طالب راسب', 'بانتظار التصحيح', 'لم يتقدم') as $expected) {
     check_browser(strpos($printed, $expected) !== false, 'Print report missing: ' . $expected);

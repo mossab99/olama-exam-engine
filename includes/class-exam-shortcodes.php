@@ -542,19 +542,27 @@ class Olama_Exam_Shortcodes
                         $correct = $q['correct'] ?? array();
                         $type = $q['type'];
 
-                        // Determine if correct
-                        $is_correct = false;
-                        if ($type !== 'essay' && $student_answer !== null) {
-                            // Simple check for display
-                            $is_correct = self::check_answer($type, $student_answer, $correct);
+                        $answered = Olama_Exam_Grader::has_answer($student_answer);
+                        $essay_score = null;
+                        if ($answered && $type === 'essay') {
+                            $essay_score = $wpdb->get_var($wpdb->prepare(
+                                "SELECT score FROM {$wpdb->prefix}olama_exam_essay_grades WHERE attempt_id = %d AND question_id = %d",
+                                $attempt_id,
+                                $q_id
+                            ));
                         }
+                        $pending = $answered && $type === 'essay' && $essay_score === null;
+                        $is_correct = $answered && ($type === 'essay'
+                            ? $essay_score !== null && (float) $essay_score >= ($q['points'] ?? 1)
+                            : self::check_answer($type, $student_answer, $correct));
                         ?>
                         <div
-                            class="oe-review-card <?php echo $type === 'essay' ? 'oe-pending' : ($is_correct ? 'oe-correct' : 'oe-incorrect'); ?>">
+                            class="oe-review-card <?php echo $pending ? 'oe-pending' : ($is_correct ? 'oe-correct' : 'oe-incorrect'); ?>">
                             <div class="oe-review-header">
                                 <span class="oe-review-num">Q<?php echo $idx + 1; ?></span>
                                 <span class="oe-review-status">
-                                    <?php if ($type === 'essay'): ?>⏳
+                                    <?php if ($pending): ?>⏳
+                                    <?php elseif ($essay_score !== null && !$is_correct && (float) $essay_score > 0): ?>🟡
                                     <?php elseif ($is_correct): ?>✅
                                     <?php else: ?>❌
                                     <?php endif; ?>
@@ -562,13 +570,18 @@ class Olama_Exam_Shortcodes
                             </div>
                             <div class="oe-review-question"><?php echo wp_kses_post($q['question_text']); ?></div>
                             
-                            <?php if ($student_answer !== null && $student_answer !== ''): ?>
+                            <?php if (!$answered): ?>
+                                <div class="oe-review-answer"><?php echo esc_html(olama_exam_translate('No answer provided')); ?> · 0 / <?php echo esc_html($q['points'] ?? 1); ?></div>
+                            <?php else: ?>
                                 <div class="oe-review-answer">
                                     <strong><?php echo olama_exam_translate('Your answer'); ?>:</strong>
                                     <?php 
                                     echo self::format_student_answer_php($q, $student_answer);
                                     ?>
                                 </div>
+                            <?php endif; ?>
+                            <?php if ($essay_score !== null): ?>
+                                <div class="oe-review-answer"><?php echo esc_html(olama_exam_translate('Score')); ?>: <?php echo esc_html($essay_score); ?> / <?php echo esc_html($q['points'] ?? 1); ?></div>
                             <?php endif; ?>
 
                             <?php if (!empty($correct)): ?>

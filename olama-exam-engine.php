@@ -403,27 +403,32 @@ function olama_exam_enqueue_admin_assets($hook)
         false // Load in header so olamaExam + ExamAdmin are available to inline scripts
     );
 
-    // Find a page with the shortcode
-    $exams_page_url = home_url('/exams/'); // Default fallback
-    $pages = get_posts(array(
-        'post_type' => 'page',
-        's' => '[olama_exam]',
-        'posts_per_page' => 1
-    ));
-    if (!empty($pages) && has_shortcode($pages[0]->post_content, 'olama_exam')) {
-        $exams_page_url = get_permalink($pages[0]->ID);
-    }
-
     wp_localize_script('olama-exam-admin', 'olamaExam', array(
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('olama_exam_nonce'),
-        'examsPageUrl' => $exams_page_url,
+        'examsPageUrl' => olama_exam_get_shortcode_page_url() ?: home_url('/exams/'),
     ));
 
     // Enqueue WP media for question images
     wp_enqueue_media();
 }
 add_action('admin_enqueue_scripts', 'olama_exam_enqueue_admin_assets');
+
+function olama_exam_get_shortcode_page_url()
+{
+    $pages = get_posts(array(
+        'post_type' => 'page',
+        'post_status' => 'publish',
+        's' => '[olama_exam]',
+        'posts_per_page' => -1,
+    ));
+    foreach ($pages as $page) {
+        if (has_shortcode($page->post_content, 'olama_exam')) {
+            return get_permalink($page->ID);
+        }
+    }
+    return '';
+}
 
 function olama_exam_enqueue_frontend_assets($force = false)
 {

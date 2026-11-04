@@ -1610,20 +1610,17 @@ class Olama_Exam_Ajax
 
     public static function handle_apply_unanswered_zero()
     {
-        self::verify_request('olama_grade_exams');
-
-        $exam = Olama_Exam_Manager::get_exam(intval($_POST['exam_id'] ?? 0));
-        if (!$exam || !in_array($exam->status, array('published', 'active', 'closed'), true) ||
-            !self::can_teacher_access_exam($exam)) {
-            wp_send_json_error(array('message' => 'لا يمكنك تعديل نتائج هذا الامتحان.'), 403);
+        self::verify_request(null);
+        if (!self::can_supervise_exams()) {
+            wp_send_json_error(array('message' => 'لا يمكنك تعديل نتائج جميع الامتحانات.'), 403);
         }
 
-        $updated = Olama_Exam_Grader::apply_unanswered_zero($exam);
-        if (is_wp_error($updated)) {
-            wp_send_json_error(array('message' => $updated->get_error_message()), 500);
+        $batch = Olama_Exam_Grader::apply_unanswered_zero(absint($_POST['after_id'] ?? 0));
+        if (is_wp_error($batch)) {
+            wp_send_json_error(array('message' => $batch->get_error_message()), 500);
         }
 
-        wp_send_json_success(array('updated' => $updated));
+        wp_send_json_success($batch);
     }
 
     public static function handle_delete_attempt()
