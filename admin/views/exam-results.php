@@ -14,6 +14,7 @@ $selected_semester_id = intval($_GET['semester_id'] ?? 0);
 $selected_grade_id = intval($_GET['grade_id'] ?? 0);
 $selected_section_id = intval($_GET['section_id'] ?? 0);
 $selected_exam_id = intval($_GET['exam_id'] ?? 0);
+$selected_subject_id = absint($_GET['subject_id'] ?? 0);
 $linked_exam = $selected_exam_id ? Olama_Exam_Manager::get_exam($selected_exam_id) : null;
 $results_selection_error = false;
 if ($selected_exam_id && (!$linked_exam || !in_array($linked_exam->status, array('published', 'active', 'closed'), true) || !Olama_Exam_Ajax::can_teacher_access_exam($linked_exam))) {
@@ -103,6 +104,23 @@ if (!Olama_Exam_Ajax::can_supervise_exams() && class_exists('Olama_School_Teache
 
 $exam_query .= $selected_exam_type === 'direct' ? " ORDER BY e.created_at DESC, e.id DESC" : " ORDER BY e.start_time DESC, e.created_at DESC, e.id DESC";
 $exams = $results_scope_ready ? array_values(array_filter((array) $wpdb->get_results($exam_query), array('Olama_Exam_Ajax', 'can_teacher_access_exam'))) : array();
+$result_subjects = array();
+foreach ($exams as $exam) {
+    if ($exam->subject_id && $exam->subject_name) {
+        $result_subjects[$exam->subject_id] = $exam->subject_name;
+    }
+}
+asort($result_subjects, SORT_NATURAL | SORT_FLAG_CASE);
+if (isset($result_subjects[$selected_subject_id])) {
+    $exams = array_values(array_filter($exams, static function ($exam) use ($selected_subject_id) {
+        return (int) $exam->subject_id === $selected_subject_id;
+    }));
+    if ($linked_exam && (int) $linked_exam->subject_id !== $selected_subject_id) {
+        $selected_exam_id = 0;
+    }
+} else {
+    $selected_subject_id = 0;
+}
 $exam_summaries = Olama_Exam_Manager::get_exam_summaries(array_column($exams, 'id'));
 
 $review_attempt_id = $results_scope_ready && empty($print_results) ? intval($_GET['review_attempt'] ?? 0) : 0;
@@ -110,11 +128,12 @@ $selected_exam = null;
 $attempts = array();
 $stats = null;
 $review_data = null;
-$result_detail_url = static function($exam_id, $attempt_id = 0) use ($selected_year_id, $selected_semester_id, $selected_grade_id, $selected_section_id, $selected_exam_type) {
+$result_detail_url = static function($exam_id, $attempt_id = 0) use ($selected_year_id, $selected_semester_id, $selected_grade_id, $selected_section_id, $selected_exam_type, $selected_subject_id) {
     $params = array('page'=>'olama-exam-results', 'exam_id'=>$exam_id,
         'academic_year_id'=>$selected_year_id, 'semester_id'=>$selected_semester_id,
         'grade_id'=>$selected_grade_id, 'section_id'=>$selected_section_id, 'exam_type'=>$selected_exam_type);
     if ($attempt_id) $params['review_attempt'] = $attempt_id;
+    if ($selected_subject_id) $params['subject_id'] = $selected_subject_id;
     return add_query_arg($params, admin_url('admin.php'));
 };
 
@@ -519,7 +538,7 @@ if (!empty($print_results)) {
                 <h3>📊 تصفية نتائج الاختبارات</h3>
             </div>
             <div style="padding: 16px 20px;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 15px;">
                     <!-- Academic Year -->
                     <div>
                         <label
@@ -592,6 +611,15 @@ if (!empty($print_results)) {
                         <select id="exam-type-filter" class="olama-exam-select" style="width:100%;">
                             <?php foreach ($result_types as $type_key => $type_label): ?>
                                 <option value="<?php echo esc_attr($type_key); ?>" <?php selected($selected_exam_type, $type_key); ?>><?php echo esc_html($type_label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="subject-filter" style="display:block; font-size:13px; font-weight:600; color:#64748b; margin-bottom:8px;">المادة</label>
+                        <select id="subject-filter" class="olama-exam-select" style="width:100%;">
+                            <option value="0" <?php selected($selected_subject_id, 0); ?>>جميع المواد</option>
+                            <?php foreach ($result_subjects as $subject_id => $subject_name): ?>
+                                <option value="<?php echo esc_attr($subject_id); ?>" <?php selected($selected_subject_id, $subject_id); ?>><?php echo esc_html($subject_name); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -938,6 +966,7 @@ if (!empty($print_results)) {
             var url = new URL(window.location.href);
             url.hash = '';
             url.searchParams.delete('review_attempt');
+            url.searchParams.delete('subject_id');
             Object.keys(params).forEach(key => {
                 if (params[key]) {
                     url.searchParams.set(key, params[key]);
@@ -981,6 +1010,10 @@ if (!empty($print_results)) {
 
         $('#exam-type-filter').on('change', function () {
             updateFilters({exam_type: $(this).val(), exam_id: ''});
+        });
+
+        $('#subject-filter').on('change', function () {
+            updateFilters({subject_id: Number($(this).val()), exam_id: ''});
         });
 
         $('.oe-results-exam-title').each(function() {

@@ -93,6 +93,11 @@ function render_results_browser($params, $print_results = false) {
 function check_browser($condition, $message) { if (!$condition) { fwrite(STDERR, $message . "\n"); exit(1); } }
 $view = render_results_browser(array());
 check_browser($view['ids'] === array(13,2,3,7,1), 'Assessment list must exclude drafts, other scopes and restricted exams and sort by exam date descending.');
+check_browser(strpos($view['html'], '<option value="0" selected>جميع المواد</option>') !== false, 'All subjects must be the default.');
+$wpdb->db->exec("INSERT INTO wp_olama_subjects VALUES (3,1,'اللغة العربية'); UPDATE wp_olama_exam_exams SET subject_id = 3 WHERE id = 13");
+$subject_view = render_results_browser(array('subject_id'=>3));
+check_browser($subject_view['ids'] === array(13) && strpos($subject_view['html'], 'subject_id=3') !== false, 'Selecting a subject must filter exams and preserve the subject in the results link.');
+check_browser(render_results_browser(array('subject_id'=>3, 'exam_id'=>2))['selected'] === 0, 'A selected exam outside the subject filter must be cleared.');
 check_browser(strpos($view['html'], 'id="exam-type-filter"') !== false && strpos($view['html'], 'id="exam-select"') === false && strpos($view['html'], 'Secret draft') === false, 'The exam type/table UI must replace the old picker without exposing drafts.');
 check_browser(substr_count($view['html'], 'class="oe-exam-summary-row') === 5, 'Each visible exam needs its own summary row.');
 foreach (array('60%', '50%', 'بانتظار التصحيح: 1', 'ناجح: 1', 'راسب: 1', 'لا توجد محاولات مسلّمة') as $summary_text) {

@@ -26,7 +26,7 @@ $format_exam_date = static function($value) {
                     $results_url = add_query_arg(array(
                         'page'=>'olama-exam-results', 'exam_id'=>$listed_exam->id, 'exam_type'=>$listed_type,
                         'academic_year_id'=>$selected_year_id, 'semester_id'=>$selected_semester_id,
-                        'grade_id'=>$selected_grade_id, 'section_id'=>$selected_section_id,
+                        'grade_id'=>$selected_grade_id, 'section_id'=>$selected_section_id, 'subject_id'=>$selected_subject_id,
                     ), admin_url('admin.php')) . '#exam-results-detail';
                     $is_selected = intval($listed_exam->id) === $selected_exam_id;
                     $print_url = add_query_arg(array(
