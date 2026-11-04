@@ -45,10 +45,11 @@ class Olama_Exam_Grader
             $points = $question['points'] ?? 1;
             $correct_data = $question['correct'] ?? array();
             $student_answer = $answers[$q_id] ?? null;
+            $answered = self::has_answer($student_answer);
 
             $max_score += $points;
 
-            if ($type === 'essay') {
+            if ($type === 'essay' && $answered) {
                 $has_essay = true;
                 $results[] = array(
                     'question_id' => $q_id,
@@ -67,11 +68,11 @@ class Olama_Exam_Grader
             $results[] = array(
                 'question_id' => $q_id,
                 'type' => $type,
-                'status' => ($earned >= $points) ? 'correct' : (($earned > 0) ? 'partial' : 'incorrect'),
+                'status' => ($answered && $earned >= $points) ? 'correct' : (($earned > 0) ? 'partial' : 'incorrect'),
                 'score' => $earned,
                 'max_score' => $points,
                 'student_answer' => $student_answer,
-                'correct_answer' => $correct_data,
+                'correct_answer' => $type === 'essay' ? null : $correct_data,
                 'text' => $question['question_text'],
                 'explanation' => $question['explanation'] ?? null,
             );
@@ -153,12 +154,26 @@ class Olama_Exam_Grader
         return $response;
     }
 
+    public static function has_answer($answer)
+    {
+        if (is_array($answer)) {
+            foreach ($answer as $value) {
+                if (self::has_answer($value)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return is_scalar($answer) && (!is_string($answer) || trim($answer) !== '');
+    }
+
     /**
      * Grade a single question
      */
     public static function grade_question($type, $student_answer, $correct_data, $max_points)
     {
-        if ($student_answer === null || $student_answer === '' || $student_answer === array()) {
+        if (!self::has_answer($student_answer)) {
             return 0;
         }
 
@@ -303,6 +318,17 @@ class Olama_Exam_Grader
     public static function grade_essay($attempt_id, $question_id, $score, $comment)
     {
         global $wpdb;
+        $attempt = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d",
+            $attempt_id
+        ));
+        if (!$attempt) {
+            return new WP_Error('not_found', 'Attempt not found.');
+        }
+        $answers = json_decode($attempt->answers_json, true) ?: array();
+        if (!self::has_answer($answers[$question_id] ?? null)) {
+            return new WP_Error('unanswered', 'Unanswered questions receive zero marks.');
+        }
 
         // Insert or update essay grade
         $existing = $wpdb->get_row($wpdb->prepare(
@@ -329,25 +355,89 @@ class Olama_Exam_Grader
         }
 
         // Recalculate total score
-        return self::recalculate_attempt($attempt_id);
+        $result = self::calculate_attempt_result($attempt, $answers);
+        if ($wpdb->update("{$wpdb->prefix}olama_exam_attempts", $result, array('id' => $attempt_id)) === false) {
+            return new WP_Error('grading_update_failed', 'Could not update the exam result.');
+        }
+        return $result;
     }
 
     /**
-     * Recalculate attempt score after essay grading
+     * Apply the blank-answer rule to existing submissions for one school exam.
      */
-    private static function recalculate_attempt($attempt_id)
+    public static function apply_unanswered_zero($exam)
     {
         global $wpdb;
-        $attempt = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}olama_exam_attempts WHERE id = %d",
-            $attempt_id
-        ));
+        $table = "{$wpdb->prefix}olama_exam_attempts";
+        $last_id = 0;
+        $updated = 0;
 
-        if (!$attempt)
-            return false;
+        do {
+            $attempts = $wpdb->get_results($wpdb->prepare(
+                "SELECT id, exam_id, exam_type, score, max_score, percentage, result, questions_snapshot_json, answers_json
+                 FROM {$table}
+                 WHERE exam_id = %d AND exam_type = 'school' AND is_preview = 0
+                   AND submitted_at IS NOT NULL AND id > %d
+                 ORDER BY id LIMIT 100",
+                $exam->id,
+                $last_id
+            ));
+            if ($wpdb->last_error) {
+                return new WP_Error('grading_read_failed', 'تعذرت قراءة المحاولات. أعد المحاولة.');
+            }
 
-        $snapshot = json_decode($attempt->questions_snapshot_json, true) ?: array();
-        $answers = json_decode($attempt->answers_json, true) ?: array();
+            foreach ($attempts as $attempt) {
+                $last_id = $attempt->id;
+                $answers = json_decode($attempt->answers_json ?? '', true) ?: array();
+                $result = self::calculate_attempt_result($attempt, $answers, $exam->passing_grade ?? 50);
+                if ($result === null) {
+                    continue;
+                }
+
+                $previous_result = array(
+                    'score' => $attempt->score,
+                    'max_score' => $attempt->max_score,
+                    'percentage' => $attempt->percentage,
+                    'result' => $attempt->result,
+                );
+                if ($previous_result == $result && !in_array(null, $previous_result, true)) {
+                    continue;
+                }
+
+                // A concurrent essay grade may have already recalculated this result.
+                $changed = $wpdb->update($table, $result, array('id' => $attempt->id) + $previous_result);
+                if ($changed === false) {
+                    return new WP_Error('grading_update_failed', 'تعذر تحديث جميع النتائج. أعد المحاولة.');
+                }
+                $updated += $changed;
+            }
+        } while (count($attempts) === 100);
+
+        return $updated;
+    }
+
+    /**
+     * Calculate totals using saved essay grades. A supplied passing grade limits
+     * recalculation to attempts with unanswered questions.
+     */
+    private static function calculate_attempt_result($attempt, $answers, $bulk_passing_grade = null)
+    {
+        global $wpdb;
+        $attempt_id = $attempt->id;
+        $snapshot = json_decode($attempt->questions_snapshot_json ?? '', true) ?: array();
+
+        if ($bulk_passing_grade !== null) {
+            $has_unanswered = false;
+            foreach ($snapshot as $question) {
+                if (!self::has_answer($answers[$question['question_id']] ?? null)) {
+                    $has_unanswered = true;
+                    break;
+                }
+            }
+            if (!$has_unanswered) {
+                return null;
+            }
+        }
 
         $total_score = 0;
         $max_score = 0;
@@ -358,6 +448,11 @@ class Olama_Exam_Grader
             $type = $question['type'];
             $points = $question['points'] ?? 1;
             $max_score += $points;
+
+            $student_answer = $answers[$q_id] ?? null;
+            if (!self::has_answer($student_answer)) {
+                continue;
+            }
 
             if ($type === 'essay') {
                 $essay_grade = $wpdb->get_row($wpdb->prepare(
@@ -373,7 +468,6 @@ class Olama_Exam_Grader
                 }
             } else {
                 $correct_data = $question['correct'] ?? array();
-                $student_answer = $answers[$q_id] ?? null;
                 $total_score += self::grade_question($type, $student_answer, $correct_data, $points);
             }
         }
@@ -382,7 +476,9 @@ class Olama_Exam_Grader
 
         $exam = null;
         $passing = 50;
-        if ($attempt->exam_type === 'acceptance') {
+        if ($bulk_passing_grade !== null) {
+            $passing = $bulk_passing_grade;
+        } elseif ($attempt->exam_type === 'acceptance') {
             if (class_exists('OEE_Acceptance_Tests')) {
                 $exam = OEE_Acceptance_Tests::get($attempt->exam_id);
                 if ($exam) {
@@ -405,17 +501,6 @@ class Olama_Exam_Grader
         if ($pending_essays === 0) {
             $result = ($percentage >= $passing) ? 'pass' : 'fail';
         }
-
-        $wpdb->update(
-            "{$wpdb->prefix}olama_exam_attempts",
-            array(
-                'score' => $total_score,
-                'max_score' => $max_score,
-                'percentage' => $percentage,
-                'result' => $result,
-            ),
-            array('id' => $attempt_id)
-        );
 
         return array(
             'score' => $total_score,

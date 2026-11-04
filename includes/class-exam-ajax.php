@@ -64,6 +64,7 @@ class Olama_Exam_Ajax
 
             // ── Reporting (Phase 5) ──
             'olama_exam_get_question_stats',
+            'olama_exam_apply_unanswered_zero',
             'olama_exam_delete_attempt',
             'olama_exam_retake_attempt',
         );
@@ -172,33 +173,26 @@ class Olama_Exam_Ajax
             wp_send_json_error(array('message' => 'You must be logged in.'), 401);
         }
 
-        if ($capabilities) {
-            // Global Supervisor/Admin Bypass
-            if (self::can_supervise_exams()) {
-                return;
-            }
+        if ($capabilities && !self::can_perform($capabilities)) {
+            wp_send_json_error(array('message' => 'Insufficient permissions.'), 403);
+        }
+    }
 
-            $caps = is_array($capabilities) ? $capabilities : array($capabilities);
-            $has_cap = false;
+    public static function can_perform($capabilities)
+    {
+        if (self::can_supervise_exams()) {
+            return true;
+        }
 
-            foreach ($caps as $cap) {
-                if (class_exists('Olama_School_Permissions') && strpos($cap, 'olama_') === 0) {
-                    if (Olama_School_Permissions::can($cap)) {
-                        $has_cap = true;
-                        break;
-                    }
-                } else {
-                    if (current_user_can($cap)) {
-                        $has_cap = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!$has_cap) {
-                wp_send_json_error(array('message' => 'Insufficient permissions.'), 403);
+        foreach ((array) $capabilities as $cap) {
+            $allowed = class_exists('Olama_School_Permissions') && strpos($cap, 'olama_') === 0
+                ? Olama_School_Permissions::can($cap)
+                : current_user_can($cap);
+            if ($allowed) {
+                return true;
             }
         }
+        return false;
     }
 
     /**
@@ -1614,6 +1608,24 @@ class Olama_Exam_Ajax
         ));
     }
 
+    public static function handle_apply_unanswered_zero()
+    {
+        self::verify_request('olama_grade_exams');
+
+        $exam = Olama_Exam_Manager::get_exam(intval($_POST['exam_id'] ?? 0));
+        if (!$exam || !in_array($exam->status, array('published', 'active', 'closed'), true) ||
+            !self::can_teacher_access_exam($exam)) {
+            wp_send_json_error(array('message' => 'لا يمكنك تعديل نتائج هذا الامتحان.'), 403);
+        }
+
+        $updated = Olama_Exam_Grader::apply_unanswered_zero($exam);
+        if (is_wp_error($updated)) {
+            wp_send_json_error(array('message' => $updated->get_error_message()), 500);
+        }
+
+        wp_send_json_success(array('updated' => $updated));
+    }
+
     public static function handle_delete_attempt()
     {
         self::verify_request('olama_grade_exams');
@@ -1764,7 +1776,9 @@ class Olama_Exam_Ajax
                 }
                 $stats[$qid]['total']++;
                 $sa = $answers[$qid] ?? null;
-                if ($q['type'] !== 'essay' && $sa !== null && $sa !== '') {
+                if (!Olama_Exam_Grader::has_answer($sa)) {
+                    $stats[$qid]['incorrect']++;
+                } elseif ($q['type'] !== 'essay') {
                     $earned = Olama_Exam_Grader::grade_question($q['type'], $sa, $q['correct'] ?? array(), $q['points'] ?? 1);
                     if ($earned >= ($q['points'] ?? 1)) {
                         $stats[$qid]['correct']++;

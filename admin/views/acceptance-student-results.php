@@ -46,8 +46,10 @@ if ($review_attempt_id > 0) {
 
             // Determine earned score
             $earned = 0;
-            $status = 'unanswered';
-            if ($type === 'essay') {
+            $status = 'incorrect';
+            $essay_grade = null;
+            $answered = Olama_Exam_Grader::has_answer($student_answer);
+            if ($answered && $type === 'essay') {
                 $essay_grade = $wpdb->get_row($wpdb->prepare(
                     "SELECT * FROM {$wpdb->prefix}olama_exam_essay_grades WHERE attempt_id = %d AND question_id = %d",
                     $review_attempt_id,
@@ -55,7 +57,7 @@ if ($review_attempt_id > 0) {
                 ));
                 $earned = $essay_grade ? floatval($essay_grade->score) : 0;
                 $status = $essay_grade ? 'graded' : 'pending';
-            } elseif ($student_answer !== null && $student_answer !== '' && !($type !== 'essay' && is_array($student_answer) && empty(array_filter($student_answer)))) {
+            } elseif ($answered) {
                 $earned = Olama_Exam_Grader::grade_question($type, $student_answer, $correct_data, $points);
                 $status = ($earned >= $points) ? 'correct' : (($earned > 0) ? 'partial' : 'incorrect');
             }
@@ -75,7 +77,7 @@ if ($review_attempt_id > 0) {
                 'points' => $points,
                 'earned' => $earned,
                 'status' => $status,
-                'essay_grade' => $essay_grade ?? null,
+                'essay_grade' => $essay_grade,
                 'explanation' => $q['explanation'] ?? null,
             );
         }
@@ -296,7 +298,7 @@ $tests = OEE_Student_Tests::get_all();
                                 style="padding: 10px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; min-height: 40px;">
                                 <?php
                                 $sa = $rq['student_answer'];
-                                if ($sa === null || $sa === '' || (is_array($sa) && empty(array_filter($sa)))) {
+                                if (!Olama_Exam_Grader::has_answer($sa)) {
                                     echo '<em style="color:#94a3b8;">' . olama_exam_translate('No answer provided') . '</em>';
                                 } elseif ($rq['type'] === 'mcq') {
                                     $idx_val = intval($sa);
@@ -358,6 +360,8 @@ $tests = OEE_Student_Tests::get_all();
                                 } elseif ($rq['type'] === 'short') {
                                     $accepts = $cd['accepted'] ?? (is_array($cd) ? $cd : array($cd));
                                     echo implode(' / ', array_map('esc_html', (array) $accepts));
+                                } elseif ($rq['type'] === 'essay' && $rq['status'] === 'incorrect') {
+                                    echo '—';
                                 } elseif ($rq['type'] === 'essay') {
                                     echo '<em style="color:#94a3b8;">' . olama_exam_translate('Manual grading') . '</em>';
                                     if ($rq['essay_grade']) {

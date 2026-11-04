@@ -2,6 +2,7 @@
 /** Run with: php tests/test-essay-grading-view.php (requires pdo_sqlite). */
 define('ABSPATH', __DIR__);
 define('OLAMA_EXAM_PATH', dirname(__DIR__) . '/');
+require OLAMA_EXAM_PATH . 'includes/class-exam-grader.php';
 set_error_handler(function($severity, $message, $file, $line) {
     throw new ErrorException($message, 0, $severity, $file, $line);
 });
@@ -45,6 +46,7 @@ class Essay_View_DB {
             array(5, 1, 'ACCEPTANCE-UID', 'pending', '2026-10-31 10:00:00', $snapshot, '{}', 'acceptance', 0),
             array(6, 1, 'UNSUBMITTED-UID', 'pending', null, $snapshot, '{}', 'school', 0),
             array(7, 2, 'RESTRICTED-UID', 'pending', '2026-10-31 10:00:00', $snapshot, '{}', 'school', 0),
+            array(8, 1, 'BLANK-ESSAY-UID', 'pending', '2026-10-31 10:00:00', $snapshot, '{"101":"  "}', 'school', 0),
         ) as $row) { $insert->execute($row); }
     }
     public function prepare($sql, ...$args) {
@@ -72,7 +74,7 @@ $list = render_essay_view();
 foreach (array('School Student', 'Placement Student', 'MISSING-UID') as $name) {
     check_essay_view(strpos($list, $name) !== false, 'Missing student identity: ' . $name);
 }
-foreach (array('PREVIEW-UID', 'ACCEPTANCE-UID', 'UNSUBMITTED-UID', 'RESTRICTED-UID') as $name) {
+foreach (array('PREVIEW-UID', 'ACCEPTANCE-UID', 'UNSUBMITTED-UID', 'RESTRICTED-UID', 'BLANK-ESSAY-UID') as $name) {
     check_essay_view(strpos($list, $name) === false, 'Inaccessible attempt leaked into school essay list: ' . $name);
 }
 foreach (array(1=>'School answer', 2=>'Orphan answer', 3=>'Placement answer') as $id=>$answer) {

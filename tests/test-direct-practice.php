@@ -3,6 +3,8 @@
 ob_start();
 require __DIR__ . '/test-exam-lifecycle.php';
 ob_end_clean();
+function sanitize_textarea_field($value) { return trim((string) $value); }
+function get_current_user_id() { return 1; }
 class Practice_DB extends Lifecycle_DB {
     public $insert_id;
     public $last_error = '';
@@ -84,6 +86,49 @@ try {
     check_lifecycle((int) $wpdb->get_var('SELECT COUNT(*) FROM wp_olama_exam_attempts WHERE exam_id=20') === 4, 'Previous practice attempts must be retained as history.');
     $third = Olama_Exam_Engine::start_exam(20, 'S1', false, false, 'school');
     check_lifecycle(is_array($third) && Olama_Exam_Manager::get_exam_summaries(array(20))[20]['average'] === 0.0, 'A newer unfinished attempt must not replace the latest submitted mark.');
+
+    $wpdb->db->exec('CREATE TABLE wp_olama_exam_essay_grades (
+        id INTEGER PRIMARY KEY, attempt_id INTEGER, question_id INTEGER, score REAL, max_score REAL,
+        teacher_comment TEXT, graded_by INTEGER, graded_at TEXT)');
+    $snapshot = array(
+        array('question_id' => 101, 'type' => 'essay', 'points' => 3, 'question_text' => 'First essay'),
+        array('question_id' => 102, 'type' => 'essay', 'points' => 2, 'question_text' => 'Second essay'),
+        array('question_id' => 103, 'type' => 'mcq', 'points' => 1, 'question_text' => 'Pick one', 'correct' => array('correct' => 0)),
+        array('question_id' => 104, 'type' => 'fill_blank', 'points' => 1, 'question_text' => 'Fill in', 'correct' => array('answers' => array(''))),
+    );
+    $wpdb->update('wp_olama_exam_attempts', array('questions_snapshot_json' => json_encode($snapshot)), array('id' => $third['attempt_id']));
+    Olama_Exam_Engine::autosave($third['attempt_id'], '{"101":"  ","103":0,"104":[" "]}');
+    $graded = Olama_Exam_Engine::submit($third['attempt_id']);
+    check_lifecycle(array_column($graded['details'], 'status') === array('incorrect', 'incorrect', 'correct', 'incorrect'), 'Blank answers must be marked incorrect and option zero must still count.');
+    check_lifecycle($graded['score'] === 1 && $graded['max_score'] === 7 && $graded['result'] === 'fail', 'Blank answers must earn zero while remaining in the maximum score.');
+    check_lifecycle(is_wp_error(Olama_Exam_Grader::grade_essay($third['attempt_id'], 101, 3, '')), 'A blank essay cannot be manually awarded points.');
+
+    $fourth = Olama_Exam_Engine::start_exam(20, 'S1', false, false, 'school');
+    $wpdb->update('wp_olama_exam_attempts', array('questions_snapshot_json' => json_encode($snapshot)), array('id' => $fourth['attempt_id']));
+    Olama_Exam_Engine::autosave($fourth['attempt_id'], '{"101":"An essay response","103":0}');
+    $graded = Olama_Exam_Engine::submit($fourth['attempt_id']);
+    check_lifecycle($graded['result'] === 'pending' && $graded['details'][1]['status'] === 'incorrect', 'Only the answered essay must be pending.');
+    $recalculated = Olama_Exam_Grader::grade_essay($fourth['attempt_id'], 101, 3, '');
+    check_lifecycle($recalculated['score'] === 4.0 && $recalculated['result'] === 'pass', 'Grading the answered essay must finalize the attempt with the blank essay at zero.');
+
+    $wpdb->update('wp_olama_exam_attempts', array('result' => 'pending'), array('id' => $third['attempt_id']));
+    $wpdb->update('wp_olama_exam_attempts', array('score' => 6, 'percentage' => 85.71), array('id' => $fourth['attempt_id']));
+    $wpdb->insert('wp_olama_exam_essay_grades', array('attempt_id' => $fourth['attempt_id'], 'question_id' => 102, 'score' => 2));
+    foreach (array(array('is_preview' => 1), array('submitted_at' => null), array('exam_type' => 'acceptance'), array('exam_id' => 21)) as $excluded) {
+        $excluded_attempt = (array) Olama_Exam_Engine::get_attempt($third['attempt_id']);
+        unset($excluded_attempt['id']);
+        $wpdb->insert('wp_olama_exam_attempts', array_replace($excluded_attempt, $excluded));
+        $excluded_ids[] = $wpdb->insert_id;
+    }
+    $exam = Olama_Exam_Manager::get_exam(20);
+    check_lifecycle(Olama_Exam_Grader::apply_unanswered_zero($exam) === 2, 'Bulk grading must update the two legacy results for this exam.');
+    check_lifecycle(Olama_Exam_Engine::get_attempt($third['attempt_id'])->result === 'fail', 'Bulk grading must clear pending status for blank essays.');
+    $updated_attempt = Olama_Exam_Engine::get_attempt($fourth['attempt_id']);
+    check_lifecycle((float) $updated_attempt->score === 4.0 && $updated_attempt->result === 'pass', 'Bulk grading must preserve the answered essay grade and remove marks previously awarded to a blank essay.');
+    foreach ($excluded_ids as $excluded_id) {
+        check_lifecycle(Olama_Exam_Engine::get_attempt($excluded_id)->result === 'pending', 'Bulk grading must skip attempts outside its scope.');
+    }
+    check_lifecycle(Olama_Exam_Grader::apply_unanswered_zero($exam) === 0, 'Running the bulk action again must leave results unchanged.');
     echo "Direct practice unlimited attempts, elapsed timer, immediate review and latest-mark reporting passed.\n";
 } finally {
     ini_set('error_log', $old_error_log);

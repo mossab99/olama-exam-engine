@@ -12,7 +12,7 @@ global $wpdb;
 $all_attempts = $wpdb->get_results(
     "SELECT a.id as attempt_id, a.exam_id, a.student_uid, a.score, a.max_score,
             a.percentage, a.result, a.submitted_at,
-            a.questions_snapshot_json,
+            a.questions_snapshot_json, a.answers_json,
             e.title as exam_title,
             COALESCE(NULLIF(st.student_name, ''), NULLIF(p.student_name, ''), a.student_uid) as student_name
      FROM {$wpdb->prefix}olama_exam_attempts a
@@ -23,18 +23,19 @@ $all_attempts = $wpdb->get_results(
      ORDER BY a.submitted_at DESC"
 );
 
-// Filter to attempts that have essay questions
+// Filter to attempts that have essay responses
 $pending_attempts = array();
 foreach ($all_attempts as $pa) {
     if (!Olama_Exam_Ajax::can_teacher_access_exam($pa->exam_id)) {
         continue;
     }
     $snapshot = json_decode($pa->questions_snapshot_json, true) ?: array();
+    $answers = json_decode($pa->answers_json, true) ?: array();
     $has_essay = false;
     $has_ungraded = false;
 
     foreach ($snapshot as $q) {
-        if (isset($q['type']) && $q['type'] === 'essay') {
+        if (($q['type'] ?? '') === 'essay' && Olama_Exam_Grader::has_answer($answers[$q['question_id']] ?? null)) {
             $has_essay = true;
             $graded = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}olama_exam_essay_grades WHERE attempt_id = %d AND question_id = %d",
@@ -78,7 +79,7 @@ if ($grading_attempt_id) {
         $answers = json_decode($grading_attempt->answers_json, true) ?: array();
 
         foreach ($snapshot as $idx => $q) {
-            if ($q['type'] === 'essay') {
+            if ($q['type'] === 'essay' && Olama_Exam_Grader::has_answer($answers[$q['question_id']] ?? null)) {
                 $q_id = $q['question_id'];
                 $existing_grade = $wpdb->get_row($wpdb->prepare(
                     "SELECT * FROM {$wpdb->prefix}olama_exam_essay_grades 
