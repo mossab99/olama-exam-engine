@@ -22,7 +22,7 @@ $exam      = $edit_id > 0 ? Olama_Exam_Manager::get_exam($edit_id) : null;
 $is_direct_mode = ($_GET['page'] ?? '') === 'olama-exam-direct' || ($exam && $exam->exam_type === 'direct');
 $direct_lesson = $is_direct_mode ? Olama_Exam_Manager::get_direct_lesson($exam->direct_lesson_id ?? intval($_GET['lesson_id'] ?? 0)) : null;
 if ($is_direct_mode && (!$direct_lesson || ($edit_id > 0 && (!$exam || $exam->exam_type !== 'direct')))) {
-    wp_die('الدرس أو الامتحان المباشر غير موجود.');
+    wp_die('الدرس أو امتحان الدرس المباشر غير موجود.');
 }
 $return_url = admin_url('admin.php?page=' . ($is_direct_mode ? 'olama-exam-direct' : (($_GET['page'] ?? '') === 'olama-exam-create-quiz' ? 'olama-exam-create-quiz' : 'olama-exam-create')));
 if ($direct_lesson) {
@@ -48,7 +48,7 @@ $is_quiz_mode = (isset($_GET['page']) && $_GET['page'] === 'olama-exam-create-qu
 $page_title = $show_form 
     ? ($exam ? olama_exam_translate($is_quiz_mode ? 'Edit Quiz' : 'Edit Exam') : ($is_quiz_mode ? olama_exam_translate('Create Quiz') : 'إنشاء اختبار التقويم'))
     : ($is_quiz_mode ? 'اختبارات قصيرة' : 'اختبارات التقويم');
-if ($is_direct_mode) { $page_title = $exam ? 'تعديل امتحان مباشر' : 'إنشاء امتحان مباشر'; }
+if ($is_direct_mode) { $page_title = $exam ? 'تعديل امتحان درس مباشر' : 'إنشاء امتحان درس مباشر'; }
 
 $exam_label = $is_quiz_mode ? olama_exam_translate('Quiz') : olama_exam_translate('Exam');
 

@@ -9,7 +9,7 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
     <div class="olama-exam-header oe-direct-page-header">
         <div class="oe-direct-heading">
             <span class="oe-direct-page-icon"><span class="dashicons dashicons-welcome-learn-more" aria-hidden="true"></span></span>
-            <div><h1>الامتحانات المباشرة</h1><p>من الدرس إلى الاختبار، في مكان واحد.</p></div>
+            <div><h1>امتحانات الدروس المباشرة</h1><p>من الدرس إلى الاختبار، في مكان واحد.</p></div>
         </div>
         <span class="oe-direct-header-note"><span class="dashicons dashicons-lock" aria-hidden="true"></span> بنك أسئلة مستقل لكل درس</span>
     </div>
@@ -29,12 +29,12 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
     <div id="direct-overview" class="oe-direct-overview" hidden>
         <div class="oe-direct-stat"><span class="oe-direct-stat-icon"><span class="dashicons dashicons-category" aria-hidden="true"></span></span><div><strong id="direct-unit-count">0</strong><span>وحدات دراسية</span></div></div>
         <div class="oe-direct-stat"><span class="oe-direct-stat-icon oe-direct-green"><span class="dashicons dashicons-book" aria-hidden="true"></span></span><div><strong id="direct-ready-count">0 / 0</strong><span>دروس تتوفر لها أسئلة</span></div></div>
-        <div class="oe-direct-stat"><span class="oe-direct-stat-icon oe-direct-blue"><span class="dashicons dashicons-clipboard" aria-hidden="true"></span></span><div><strong id="direct-exam-count">0</strong><span>امتحانات مباشرة</span></div></div>
+        <div class="oe-direct-stat"><span class="oe-direct-stat-icon oe-direct-blue"><span class="dashicons dashicons-clipboard" aria-hidden="true"></span></span><div><strong id="direct-exam-count">0</strong><span>امتحانات دروس مباشرة</span></div></div>
     </div>
     <div id="direct-feedback" class="oe-direct-feedback" role="status" aria-live="polite" data-state="empty"><span class="dashicons dashicons-info-outline" aria-hidden="true"></span><span id="direct-feedback-text">اختر الصف والمادة لعرض الوحدات والدروس.</span></div>
     <section id="direct-bulk" class="olama-exam-card oe-direct-bulk" hidden aria-labelledby="direct-bulk-title">
         <div class="oe-direct-bulk-copy"><span class="oe-direct-page-icon"><span class="dashicons dashicons-performance" aria-hidden="true"></span></span><div><h3 id="direct-bulk-title">جهّز تدريبات المادة بضغطة واحدة</h3><p>امتحان لكل درس ولكل شعبة متاحة لك · أسئلة عشوائية بنسبة 40% · تفعيل فوري</p><span id="direct-bulk-summary"></span></div></div>
-        <div class="oe-direct-bulk-actions"><button type="button" id="direct-bulk-create" class="olama-exam-btn olama-exam-btn-primary" disabled><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> إنشاء وتفعيل جميع الدروس</button><button type="button" id="direct-bulk-delete" class="olama-exam-btn olama-exam-btn-outline oe-direct-danger" disabled><span class="dashicons dashicons-trash" aria-hidden="true"></span> حذف جميع الامتحانات المباشرة</button></div>
+        <div class="oe-direct-bulk-actions"><button type="button" id="direct-bulk-create" class="olama-exam-btn olama-exam-btn-primary" disabled><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> إنشاء وتفعيل جميع الدروس</button><button type="button" id="direct-bulk-delete" class="olama-exam-btn olama-exam-btn-outline oe-direct-danger" disabled><span class="dashicons dashicons-trash" aria-hidden="true"></span> حذف جميع امتحانات الدروس المباشرة</button></div>
         <p class="oe-direct-bulk-note">يُحسب عدد الأسئلة عند الإنشاء، بحد أدنى سؤال واحد. تُسحب أسئلة عشوائية في كل محاولة جديدة. تُتجاوز الامتحانات المنشأة جماعيًا سابقًا، وتبقى الامتحانات اليدوية كما هي عند الإنشاء.</p>
     </section>
     <div id="direct-bulk-result" class="oe-direct-feedback" role="status" aria-live="polite" hidden></div>
@@ -289,9 +289,9 @@ $grades = Olama_Exam_Manager::get_ordered_grades();
         bulkOperation = this.id === 'direct-bulk-delete' ? 'delete' : 'create';
         var deleting = bulkOperation === 'delete';
         $('#direct-bulk-dialog').attr('data-operation', bulkOperation);
-        $('#direct-bulk-dialog-title').text(deleting ? 'حذف جميع الامتحانات المباشرة؟' : 'إنشاء وتفعيل امتحانات الدروس؟');
+        $('#direct-bulk-dialog-title').text(deleting ? 'حذف جميع امتحانات الدروس المباشرة؟' : 'إنشاء وتفعيل امتحانات الدروس المباشرة؟');
         $('#direct-bulk-dialog-scope').text($('#direct-grade option:selected').text() + ' · ' + $('#direct-subject option:selected').text() + ' · ' + $('#direct-year').val() + ' · ' + $('#direct-semester').val());
-        $('#direct-bulk-dialog-text').text(deleting ? 'سيُحذف ' + bulkPlan.delete_count + ' امتحان مباشر، بما فيها الامتحانات اليدوية، و' + bulkPlan.attempt_count + ' محاولة ونتائجها، ضمن ' + bulkPlan.sections + ' شعبة متاحة لك.\nهذا الحذف نهائي. سيبقى بنك الأسئلة محفوظًا.' : 'سيُنشأ ويُفعّل ' + bulkPlan.create_count + ' امتحان لـ' + bulkPlan.ready_lessons + ' درس ضمن ' + bulkPlan.sections + ' شعبة متاحة لك.\nأسئلة عشوائية بنسبة 40%، ومحاولات غير محدودة. ستظهر الامتحانات فورًا في بوابة الطالب.\nسيُتجاوز ' + bulkPlan.skip_count + ' امتحان منشأ جماعيًا سابقًا و' + bulkPlan.empty_lessons + ' درس دون أسئلة.');
+        $('#direct-bulk-dialog-text').text(deleting ? 'سيُحذف ' + bulkPlan.delete_count + ' امتحان درس مباشر، بما فيها الامتحانات اليدوية، و' + bulkPlan.attempt_count + ' محاولة ونتائجها، ضمن ' + bulkPlan.sections + ' شعبة متاحة لك.\nهذا الحذف نهائي. سيبقى بنك الأسئلة محفوظًا.' : 'سيُنشأ ويُفعّل ' + bulkPlan.create_count + ' امتحان لـ' + bulkPlan.ready_lessons + ' درس ضمن ' + bulkPlan.sections + ' شعبة متاحة لك.\nأسئلة عشوائية بنسبة 40%، ومحاولات غير محدودة. ستظهر الامتحانات فورًا في بوابة الطالب.\nسيُتجاوز ' + bulkPlan.skip_count + ' امتحان منشأ جماعيًا سابقًا و' + bulkPlan.empty_lessons + ' درس دون أسئلة.');
         $('#direct-bulk-confirm').text(deleting ? 'حذف الامتحانات ونتائجها نهائيًا' : 'إنشاء وتفعيل الآن').toggleClass('oe-direct-danger', deleting);
         document.getElementById('direct-bulk-dialog').showModal();
     });

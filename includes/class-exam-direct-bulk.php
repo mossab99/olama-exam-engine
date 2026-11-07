@@ -113,7 +113,7 @@ class Olama_Exam_Direct_Bulk
                         if ($wpdb->query($sql) === false) { throw new RuntimeException(); }
                     }
                 }
-                $message = sprintf('تم حذف %d امتحان مباشر و%d محاولة مرتبطة بها.', $plan['delete_count'], $plan['attempt_count']);
+                $message = sprintf('تم حذف %d امتحان درس مباشر و%d محاولة مرتبطة بها.', $plan['delete_count'], $plan['attempt_count']);
             }
             if ($wpdb->query('COMMIT') === false) { throw new RuntimeException(); }
             $transaction = false;

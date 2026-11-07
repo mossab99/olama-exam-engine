@@ -58,7 +58,7 @@ class Olama_Exam_Admin
      */
     public function register_menus()
     {
-        add_submenu_page(null, 'الامتحانات المباشرة', 'الامتحانات المباشرة',
+        add_submenu_page(null, 'امتحانات الدروس المباشرة', 'امتحانات الدروس المباشرة',
             $this->get_capability('olama_create_exams'), 'olama-exam-direct', array($this, 'render_direct_exams'));
         // Top-level menu
         add_menu_page(

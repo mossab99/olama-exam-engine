@@ -3,7 +3,7 @@
 if (!defined('ABSPATH')) { exit; }
 $current_page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : '';
 $school_tabs = array(
-    'olama-exam-direct' => 'الامتحانات المباشرة',
+    'olama-exam-direct' => 'امتحانات الدروس المباشرة',
     'olama-exam-create' => 'اختبارات التقويم',
     'olama-exam-create-quiz' => 'اختبارات قصيرة',
     'olama-exam-grade-essays' => 'تصحيح المقالات',
